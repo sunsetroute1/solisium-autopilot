@@ -4,25 +4,33 @@ Solisium Autopilot - Windows install
 A read-only Throne and Liberty companion. It reads game data you have already
 extracted and never writes to the game or its files.
 
-Install
--------
-1. Extract this whole zip somewhere (Downloads is fine).
+There are two downloads. Either one works; pick whichever you prefer. Both
+already contain a Java runtime, so Java does not need to be installed, and both
+install per-user, so neither needs administrator rights.
+
+Install (installer zip)
+-----------------------
+1. Extract the zip.
+2. Run "Solisium Autopilot-0.1.0.msi" and follow the prompts.
+
+Uninstall through Settings > Apps > Installed apps, like any other program.
+
+Install (portable zip)
+----------------------
+1. Extract the whole zip somewhere (Downloads is fine).
 2. Double-click install.cmd.
 
-That installs to %LOCALAPPDATA%\Programs\Solisium Autopilot and adds Start Menu
-and Desktop shortcuts. No administrator rights are needed, and Java does not need
-to be installed - a Java runtime is already bundled inside.
+That copies the app to %LOCALAPPDATA%\Programs\Solisium Autopilot and adds Start
+Menu and Desktop shortcuts.
 
-Uninstall
----------
-Run in PowerShell from the extracted folder:
+To uninstall, run in PowerShell from the extracted folder:
 
     .\Install-Solisium.ps1 -Uninstall
 
 Or delete %LOCALAPPDATA%\Programs\Solisium Autopilot and its shortcuts by hand.
 
-Options
--------
+Options for the portable installer:
+
     .\Install-Solisium.ps1 -NoShortcuts
     .\Install-Solisium.ps1 -InstallRoot "D:\Apps"
 

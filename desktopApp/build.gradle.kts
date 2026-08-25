@@ -25,9 +25,6 @@ compose.desktop {
     application {
         mainClass = "com.solisium.desktop.MainKt"
         nativeDistributions {
-            // Msi needs the WiX 3 toolset installed. createDistributable / the zipped
-            // portable build below need nothing beyond the JDK, so they are the
-            // distribution that always works.
             targetFormats(TargetFormat.Msi)
             packageName = "Solisium Autopilot"
             packageVersion = appVersion
@@ -162,15 +159,33 @@ tasks.matching { it.name == "packageMsi" || it.name == "packageDistributionForCu
     .configureEach { dependsOn(verifyNoSecretsInDistribution) }
 
 /**
- * The distribution that always works: the jpackage app image, which already contains a
- * trimmed Java runtime, plus a per-user installer script. No admin rights, no WiX, no
- * separately installed Java.
+ * The MSI, zipped for handing over. Both this and the portable build below bundle a
+ * Java runtime, so neither needs a JDK on the target machine.
+ */
+val packageInstallerZip by tasks.registering(Zip::class) {
+    group = "distribution"
+    description = "Zips the MSI installer."
+    dependsOn("packageMsi")
+    archiveFileName.set("Solisium-Autopilot-$appVersion-windows-x64-installer.zip")
+    destinationDirectory.set(layout.buildDirectory.dir("distributions"))
+    from(layout.buildDirectory.dir("compose/binaries/main/msi")) {
+        include("*.msi")
+    }
+    from(rootProject.file("packaging")) {
+        include("README-INSTALL.txt")
+    }
+}
+
+/**
+ * A portable alternative for anyone who would rather not run an installer: the same
+ * app image plus a per-user script that copies it into place and makes shortcuts.
+ * Installs and uninstalls without administrator rights.
  */
 val packagePortableZip by tasks.registering(Zip::class) {
     group = "distribution"
-    description = "Zips the self-contained application image with its installer script."
+    description = "Zips the self-contained application image with its per-user installer script."
     dependsOn(verifyNoSecretsInDistribution)
-    archiveFileName.set("Solisium-Autopilot-$appVersion-windows-x64.zip")
+    archiveFileName.set("Solisium-Autopilot-$appVersion-windows-x64-portable.zip")
     destinationDirectory.set(layout.buildDirectory.dir("distributions"))
     // This directory already contains a folder named after the app, so copying its
     // contents puts "Solisium Autopilot/" at the zip root, which is the layout the
@@ -179,4 +194,10 @@ val packagePortableZip by tasks.registering(Zip::class) {
     from(rootProject.file("packaging")) {
         include("install.cmd", "Install-Solisium.ps1", "README-INSTALL.txt")
     }
+}
+
+tasks.register("packageRelease") {
+    group = "distribution"
+    description = "Builds both Windows distributions and their zips."
+    dependsOn(packageInstallerZip, packagePortableZip)
 }

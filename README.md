@@ -37,21 +37,24 @@ The app is read-only with respect to the *game*; it does import into its own dat
 ## Packaging
 
 ```powershell
-.\gradlew.bat :desktopApp:packagePortableZip
+.\gradlew.bat :desktopApp:packageRelease
 ```
 
-Produces `desktopApp/build/distributions/Solisium-Autopilot-<version>-windows-x64.zip`
-containing the application, a bundled Java runtime, and a per-user installer. Extract it
-and run `install.cmd`: it installs to `%LOCALAPPDATA%\Programs`, adds Start Menu and
-Desktop shortcuts, and needs neither administrator rights nor an installed JDK. Uninstall
-with `.\Install-Solisium.ps1 -Uninstall`.
+Writes two zips to `desktopApp/build/distributions/`:
 
-`.\gradlew.bat :desktopApp:packageMsi` builds an MSI instead, but jpackage needs the
-WiX 3 toolset on `PATH` for that; the zip needs nothing beyond the JDK.
+| Artifact | Contents |
+| --- | --- |
+| `...-windows-x64-installer.zip` | An MSI. Installs per-user, uninstalls through Settings. |
+| `...-windows-x64-portable.zip` | The app plus `install.cmd`, which copies it to `%LOCALAPPDATA%\Programs` and makes shortcuts. Uninstall with `.\Install-Solisium.ps1 -Uninstall`. |
 
-Both packaging paths depend on a secret scan and fail if a key or credential file is
-found in the sources or the packaged image. Test fixtures that need key-shaped constants
-opt out with a `secret-scan-allow-fixture` marker, so the exemption is visible in review.
+Both bundle a Java runtime, so a target machine needs no JDK, and both install
+per-user, so neither needs administrator rights. The Gradle plugin fetches the WiX
+toolset it needs for the MSI, so there is nothing to install first.
+
+Packaging depends on a secret scan of the sources and of the built application image,
+and fails if a key or credential file is found in either. Test fixtures that need
+key-shaped constants opt out with a `secret-scan-allow-fixture` marker, so every
+exemption is visible in review.
 
 ## Archive keys
 

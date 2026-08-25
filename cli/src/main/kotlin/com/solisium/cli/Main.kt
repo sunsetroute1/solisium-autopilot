@@ -26,6 +26,18 @@ import java.nio.file.Files
 import java.nio.file.Path
 
 fun main(args: Array<String>) {
+    try {
+        dispatch(args)
+    } catch (t: Throwable) {
+        // A bad flag is a user mistake, not a crash, so report it as one line. Set
+        // SOLISIUM_DEBUG=1 to get the stack trace back when diagnosing a real fault.
+        System.err.println(t.message ?: t::class.simpleName ?: "failed")
+        if (System.getenv("SOLISIUM_DEBUG") == "1") t.printStackTrace()
+        kotlin.system.exitProcess(1)
+    }
+}
+
+private fun dispatch(args: Array<String>) {
     val command = args.firstOrNull() ?: "help"
     when (command) {
         "help", "-h", "--help" -> printHelp()
