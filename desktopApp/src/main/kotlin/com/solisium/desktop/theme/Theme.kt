@@ -37,6 +37,12 @@ object Palette {
     val AccentSoft = Color(0x33E3B15C)
     val Cool = Color(0xFF6FB3D2)
 
+    val Gold = Color(0xFFE8C36A)
+    val Epic = Color(0xFFC9A0FF)
+    val Rare = Color(0xFF6EC8FF)
+    val Uncommon = Color(0xFF6FDB8A)
+    val Common = Color(0xFF9AA3AE)
+
     /** Provenance: extracted straight from a client table. */
     val Extracted = Color(0xFF5BC8A0)
 

@@ -1,5 +1,7 @@
 package com.solisium.desktop.ui
 
+import com.solisium.core.domain.DisplayName
+
 /**
  * Builds display labels for stat keys.
  *
@@ -15,19 +17,7 @@ package com.solisium.desktop.ui
  * becomes `Crossbow`. Purely syntactic — the token is not translated or interpreted,
  * so nothing is invented. Values that do not look like enum tokens pass through.
  */
-fun prettyEnum(value: String?): String? {
-    val raw = value?.trim()?.takeIf { it.isNotEmpty() } ?: return null
-    val afterNamespace = raw.substringAfterLast("::")
-    // Client enum members are `k`-prefixed; drop it only when a capital follows.
-    return if (afterNamespace.length > 1 &&
-        afterNamespace[0] == 'k' &&
-        afterNamespace[1].isUpperCase()
-    ) {
-        afterNamespace.substring(1)
-    } else {
-        afterNamespace
-    }
-}
+fun prettyEnum(value: String?): String? = DisplayName.prettyEnum(value)
 
 fun statLabels(keyToName: List<Pair<String, String?>>): Map<String, String> {
     val keysPerName = keyToName

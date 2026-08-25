@@ -33,31 +33,30 @@ import com.solisium.desktop.theme.Spacing
 @Composable
 fun OverviewScreen(model: AppModel) {
     Column(Modifier.fillMaxSize()) {
-        PageHeader("Overview", "Where this data came from, and how much of it there is")
+        PageHeader("Home", "A read-only companion for Throne and Liberty. Nothing writes back to the game.")
         when (val state = model.overview) {
             is Load.Loading -> LoadingRow("Reading the catalog")
             is Load.Err -> Column(Modifier.padding(horizontal = Spacing.xxl)) { ErrorState(state.message) }
-            is Load.Ok -> OverviewBody(state.value)
+            is Load.Ok -> OverviewBody(model, state.value)
         }
     }
 }
 
 @Composable
-private fun OverviewBody(overview: Overview) {
+private fun OverviewBody(model: AppModel, overview: Overview) {
     val snapshot = overview.snapshot
     if (snapshot == null) {
         Column(Modifier.padding(horizontal = Spacing.xxl)) {
             Card {
-                Text("No dataset imported yet", style = MaterialTheme.typography.titleMedium, color = Palette.Text)
+                Text("Start here", style = MaterialTheme.typography.titleMedium, color = Palette.Text)
                 Spacer(Modifier.height(Spacing.sm))
                 Text(
-                    "Solisium reads a TL-Helper warehouse; it never opens game archives itself. " +
-                        "Import one to populate the catalog:",
+                    "Import the game data warehouse, then search gear by the names you see in game.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = Palette.TextMuted,
                 )
                 Spacer(Modifier.height(Spacing.md))
-                CodeLine("solisium import --source tl-helper --path <warehouse>.sqlite")
+                ActionButton("Import game data", { model.go(com.solisium.desktop.Screen.Data) }, primary = true)
             }
         }
         return
@@ -67,6 +66,13 @@ private fun OverviewBody(overview: Overview) {
         Modifier.fillMaxSize().verticalScroll(rememberScrollState())
             .padding(horizontal = Spacing.xxl),
     ) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
+            ActionButton("Browse gear", { model.go(com.solisium.desktop.Screen.Catalog) }, primary = true)
+            ActionButton("My character", { model.go(com.solisium.desktop.Screen.Character) })
+            ActionButton("Combat logs", { model.go(com.solisium.desktop.Screen.Combat) })
+            ActionButton("Import more", { model.go(com.solisium.desktop.Screen.Data) })
+        }
+        Spacer(Modifier.height(Spacing.lg))
         if (overview.buildWarning != null) {
             WarningBanner(
                 overview.buildWarning,

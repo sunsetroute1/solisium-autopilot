@@ -43,8 +43,8 @@ import com.solisium.desktop.theme.Spacing
 fun CatalogScreen(model: AppModel) {
     Column(Modifier.fillMaxSize()) {
         PageHeader(
-            title = "Catalog",
-            subtitle = "Extracted client data for the active dataset",
+            title = "Gear & skills",
+            subtitle = "Search by the name you see in game — Longbow, Explosive Trap, Hit Chance",
             trailing = { SearchField(model) },
         )
         KindChips(model)
@@ -129,11 +129,11 @@ private fun ResultList(model: AppModel) {
             val rows = state.value
             if (rows.isEmpty()) {
                 EmptyState(
-                    title = if (model.search.isBlank()) "${model.kind.label} is empty" else "No matches",
+                    title = if (model.search.isBlank()) "No named ${model.kind.label.lowercase()} yet" else "No matches",
                     detail = if (model.search.isBlank()) {
-                        "This table has not been collected into the active dataset."
+                        "This dataset has no localized names for ${model.kind.label.lowercase()}."
                     } else {
-                        "No ${model.kind.label.lowercase()} match \"${model.search}\"."
+                        "Nothing named \"${model.search}\"."
                     },
                 )
                 return
@@ -142,7 +142,13 @@ private fun ResultList(model: AppModel) {
                 Row(
                     Modifier.fillMaxWidth().padding(horizontal = Spacing.xxl, vertical = Spacing.sm),
                 ) {
-                    SectionLabel("${rows.size.toLong().format()} ${model.kind.label.lowercase()}")
+                    SectionLabel(
+                        if (model.browseTotal > rows.size) {
+                            "Showing ${rows.size.toLong().format()} of ${model.browseTotal.toLong().format()} ${model.kind.label.lowercase()}"
+                        } else {
+                            "${rows.size.toLong().format()} ${model.kind.label.lowercase()}"
+                        },
+                    )
                 }
                 LazyColumn(Modifier.fillMaxSize().padding(horizontal = Spacing.lg)) {
                     items(rows, key = { it.sourceTable + "|" + it.sourceRowId }) { row ->
@@ -157,22 +163,27 @@ private fun ResultList(model: AppModel) {
 @Composable
 private fun ResultRow(row: CatalogRow, selected: Boolean, onClick: () -> Unit) {
     HoverRow(selected = selected, onClick = onClick) {
-        Column(Modifier.weight(1f).padding(horizontal = Spacing.md, vertical = 7.dp)) {
+        Spacer(Modifier.width(Spacing.sm))
+        RarityPip(row.grade)
+        Spacer(Modifier.width(Spacing.md))
+        Column(Modifier.weight(1f).padding(vertical = 8.dp)) {
             Text(
                 row.name,
                 style = MaterialTheme.typography.bodyMedium.copy(
-                    fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal,
+                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
                 ),
                 color = Palette.Text,
                 maxLines = 1,
             )
-            // Unnamed rows fall back to the row id, so repeating it below would be noise.
-            if (row.name != row.sourceRowId) {
-                Text(row.sourceRowId, style = MonoStyle, color = Palette.TextFaint, maxLines = 1)
+            val type = prettyEnum(row.meta)
+            val rarity = prettyEnum(row.grade)
+            val subtitle = listOfNotNull(rarity, type).joinToString(" · ")
+            if (subtitle.isNotEmpty()) {
+                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = Palette.TextFaint, maxLines = 1)
             }
         }
-        prettyEnum(row.meta)?.let {
-            Badge(it, Palette.TextMuted, Modifier.padding(end = Spacing.md), caps = false)
+        if (!row.named) {
+            Badge("id", Palette.TextFaint, Modifier.padding(end = Spacing.md), caps = false)
         }
     }
 }
@@ -182,8 +193,8 @@ private fun DetailPane(model: AppModel) {
     val detail = model.detail
     if (detail == null) {
         EmptyState(
-            title = "Nothing selected",
-            detail = "Pick a row to see its extracted stats and upgrade curves.",
+            title = "Pick something on the left",
+            detail = "Stats and upgrade paths show up here.",
         )
         return
     }
@@ -199,18 +210,31 @@ private fun DetailBody(detail: RowDetail) {
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(Spacing.lg),
     ) {
-        Text(detail.row.name, style = MaterialTheme.typography.headlineSmall, color = Palette.Text)
-        Spacer(Modifier.height(Spacing.xs))
-        Text(
-            "${detail.row.sourceTable} / ${detail.row.sourceRowId}",
-            style = MonoStyle,
-            color = Palette.TextFaint,
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            RarityPip(detail.row.grade)
+            Spacer(Modifier.width(Spacing.md))
+            Column(Modifier.weight(1f)) {
+                Text(detail.row.name, style = MaterialTheme.typography.headlineSmall, color = Palette.Text)
+                val rarity = prettyEnum(detail.row.grade)
+                val kind = prettyEnum(detail.row.meta)
+                val line = listOfNotNull(rarity, kind).joinToString(" · ")
+                if (line.isNotEmpty()) {
+                    Spacer(Modifier.height(2.dp))
+                    Text(line, style = MaterialTheme.typography.bodySmall, color = Palette.TextMuted)
+                }
+            }
+        }
 
         Spacer(Modifier.height(Spacing.lg))
         BaseStats(detail)
         Spacer(Modifier.height(Spacing.lg))
         Curves(detail)
+        Spacer(Modifier.height(Spacing.xl))
+        Text(
+            detail.row.sourceRowId,
+            style = MonoStyle,
+            color = Palette.TextFaint,
+        )
         Spacer(Modifier.height(Spacing.xl))
     }
 }

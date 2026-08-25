@@ -8,6 +8,7 @@ import com.solisium.core.db.SolisiumDatabase
 import com.solisium.core.domain.CatalogCounts
 import com.solisium.core.domain.CombatSessionSummary
 import com.solisium.core.domain.DatasetSnapshot
+import com.solisium.core.domain.DisplayName
 import com.solisium.core.domain.GameCurvePoint
 import com.solisium.core.domain.GameItemCurve
 import com.solisium.core.domain.GameItemStat
@@ -47,11 +48,11 @@ sealed interface Load<out T> {
 }
 
 enum class Screen(val label: String, val blurb: String) {
-    Overview("Overview", "Dataset provenance and catalog coverage"),
-    Catalog("Catalog", "Search extracted game data"),
-    Character("Character", "Your loadout, resolved against the dataset"),
-    Combat("Combat", "Observed damage from official logs"),
-    Data("Data", "Snapshots and imports"),
+    Overview("Home", "What to do next"),
+    Catalog("Gear", "Search by the name you see in game"),
+    Character("Character", "Your loadout"),
+    Combat("Combat", "Damage from official logs"),
+    Data("Data", "Import and keys"),
 }
 
 /** Outcome of an import, kept so the UI can report exactly what landed. */
@@ -87,14 +88,14 @@ data class KeyState(
 
 /** A catalog kind rendered as a uniform row, so one list view serves every type. */
 enum class CatalogKind(val label: String, val meta: String) {
-    Items("Items", "grade"),
+    Items("Items", "rarity"),
     Weapons("Weapons", "type"),
     Armor("Armor", "slot"),
     Accessories("Accessories", "slot"),
     Traits("Traits", ""),
-    Runes("Runes", "grade"),
+    Runes("Runes", "type"),
     Skills("Skills", "type"),
-    Effects("Effects", "skill"),
+    Effects("Effects", ""),
     Recipes("Recipes", "kind"),
     Materials("Materials", ""),
     Stats("Stats", ""),
@@ -106,6 +107,8 @@ data class CatalogRow(
     val sourceTable: String,
     val sourceRowId: String,
     val meta: String?,
+    val grade: String? = null,
+    val named: Boolean = true,
 )
 
 /** Everything the detail pane shows for one selected row. */
@@ -147,6 +150,10 @@ class AppModel(private val scope: CoroutineScope) {
         private set
 
     var rows by mutableStateOf<Load<List<CatalogRow>>>(Load.Loading)
+        private set
+
+    /** Total named matches before the browse cap, so the list can say "first N of M". */
+    var browseTotal by mutableStateOf(0)
         private set
 
     var selected by mutableStateOf<CatalogRow?>(null)
@@ -500,7 +507,23 @@ class AppModel(private val scope: CoroutineScope) {
         val target = kind
         scope.launch {
             rows = Load.Loading
-            rows = read { q, snapshotId -> fetch(q, snapshotId, target, term) }
+            val loaded = read { q, snapshotId -> fetch(q, snapshotId, target, term) }
+            if (loaded is Load.Ok) {
+                browseTotal = loaded.value.size
+                val page = loaded.value.take(BROWSE_CAP)
+                rows = Load.Ok(page)
+                val stillVisible = selected?.let { current ->
+                    page.any { it.sourceTable == current.sourceTable && it.sourceRowId == current.sourceRowId }
+                } == true
+                if (!stillVisible) {
+                    selected = null
+                    detail = null
+                    page.firstOrNull()?.let { select(it) }
+                }
+            } else {
+                browseTotal = 0
+                rows = loaded
+            }
         }
     }
 
@@ -509,42 +532,71 @@ class AppModel(private val scope: CoroutineScope) {
         snapshotId: String,
         target: CatalogKind,
         term: String?,
-    ): List<CatalogRow> = when (target) {
-        CatalogKind.Items -> q.items(snapshotId, term).map {
-            CatalogRow(it.name ?: it.sourceRowId, it.sourceTable, it.sourceRowId, it.grade)
+    ): List<CatalogRow> {
+        val searching = !term.isNullOrBlank()
+        fun emit(
+            name: String?,
+            table: String,
+            id: String,
+            meta: String?,
+            grade: String? = null,
+            looksOnly: Boolean = false,
+        ): CatalogRow? {
+            if (looksOnly && !DisplayName.isItemLooks(table)) return null
+            val display = DisplayName.of(name, id)
+            if (display == null && !searching) return null
+            return CatalogRow(
+                name = display ?: id,
+                sourceTable = table,
+                sourceRowId = id,
+                meta = meta,
+                grade = grade,
+                named = display != null,
+            )
         }
-        CatalogKind.Weapons -> q.weapons(snapshotId, term).map {
-            CatalogRow(it.name ?: it.sourceRowId, it.sourceTable, it.sourceRowId, it.weaponType)
-        }
-        CatalogKind.Armor -> q.armor(snapshotId, term).map {
-            CatalogRow(it.name ?: it.sourceRowId, it.sourceTable, it.sourceRowId, it.slot)
-        }
-        CatalogKind.Accessories -> q.accessories(snapshotId, term).map {
-            CatalogRow(it.name ?: it.sourceRowId, it.sourceTable, it.sourceRowId, it.slot)
-        }
-        CatalogKind.Traits -> q.traits(snapshotId, term).map {
-            CatalogRow(it.name ?: it.sourceRowId, it.sourceTable, it.sourceRowId, null)
-        }
-        CatalogKind.Runes -> q.runes(snapshotId, term).map {
-            CatalogRow(it.name ?: it.sourceRowId, it.sourceTable, it.sourceRowId, it.grade)
-        }
-        CatalogKind.Skills -> q.skills(snapshotId, term).map {
-            CatalogRow(it.name ?: it.sourceRowId, it.sourceTable, it.sourceRowId, it.skillType)
-        }
-        CatalogKind.Effects -> q.effects(snapshotId, term).map {
-            CatalogRow(it.name ?: it.sourceRowId, it.sourceTable, it.sourceRowId, it.skillSourceRowId)
-        }
-        CatalogKind.Recipes -> q.recipes(snapshotId, term).map {
-            CatalogRow(it.name ?: it.sourceRowId, it.sourceTable, it.sourceRowId, it.recipeKind)
-        }
-        CatalogKind.Materials -> q.materials(snapshotId, term).map {
-            CatalogRow(it.name ?: it.sourceRowId, it.sourceTable, it.sourceRowId, null)
-        }
-        CatalogKind.Stats -> q.stats(snapshotId, term).map {
-            CatalogRow(it.name ?: it.sourceRowId, it.sourceTable, it.sourceRowId, null)
-        }
-        CatalogKind.Formulas -> q.formulas(snapshotId, term).map {
-            CatalogRow(it.sourceRowId, it.sourceTable, it.sourceRowId, it.confidence)
+        return when (target) {
+            CatalogKind.Items -> q.items(snapshotId, term).mapNotNull {
+                emit(it.name, it.sourceTable, it.sourceRowId, null, it.grade, looksOnly = true)
+            }
+            CatalogKind.Weapons -> q.weapons(snapshotId, term).mapNotNull {
+                emit(it.name, it.sourceTable, it.sourceRowId, DisplayName.prettyEnum(it.weaponType))
+            }
+            CatalogKind.Armor -> q.armor(snapshotId, term).mapNotNull {
+                emit(it.name, it.sourceTable, it.sourceRowId, DisplayName.prettyEnum(it.slot))
+            }
+            CatalogKind.Accessories -> q.accessories(snapshotId, term).mapNotNull {
+                emit(it.name, it.sourceTable, it.sourceRowId, DisplayName.prettyEnum(it.slot))
+            }
+            CatalogKind.Traits -> q.traits(snapshotId, term).mapNotNull {
+                emit(it.name, it.sourceTable, it.sourceRowId, null)
+            }
+            CatalogKind.Runes -> q.runes(snapshotId, term).mapNotNull {
+                emit(it.name, it.sourceTable, it.sourceRowId, DisplayName.prettyEnum(it.grade))
+            }
+            CatalogKind.Skills -> q.skills(snapshotId, term).mapNotNull {
+                emit(it.name, it.sourceTable, it.sourceRowId, DisplayName.prettyEnum(it.skillType))
+            }
+            CatalogKind.Effects -> q.effects(snapshotId, term).mapNotNull {
+                emit(it.name, it.sourceTable, it.sourceRowId, null)
+            }
+            CatalogKind.Recipes -> q.recipes(snapshotId, term).mapNotNull {
+                emit(it.name, it.sourceTable, it.sourceRowId, it.recipeKind)
+            }
+            CatalogKind.Materials -> q.materials(snapshotId, term).mapNotNull {
+                emit(it.name, it.sourceTable, it.sourceRowId, null)
+            }
+            CatalogKind.Stats -> q.stats(snapshotId, term).mapNotNull {
+                emit(it.name, it.sourceTable, it.sourceRowId, null)
+            }
+            CatalogKind.Formulas -> q.formulas(snapshotId, term).map {
+                CatalogRow(
+                    name = DisplayName.prettyEnum(it.expression) ?: it.sourceRowId,
+                    sourceTable = it.sourceTable,
+                    sourceRowId = it.sourceRowId,
+                    meta = it.confidence,
+                    named = DisplayName.prettyEnum(it.expression) != null,
+                )
+            }
         }
     }
 
@@ -573,6 +625,8 @@ class AppModel(private val scope: CoroutineScope) {
     }
 
     companion object {
+        private const val BROWSE_CAP = 400
+
         /** Matches the CLI so both surfaces read the same database. */
         fun databasePath(): Path {
             val override = System.getenv("SOLISIUM_DB")

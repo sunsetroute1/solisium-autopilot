@@ -107,6 +107,8 @@ class TLHelperDataSourceTest {
 
             assertEquals("ESkillCategory::kFo", query.skills(snapshotId).single().skillType)
             assertEquals("fixture_effect", query.effects(snapshotId).single().sourceRowId)
+            assertNull(query.effects(snapshotId).single().name)
+            assertEquals("Fixture Skill", query.skills(snapshotId).single().name)
             assertEquals("Fixture Synergy", query.synergies(snapshotId).single().name)
             assertEquals("Strength", query.stats(snapshotId).single().name)
             assertEquals("Accuracy", query.traits(snapshotId).single().name)

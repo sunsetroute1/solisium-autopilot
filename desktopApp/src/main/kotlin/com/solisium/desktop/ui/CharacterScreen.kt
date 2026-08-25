@@ -214,13 +214,17 @@ private fun LoadoutLine(line: ResolvedLoadoutLine) {
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
             ) {
-                Bold(line.hit?.name ?: line.sourceRowId ?: "unspecified")
+                Bold(
+                    com.solisium.core.domain.DisplayName.of(line.hit?.name, line.hit?.sourceRowId)
+                        ?: line.sourceRowId
+                        ?: "unspecified",
+                )
                 line.extra?.let { Badge(it, Palette.TextMuted, caps = false) }
             }
             // Unresolved lines already show the raw key as the title, so there is no
             // second line to add.
             val subtitle = line.hit?.let { hit ->
-                listOfNotNull(prettyEnum(hit.detail), hit.sourceRowId).joinToString("  ")
+                prettyEnum(hit.detail)
             }
             if (subtitle != null) {
                 Spacer(Modifier.height(2.dp))

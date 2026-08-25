@@ -33,6 +33,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.solisium.core.domain.DisplayName
 import com.solisium.desktop.theme.Palette
 import com.solisium.desktop.theme.Spacing
 
@@ -256,6 +257,28 @@ fun ActionButton(
     }
 }
 
+fun rarityColor(grade: String?): Color {
+    val token = DisplayName.prettyEnum(grade)?.uppercase() ?: return Palette.BorderStrong
+    return when (token) {
+        "AAA", "LEGENDARY" -> Palette.Gold
+        "AA", "EPIC" -> Palette.Epic
+        "A", "RARE" -> Palette.Rare
+        "B", "UNCOMMON" -> Palette.Uncommon
+        "C", "COMMON" -> Palette.Common
+        else -> Palette.BorderStrong
+    }
+}
+
+@Composable
+fun RarityPip(grade: String?, modifier: Modifier = Modifier) {
+    Box(
+        modifier
+            .width(4.dp)
+            .height(28.dp)
+            .clip(RoundedCornerShape(2.dp))
+            .background(rarityColor(grade)),
+    )
+}
 @Composable
 fun Divider(modifier: Modifier = Modifier) {
     Box(modifier.fillMaxWidth().height(1.dp).background(Palette.Border))

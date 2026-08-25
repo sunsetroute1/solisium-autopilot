@@ -2,6 +2,7 @@ package com.solisium.core.source
 
 import com.solisium.core.db.SchemaVersion
 import com.solisium.core.db.SolisiumDatabase
+import com.solisium.core.domain.DisplayName
 import com.solisium.core.json.JsonParseException
 import com.solisium.core.json.JsonParser
 import com.solisium.core.json.JsonValue
@@ -76,9 +77,8 @@ class TLHelperDataSource(
             val warnings = mutableListOf<String>()
             if (builds.size > 1) warnings.add("mixed game_build values: ${builds.joinToString()}")
             val snapshotId = randomUuid()
+            val nameIndex = buildNameIndex(rows)
             val equipByRowId = rows.filter { it.tableName == "TLItemEquip" }.associateBy { it.rowId }
-            val looksNameByRowId = rows.filter { it.tableName == "TLItemLooks_Equip" }
-                .associate { it.rowId to it.name }
             val itemsByRowId = rows.filter { it.recordType.equals("item", ignoreCase = true) }
                 .groupBy { it.rowId }
             var imported = 0
@@ -103,13 +103,13 @@ class TLHelperDataSource(
                     active = if (request.activate) 1L else 0L,
                 )
                 for (row in rows) {
-                    if (mapRow(db, snapshotId, row, equipByRowId, looksNameByRowId)) {
+                    if (mapRow(db, snapshotId, row, equipByRowId, nameIndex)) {
                         imported++
                     } else {
                         skipped++
                     }
                 }
-                val materials = mapMaterials(db, snapshotId, rows, itemsByRowId)
+                val materials = mapMaterials(db, snapshotId, rows, itemsByRowId, nameIndex)
                 imported += materials.first
                 if (materials.second > 0) {
                     warnings.add(
@@ -145,7 +145,7 @@ class TLHelperDataSource(
         snapshotId: String,
         row: WarehouseRecord,
         equipByRowId: Map<String, WarehouseRecord>,
-        looksNameByRowId: Map<String, String?>,
+        nameIndex: Map<String, String>,
     ): Boolean {
         val json = parseJson(row.rawJson)
         when (row.tableName) {
@@ -154,7 +154,7 @@ class TLHelperDataSource(
                     snapshot_id = snapshotId,
                     source_table = row.tableName,
                     source_row_id = row.rowId,
-                    name = present(row.name) ?: present(row.rowId),
+                    name = DisplayName.of(row.name, row.rowId) ?: nameIndex[row.rowId],
                 )
                 return true
             }
@@ -164,7 +164,8 @@ class TLHelperDataSource(
                     snapshot_id = snapshotId,
                     source_table = row.tableName,
                     source_row_id = row.rowId,
-                    name = present(row.name) ?: present(json.str("stat_enum")) ?: present(row.rowId),
+                    name = DisplayName.of(row.name, row.rowId)
+                        ?: DisplayName.prettyEnum(json.str("stat_enum")),
                 )
                 return true
             }
@@ -173,7 +174,7 @@ class TLHelperDataSource(
                     snapshot_id = snapshotId,
                     source_table = row.tableName,
                     source_row_id = row.rowId,
-                    name = present(row.name) ?: present(row.rowId),
+                    name = DisplayName.of(row.name, row.rowId) ?: nameIndex[row.rowId],
                 )
                 return true
             }
@@ -199,7 +200,7 @@ class TLHelperDataSource(
                     ?: row.tableName
                 val icon = present(json.obj("IconPath")?.str("assetPath"))
                     ?: present(json.strAny("HighResIconPath", "icon", "icon_asset_path"))
-                val name = present(row.name) ?: present(looksNameByRowId[row.rowId])
+                val name = DisplayName.of(row.name, row.rowId) ?: nameIndex[row.rowId]
                 db.schemaQueries.insertGameItem(
                     snapshot_id = snapshotId,
                     source_table = row.tableName,
@@ -247,7 +248,8 @@ class TLHelperDataSource(
                     snapshot_id = snapshotId,
                     source_table = row.tableName,
                     source_row_id = row.rowId,
-                    name = present(row.name) ?: present(row.rowId),
+                    name = DisplayName.of(row.name, row.rowId)
+                        ?: DisplayName.fromEnums(json.str("RuneType"), json.str("RuneTargetCategory")),
                     grade = present(json.strAny("grade")),
                 )
                 true
@@ -257,17 +259,21 @@ class TLHelperDataSource(
                     snapshot_id = snapshotId,
                     source_table = row.tableName,
                     source_row_id = row.rowId,
-                    name = present(row.name) ?: present(row.rowId),
+                    name = DisplayName.of(row.name, row.rowId) ?: nameIndex[row.rowId],
                     skill_type = present(json.strAny("skill_category", "skillType", "skill_type")),
                 )
                 true
             }
             "recipe" -> {
+                val resultId = present(json.str("ResultItem"))
                 db.schemaQueries.insertGameRecipe(
                     snapshot_id = snapshotId,
                     source_table = row.tableName,
                     source_row_id = row.rowId,
-                    name = present(row.name) ?: present(json.obj("RecipeName")?.str("text")) ?: present(row.rowId),
+                    name = DisplayName.of(row.name, row.rowId)
+                        ?: present(json.obj("RecipeName")?.str("text"))
+                        ?: nameIndex[row.rowId]
+                        ?: resultId?.let { nameIndex[it] },
                     recipe_kind = recipeKind(row.tableName),
                 )
                 true
@@ -278,7 +284,7 @@ class TLHelperDataSource(
                     source_table = row.tableName,
                     source_row_id = row.rowId,
                     skill_source_row_id = null,
-                    name = present(row.name) ?: present(row.rowId),
+                    name = DisplayName.of(row.name, row.rowId) ?: nameIndex[row.rowId],
                 )
                 true
             }
@@ -296,6 +302,7 @@ class TLHelperDataSource(
         snapshotId: String,
         rows: List<WarehouseRecord>,
         itemsByRowId: Map<String, List<WarehouseRecord>>,
+        nameIndex: Map<String, String>,
     ): Pair<Int, Int> {
         val referenced = LinkedHashSet<String>()
         for (row in rows) {
@@ -323,7 +330,7 @@ class TLHelperDataSource(
                 snapshot_id = snapshotId,
                 source_table = item.tableName,
                 source_row_id = item.rowId,
-                name = present(item.name) ?: present(item.rowId),
+                name = DisplayName.of(item.name, item.rowId) ?: nameIndex[item.rowId],
             )
             imported++
         }
@@ -558,6 +565,27 @@ class TLHelperDataSource(
         val decoderVersion: String,
         val rawJson: String?,
     )
+
+    /**
+     * Localized names keyed by row id. Looks tables win so an equip/config row inherits
+     * the inventory name rather than staying blank.
+     */
+    private fun buildNameIndex(rows: List<WarehouseRecord>): Map<String, String> {
+        val preferred = listOf("TLItemLooks_Equip", "TLItemLooks", "TLPassiveSkillLooks", "TLStatAttrLooks")
+        val out = LinkedHashMap<String, String>()
+        for (table in preferred) {
+            for (row in rows) {
+                if (row.tableName != table) continue
+                val name = DisplayName.of(row.name, row.rowId) ?: continue
+                out.putIfAbsent(row.rowId, name)
+            }
+        }
+        for (row in rows) {
+            val name = DisplayName.of(row.name, row.rowId) ?: continue
+            out.putIfAbsent(row.rowId, name)
+        }
+        return out
+    }
 
     companion object {
         /** Numeric fields on the stat-value rows that identify the row rather than carry a stat. */

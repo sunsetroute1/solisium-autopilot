@@ -93,7 +93,8 @@ class CatalogQuery(private val db: SolisiumDatabase) {
                 GameItem(snapshotId, it.source_table, it.source_row_id, it.name, it.grade, it.category)
             }
         }
-        return db.schemaQueries.searchItems(snapshotId, like(nameContains)).executeAsList().map {
+        val pattern = like(nameContains)
+        return db.schemaQueries.searchItems(snapshotId, pattern, pattern).executeAsList().map {
             GameItem(snapshotId, it.source_table, it.source_row_id, it.name, it.grade, it.category)
         }
     }
@@ -104,7 +105,8 @@ class CatalogQuery(private val db: SolisiumDatabase) {
                 GameRune(snapshotId, it.source_table, it.source_row_id, it.name, it.grade)
             }
         }
-        return db.schemaQueries.searchRunes(snapshotId, like(nameContains)).executeAsList().map {
+        val pattern = like(nameContains)
+        return db.schemaQueries.searchRunes(snapshotId, pattern, pattern).executeAsList().map {
             GameRune(snapshotId, it.source_table, it.source_row_id, it.name, it.grade)
         }
     }
@@ -115,7 +117,8 @@ class CatalogQuery(private val db: SolisiumDatabase) {
                 GameSkill(snapshotId, it.source_table, it.source_row_id, it.name, it.skill_type)
             }
         }
-        return db.schemaQueries.searchSkills(snapshotId, like(nameContains)).executeAsList().map {
+        val pattern = like(nameContains)
+        return db.schemaQueries.searchSkills(snapshotId, pattern, pattern).executeAsList().map {
             GameSkill(snapshotId, it.source_table, it.source_row_id, it.name, it.skill_type)
         }
     }
@@ -126,7 +129,8 @@ class CatalogQuery(private val db: SolisiumDatabase) {
                 GameRecipe(snapshotId, it.source_table, it.source_row_id, it.name, it.recipe_kind)
             }
         }
-        return db.schemaQueries.searchRecipes(snapshotId, like(nameContains)).executeAsList().map {
+        val pattern = like(nameContains)
+        return db.schemaQueries.searchRecipes(snapshotId, pattern, pattern).executeAsList().map {
             GameRecipe(snapshotId, it.source_table, it.source_row_id, it.name, it.recipe_kind)
         }
     }
@@ -137,7 +141,8 @@ class CatalogQuery(private val db: SolisiumDatabase) {
                 GameWeapon(snapshotId, it.source_table, it.source_row_id, it.name, it.weapon_type)
             }
         }
-        return db.schemaQueries.searchGameWeapons(snapshotId, like(nameContains)).executeAsList().map {
+        val pattern = like(nameContains)
+        return db.schemaQueries.searchGameWeapons(snapshotId, pattern, pattern).executeAsList().map {
             GameWeapon(snapshotId, it.source_table, it.source_row_id, it.name, it.weapon_type)
         }
     }
@@ -148,7 +153,8 @@ class CatalogQuery(private val db: SolisiumDatabase) {
                 GameArmor(snapshotId, it.source_table, it.source_row_id, it.name, it.slot, it.material)
             }
         }
-        return db.schemaQueries.searchArmor(snapshotId, like(nameContains)).executeAsList().map {
+        val pattern = like(nameContains)
+        return db.schemaQueries.searchArmor(snapshotId, pattern, pattern).executeAsList().map {
             GameArmor(snapshotId, it.source_table, it.source_row_id, it.name, it.slot, it.material)
         }
     }
@@ -159,7 +165,8 @@ class CatalogQuery(private val db: SolisiumDatabase) {
                 GameAccessory(snapshotId, it.source_table, it.source_row_id, it.name, it.slot)
             }
         }
-        return db.schemaQueries.searchAccessories(snapshotId, like(nameContains)).executeAsList().map {
+        val pattern = like(nameContains)
+        return db.schemaQueries.searchAccessories(snapshotId, pattern, pattern).executeAsList().map {
             GameAccessory(snapshotId, it.source_table, it.source_row_id, it.name, it.slot)
         }
     }
@@ -170,7 +177,8 @@ class CatalogQuery(private val db: SolisiumDatabase) {
                 GameRuneSynergy(snapshotId, it.source_table, it.source_row_id, it.name)
             }
         }
-        return db.schemaQueries.searchRuneSynergies(snapshotId, like(nameContains)).executeAsList().map {
+        val pattern = like(nameContains)
+        return db.schemaQueries.searchRuneSynergies(snapshotId, pattern, pattern).executeAsList().map {
             GameRuneSynergy(snapshotId, it.source_table, it.source_row_id, it.name)
         }
     }
@@ -181,7 +189,8 @@ class CatalogQuery(private val db: SolisiumDatabase) {
                 GameSkillEffect(snapshotId, it.source_table, it.source_row_id, it.name, it.skill_source_row_id)
             }
         }
-        return db.schemaQueries.searchSkillEffects(snapshotId, like(nameContains)).executeAsList().map {
+        val pattern = like(nameContains)
+        return db.schemaQueries.searchSkillEffects(snapshotId, pattern, pattern).executeAsList().map {
             GameSkillEffect(snapshotId, it.source_table, it.source_row_id, it.name, it.skill_source_row_id)
         }
     }
@@ -192,7 +201,8 @@ class CatalogQuery(private val db: SolisiumDatabase) {
                 GameStat(snapshotId, it.source_table, it.source_row_id, it.name)
             }
         }
-        return db.schemaQueries.searchStats(snapshotId, like(nameContains)).executeAsList().map {
+        val pattern = like(nameContains)
+        return db.schemaQueries.searchStats(snapshotId, pattern, pattern).executeAsList().map {
             GameStat(snapshotId, it.source_table, it.source_row_id, it.name)
         }
     }
@@ -203,7 +213,8 @@ class CatalogQuery(private val db: SolisiumDatabase) {
                 GameTrait(snapshotId, it.source_table, it.source_row_id, it.name)
             }
         }
-        return db.schemaQueries.searchGameTraits(snapshotId, like(nameContains)).executeAsList().map {
+        val pattern = like(nameContains)
+        return db.schemaQueries.searchGameTraits(snapshotId, pattern, pattern).executeAsList().map {
             GameTrait(snapshotId, it.source_table, it.source_row_id, it.name)
         }
     }
@@ -214,7 +225,8 @@ class CatalogQuery(private val db: SolisiumDatabase) {
                 GameMaterial(snapshotId, it.source_table, it.source_row_id, it.name)
             }
         }
-        return db.schemaQueries.searchGameMaterials(snapshotId, like(nameContains)).executeAsList().map {
+        val pattern = like(nameContains)
+        return db.schemaQueries.searchGameMaterials(snapshotId, pattern, pattern).executeAsList().map {
             GameMaterial(snapshotId, it.source_table, it.source_row_id, it.name)
         }
     }

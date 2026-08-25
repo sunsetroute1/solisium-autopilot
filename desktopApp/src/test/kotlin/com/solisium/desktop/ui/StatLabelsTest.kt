@@ -53,6 +53,13 @@ class StatLabelsTest {
         assertEquals("Bow", prettyEnum("EItemCategory::kBow"))
     }
 
+    @Test
+    fun rarityColoursCoverBothClientEnumsAndLooksWords() {
+        assertEquals(com.solisium.desktop.theme.Palette.Epic, rarityColor("EItemGrade::kAA"))
+        assertEquals(com.solisium.desktop.theme.Palette.Epic, rarityColor("Epic"))
+        assertEquals(com.solisium.desktop.theme.Palette.Gold, rarityColor("kAAA"))
+    }
+
     /** Anything that is not an enum token must survive untouched. */
     @Test
     fun nonEnumValuesPassThrough() {

@@ -573,7 +573,7 @@ selectItems:
 SELECT source_table, source_row_id, name, grade, category
 FROM game_item
 WHERE snapshot_id = ?
-ORDER BY name;
+ORDER BY (name IS NULL OR name = '' OR name = source_row_id), name COLLATE NOCASE;
 
 selectItemByName:
 SELECT source_table, source_row_id, name, grade, category
@@ -649,139 +649,139 @@ selectRunes:
 SELECT source_table, source_row_id, name, grade
 FROM game_rune
 WHERE snapshot_id = ?
-ORDER BY name;
+ORDER BY (name IS NULL OR name = '' OR name = source_row_id), name COLLATE NOCASE;
 
 selectSkills:
 SELECT source_table, source_row_id, name, skill_type
 FROM game_skill
 WHERE snapshot_id = ?
-ORDER BY name;
+ORDER BY (name IS NULL OR name = '' OR name = source_row_id), name COLLATE NOCASE;
 
 selectRecipes:
 SELECT source_table, source_row_id, name, recipe_kind
 FROM game_recipe
 WHERE snapshot_id = ?
-ORDER BY name;
+ORDER BY (name IS NULL OR name = '' OR name = source_row_id), name COLLATE NOCASE;
 
 searchItems:
 SELECT source_table, source_row_id, name, grade, category
 FROM game_item
-WHERE snapshot_id = ? AND IFNULL(name, '') LIKE ?
-ORDER BY name;
+WHERE snapshot_id = ? AND (IFNULL(name, '') LIKE ? OR source_row_id LIKE ?)
+ORDER BY (name IS NULL OR name = '' OR name = source_row_id), name COLLATE NOCASE;
 
 searchRunes:
 SELECT source_table, source_row_id, name, grade
 FROM game_rune
-WHERE snapshot_id = ? AND IFNULL(name, '') LIKE ?
-ORDER BY name;
+WHERE snapshot_id = ? AND (IFNULL(name, '') LIKE ? OR source_row_id LIKE ?)
+ORDER BY (name IS NULL OR name = '' OR name = source_row_id), name COLLATE NOCASE;
 
 searchSkills:
 SELECT source_table, source_row_id, name, skill_type
 FROM game_skill
-WHERE snapshot_id = ? AND IFNULL(name, '') LIKE ?
-ORDER BY name;
+WHERE snapshot_id = ? AND (IFNULL(name, '') LIKE ? OR source_row_id LIKE ?)
+ORDER BY (name IS NULL OR name = '' OR name = source_row_id), name COLLATE NOCASE;
 
 searchRecipes:
 SELECT source_table, source_row_id, name, recipe_kind
 FROM game_recipe
-WHERE snapshot_id = ? AND IFNULL(name, '') LIKE ?
-ORDER BY name;
+WHERE snapshot_id = ? AND (IFNULL(name, '') LIKE ? OR source_row_id LIKE ?)
+ORDER BY (name IS NULL OR name = '' OR name = source_row_id), name COLLATE NOCASE;
 
 selectGameWeapons:
 SELECT source_table, source_row_id, name, weapon_type
 FROM game_weapon
 WHERE snapshot_id = ?
-ORDER BY name;
+ORDER BY (name IS NULL OR name = '' OR name = source_row_id), name COLLATE NOCASE;
 
 searchGameWeapons:
 SELECT source_table, source_row_id, name, weapon_type
 FROM game_weapon
-WHERE snapshot_id = ? AND IFNULL(name, '') LIKE ?
-ORDER BY name;
+WHERE snapshot_id = ? AND (IFNULL(name, '') LIKE ? OR source_row_id LIKE ?)
+ORDER BY (name IS NULL OR name = '' OR name = source_row_id), name COLLATE NOCASE;
 
 selectArmor:
 SELECT source_table, source_row_id, name, slot, material
 FROM game_armor
 WHERE snapshot_id = ?
-ORDER BY name;
+ORDER BY (name IS NULL OR name = '' OR name = source_row_id), name COLLATE NOCASE;
 
 searchArmor:
 SELECT source_table, source_row_id, name, slot, material
 FROM game_armor
-WHERE snapshot_id = ? AND IFNULL(name, '') LIKE ?
-ORDER BY name;
+WHERE snapshot_id = ? AND (IFNULL(name, '') LIKE ? OR source_row_id LIKE ?)
+ORDER BY (name IS NULL OR name = '' OR name = source_row_id), name COLLATE NOCASE;
 
 selectAccessories:
 SELECT source_table, source_row_id, name, slot
 FROM game_accessory
 WHERE snapshot_id = ?
-ORDER BY name;
+ORDER BY (name IS NULL OR name = '' OR name = source_row_id), name COLLATE NOCASE;
 
 searchAccessories:
 SELECT source_table, source_row_id, name, slot
 FROM game_accessory
-WHERE snapshot_id = ? AND IFNULL(name, '') LIKE ?
-ORDER BY name;
+WHERE snapshot_id = ? AND (IFNULL(name, '') LIKE ? OR source_row_id LIKE ?)
+ORDER BY (name IS NULL OR name = '' OR name = source_row_id), name COLLATE NOCASE;
 
 selectRuneSynergies:
 SELECT source_table, source_row_id, name
 FROM game_rune_synergy
 WHERE snapshot_id = ?
-ORDER BY name;
+ORDER BY (name IS NULL OR name = '' OR name = source_row_id), name COLLATE NOCASE;
 
 searchRuneSynergies:
 SELECT source_table, source_row_id, name
 FROM game_rune_synergy
-WHERE snapshot_id = ? AND IFNULL(name, '') LIKE ?
-ORDER BY name;
+WHERE snapshot_id = ? AND (IFNULL(name, '') LIKE ? OR source_row_id LIKE ?)
+ORDER BY (name IS NULL OR name = '' OR name = source_row_id), name COLLATE NOCASE;
 
 selectSkillEffects:
 SELECT source_table, source_row_id, skill_source_row_id, name
 FROM game_skill_effect
 WHERE snapshot_id = ?
-ORDER BY name;
+ORDER BY (name IS NULL OR name = '' OR name = source_row_id), name COLLATE NOCASE;
 
 searchSkillEffects:
 SELECT source_table, source_row_id, skill_source_row_id, name
 FROM game_skill_effect
-WHERE snapshot_id = ? AND IFNULL(name, '') LIKE ?
-ORDER BY name;
+WHERE snapshot_id = ? AND (IFNULL(name, '') LIKE ? OR source_row_id LIKE ?)
+ORDER BY (name IS NULL OR name = '' OR name = source_row_id), name COLLATE NOCASE;
 
 selectStats:
 SELECT source_table, source_row_id, name
 FROM game_stat
 WHERE snapshot_id = ?
-ORDER BY name;
+ORDER BY (name IS NULL OR name = '' OR name = source_row_id), name COLLATE NOCASE;
 
 searchStats:
 SELECT source_table, source_row_id, name
 FROM game_stat
-WHERE snapshot_id = ? AND IFNULL(name, '') LIKE ?
-ORDER BY name;
+WHERE snapshot_id = ? AND (IFNULL(name, '') LIKE ? OR source_row_id LIKE ?)
+ORDER BY (name IS NULL OR name = '' OR name = source_row_id), name COLLATE NOCASE;
 
 selectGameTraits:
 SELECT source_table, source_row_id, name
 FROM game_trait
 WHERE snapshot_id = ?
-ORDER BY name;
+ORDER BY (name IS NULL OR name = '' OR name = source_row_id), name COLLATE NOCASE;
 
 searchGameTraits:
 SELECT source_table, source_row_id, name
 FROM game_trait
-WHERE snapshot_id = ? AND IFNULL(name, '') LIKE ?
-ORDER BY name;
+WHERE snapshot_id = ? AND (IFNULL(name, '') LIKE ? OR source_row_id LIKE ?)
+ORDER BY (name IS NULL OR name = '' OR name = source_row_id), name COLLATE NOCASE;
 
 selectGameMaterials:
 SELECT source_table, source_row_id, name
 FROM game_material
 WHERE snapshot_id = ?
-ORDER BY name;
+ORDER BY (name IS NULL OR name = '' OR name = source_row_id), name COLLATE NOCASE;
 
 searchGameMaterials:
 SELECT source_table, source_row_id, name
 FROM game_material
-WHERE snapshot_id = ? AND IFNULL(name, '') LIKE ?
-ORDER BY name;
+WHERE snapshot_id = ? AND (IFNULL(name, '') LIKE ? OR source_row_id LIKE ?)
+ORDER BY (name IS NULL OR name = '' OR name = source_row_id), name COLLATE NOCASE;
 
 selectSkillFormulas:
 SELECT source_table, source_row_id, skill_source_row_id, expression, confidence
