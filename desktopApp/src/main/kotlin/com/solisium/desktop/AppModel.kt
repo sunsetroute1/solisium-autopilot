@@ -78,9 +78,11 @@ data class KeyState(
     val scanning: Boolean = false,
     val scanned: Boolean = false,
     val message: String? = null,
+    /** Set when a key was found on first run and the user has not answered yet. */
+    val offer: KeyCandidate? = null,
 ) {
     override fun toString(): String =
-        "KeyState(stored=$stored, candidates=${candidates.size}, scanning=$scanning)"
+        "KeyState(stored=$stored, candidates=${candidates.size}, scanning=$scanning, offer=${offer != null})"
 }
 
 /** A catalog kind rendered as a uniform row, so one list view serves every type. */
@@ -190,6 +192,7 @@ class AppModel(private val scope: CoroutineScope) {
     init {
         refreshOverview()
         loadRows()
+        offerFoundKey()
     }
 
     fun go(target: Screen) {
@@ -212,6 +215,56 @@ class AppModel(private val scope: CoroutineScope) {
     // nothing puts key material into a message shown on screen.
 
     val secretStorePath: Path get() = secrets.path
+
+    /**
+     * Records that the user said no, so a decision made once is not asked again on
+     * every launch. A plain marker file rather than an entry in the secret store,
+     * because it is not a secret.
+     */
+    private val offerDeclinedMarker: Path
+        get() = secrets.path.parent.resolve("key-offer.declined")
+
+    /**
+     * After installing, the key is usually already sitting on disk from whatever
+     * extracted the game data. Rather than expecting the user to know that and go
+     * looking for a settings screen, find it once and ask.
+     *
+     * Only runs when nothing is stored and the user has not already declined, so a
+     * normal launch does no scanning at all.
+     */
+    private fun offerFoundKey() {
+        scope.launch {
+            val shouldAsk = withContext(Dispatchers.IO) {
+                runCatching { secrets.list().isEmpty() && !Files.exists(offerDeclinedMarker) }
+                    .getOrDefault(false)
+            }
+            if (!shouldAsk) return@launch
+            val found = withContext(Dispatchers.IO) {
+                runCatching { SecretScanner().scan().candidates }.getOrDefault(emptyList())
+            }
+            // With more than one candidate there is nothing to recommend, so send the
+            // user to the Data screen to choose rather than guessing on their behalf.
+            val single = found.singleOrNull() ?: return@launch
+            keys = keys.copy(offer = single)
+        }
+    }
+
+    fun acceptFoundKey() {
+        val offered = keys.offer ?: return
+        keys = keys.copy(offer = null)
+        storeKey(offered)
+    }
+
+    fun declineFoundKey() {
+        keys = keys.copy(offer = null)
+        runCatching {
+            Files.createDirectories(offerDeclinedMarker.parent)
+            Files.writeString(
+                offerDeclinedMarker,
+                "The offer to store a found archive key was declined. Delete this file to be asked again.\n",
+            )
+        }
+    }
 
     private fun loadStoredKeys() {
         keys = keys.copy(stored = runCatching { secrets.list() }.getOrDefault(emptyList()))

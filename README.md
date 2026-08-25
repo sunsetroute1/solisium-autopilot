@@ -59,9 +59,12 @@ exemption is visible in review.
 ## Archive keys
 
 No key ships in a build, and none is needed to use the app on an already-imported
-dataset. If you have one, the app can find it: **Data → Archive key → Find my key**
-searches a few likely folders, shows a short fingerprint rather than the key, and asks
-before storing anything.
+dataset. If one is already on the machine, the first run offers to store it, naming the
+fingerprint and the file it came from; declining is remembered. **Data → Archive key**
+does the same on demand, and is the way through when there are several candidates.
+
+A stored key stays on the machine, is never transmitted, is never displayed (only its
+fingerprint), and can be deleted at any time.
 
 ```text
 solisium keys scan                                   look for a key on this machine

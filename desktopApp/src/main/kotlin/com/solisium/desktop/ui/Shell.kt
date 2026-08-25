@@ -44,6 +44,9 @@ fun AppShell(model: AppModel) {
             }
         }
     }
+    // Sits above every screen, because it appears on first run before the user has
+    // chosen where to go.
+    KeyOfferDialog(model)
 }
 
 @Composable

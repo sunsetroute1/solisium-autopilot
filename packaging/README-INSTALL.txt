@@ -39,11 +39,22 @@ About keys
 This build contains no archive key, and the build fails if one is ever found in
 the packaged files.
 
-If you have a key, the app can find it for you: open the app, go to Data, and use
-the key finder. It searches a few likely folders, shows you only a short
-fingerprint rather than the key, and asks before storing anything.
+You do not need a key to browse data you have already imported. A key is only
+for extracting game files yourself.
 
-A stored key goes in:
+If one is already on this PC, the app finds it for you. The first time you run
+it, it asks whether to store the key it found, showing you a short fingerprint
+and the file it came from so you can tell it is yours. Say no and it will not ask
+again. You can also do it later from Data > Archive key, which is where you go if
+you have several keys or want to point at a specific folder.
+
+A stored key:
+
+  - stays on this PC. It is never sent anywhere and never shared.
+  - is never displayed. The app shows a fingerprint, never the key.
+  - can be deleted at any time from Data > Archive key.
+
+It is kept in:
 
     %LOCALAPPDATA%\Solisium\secrets.properties
 

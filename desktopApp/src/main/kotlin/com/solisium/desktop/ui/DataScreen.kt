@@ -163,6 +163,13 @@ private fun KeyPanel(model: AppModel) {
         )
         Spacer(Modifier.height(Spacing.sm))
         Text(
+            "Anything stored here stays on this PC. It is never sent anywhere, never shared, " +
+                "and never displayed. Remove it whenever you like; uninstalling leaves it alone.",
+            style = MaterialTheme.typography.bodySmall,
+            color = Palette.TextMuted,
+        )
+        Spacer(Modifier.height(Spacing.sm))
+        Text(
             model.secretStorePath.toString(),
             style = MonoStyle,
             color = Palette.TextFaint,
