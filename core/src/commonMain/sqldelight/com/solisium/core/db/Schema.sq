@@ -1,0 +1,951 @@
+CREATE TABLE dataset_snapshot (
+  id TEXT NOT NULL PRIMARY KEY,
+  source TEXT NOT NULL,
+  extracted_at TEXT NOT NULL,
+  game_build TEXT NOT NULL,
+  game_version TEXT NOT NULL,
+  schema_version INTEGER NOT NULL,
+  source_path TEXT,
+  source_hash TEXT,
+  decoder_version TEXT,
+  active INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE dataset_alias (
+  alias TEXT NOT NULL PRIMARY KEY,
+  snapshot_id TEXT NOT NULL,
+  FOREIGN KEY(snapshot_id) REFERENCES dataset_snapshot(id)
+);
+
+CREATE TABLE game_item (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  snapshot_id TEXT NOT NULL,
+  source_table TEXT NOT NULL,
+  source_row_id TEXT NOT NULL,
+  name TEXT,
+  grade TEXT,
+  category TEXT,
+  icon_path TEXT,
+  FOREIGN KEY(snapshot_id) REFERENCES dataset_snapshot(id),
+  UNIQUE(snapshot_id, source_table, source_row_id)
+);
+
+CREATE TABLE game_weapon (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  snapshot_id TEXT NOT NULL,
+  source_table TEXT NOT NULL,
+  source_row_id TEXT NOT NULL,
+  item_id INTEGER,
+  name TEXT,
+  weapon_type TEXT,
+  FOREIGN KEY(snapshot_id) REFERENCES dataset_snapshot(id),
+  UNIQUE(snapshot_id, source_table, source_row_id)
+);
+
+CREATE TABLE game_armor (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  snapshot_id TEXT NOT NULL,
+  source_table TEXT NOT NULL,
+  source_row_id TEXT NOT NULL,
+  item_id INTEGER,
+  name TEXT,
+  slot TEXT,
+  material TEXT,
+  FOREIGN KEY(snapshot_id) REFERENCES dataset_snapshot(id),
+  UNIQUE(snapshot_id, source_table, source_row_id)
+);
+
+CREATE TABLE game_accessory (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  snapshot_id TEXT NOT NULL,
+  source_table TEXT NOT NULL,
+  source_row_id TEXT NOT NULL,
+  item_id INTEGER,
+  name TEXT,
+  slot TEXT,
+  FOREIGN KEY(snapshot_id) REFERENCES dataset_snapshot(id),
+  UNIQUE(snapshot_id, source_table, source_row_id)
+);
+
+CREATE TABLE game_trait (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  snapshot_id TEXT NOT NULL,
+  source_table TEXT NOT NULL,
+  source_row_id TEXT NOT NULL,
+  name TEXT,
+  FOREIGN KEY(snapshot_id) REFERENCES dataset_snapshot(id),
+  UNIQUE(snapshot_id, source_table, source_row_id)
+);
+
+CREATE TABLE game_rune (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  snapshot_id TEXT NOT NULL,
+  source_table TEXT NOT NULL,
+  source_row_id TEXT NOT NULL,
+  name TEXT,
+  grade TEXT,
+  FOREIGN KEY(snapshot_id) REFERENCES dataset_snapshot(id),
+  UNIQUE(snapshot_id, source_table, source_row_id)
+);
+
+CREATE TABLE game_rune_synergy (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  snapshot_id TEXT NOT NULL,
+  source_table TEXT NOT NULL,
+  source_row_id TEXT NOT NULL,
+  name TEXT,
+  FOREIGN KEY(snapshot_id) REFERENCES dataset_snapshot(id),
+  UNIQUE(snapshot_id, source_table, source_row_id)
+);
+
+CREATE TABLE game_skill (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  snapshot_id TEXT NOT NULL,
+  source_table TEXT NOT NULL,
+  source_row_id TEXT NOT NULL,
+  name TEXT,
+  skill_type TEXT,
+  FOREIGN KEY(snapshot_id) REFERENCES dataset_snapshot(id),
+  UNIQUE(snapshot_id, source_table, source_row_id)
+);
+
+CREATE TABLE game_skill_effect (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  snapshot_id TEXT NOT NULL,
+  source_table TEXT NOT NULL,
+  source_row_id TEXT NOT NULL,
+  skill_source_row_id TEXT,
+  name TEXT,
+  FOREIGN KEY(snapshot_id) REFERENCES dataset_snapshot(id),
+  UNIQUE(snapshot_id, source_table, source_row_id)
+);
+
+CREATE TABLE game_skill_formula (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  snapshot_id TEXT NOT NULL,
+  source_table TEXT NOT NULL,
+  source_row_id TEXT NOT NULL,
+  skill_source_row_id TEXT,
+  expression TEXT,
+  confidence TEXT NOT NULL,
+  FOREIGN KEY(snapshot_id) REFERENCES dataset_snapshot(id),
+  UNIQUE(snapshot_id, source_table, source_row_id)
+);
+
+CREATE TABLE game_stat (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  snapshot_id TEXT NOT NULL,
+  source_table TEXT NOT NULL,
+  source_row_id TEXT NOT NULL,
+  name TEXT,
+  FOREIGN KEY(snapshot_id) REFERENCES dataset_snapshot(id),
+  UNIQUE(snapshot_id, source_table, source_row_id)
+);
+
+-- Per-item stat values. `raw_value` is the client integer as stored: the client
+-- scales stats differently per field (550 attack speed, 4000 block efficiency)
+-- and no scale factor has been verified, so nothing here is divided or formatted.
+CREATE TABLE game_item_stat (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  snapshot_id TEXT NOT NULL,
+  source_table TEXT NOT NULL,
+  source_row_id TEXT NOT NULL,
+  stat_key TEXT NOT NULL,
+  stat_name TEXT,
+  raw_value INTEGER NOT NULL,
+  scope TEXT NOT NULL,
+  confidence TEXT NOT NULL,
+  FOREIGN KEY(snapshot_id) REFERENCES dataset_snapshot(id),
+  UNIQUE(snapshot_id, source_table, source_row_id, stat_key, scope)
+);
+
+-- Shared stat curves. 42 enchant curves and 45 item-level curves serve 1,458
+-- items, so each curve is stored once and items link to it. `raw_value` is the
+-- client's cumulative total at `level`, not a per-level delta.
+CREATE TABLE game_stat_curve (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  snapshot_id TEXT NOT NULL,
+  source_table TEXT NOT NULL,
+  curve_id TEXT NOT NULL,
+  level INTEGER NOT NULL,
+  stat_key TEXT NOT NULL,
+  stat_name TEXT,
+  raw_value INTEGER NOT NULL,
+  confidence TEXT NOT NULL,
+  FOREIGN KEY(snapshot_id) REFERENCES dataset_snapshot(id),
+  UNIQUE(snapshot_id, source_table, curve_id, level, stat_key)
+);
+
+-- Which curve an item follows, and how far that item may actually go.
+CREATE TABLE game_item_curve (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  snapshot_id TEXT NOT NULL,
+  source_table TEXT NOT NULL,
+  source_row_id TEXT NOT NULL,
+  curve_kind TEXT NOT NULL,
+  curve_source_table TEXT NOT NULL,
+  curve_id TEXT NOT NULL,
+  max_level INTEGER,
+  FOREIGN KEY(snapshot_id) REFERENCES dataset_snapshot(id),
+  UNIQUE(snapshot_id, source_table, source_row_id, curve_kind)
+);
+
+CREATE TABLE game_food (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  snapshot_id TEXT NOT NULL,
+  source_table TEXT NOT NULL,
+  source_row_id TEXT NOT NULL,
+  name TEXT,
+  FOREIGN KEY(snapshot_id) REFERENCES dataset_snapshot(id),
+  UNIQUE(snapshot_id, source_table, source_row_id)
+);
+
+CREATE TABLE game_recipe (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  snapshot_id TEXT NOT NULL,
+  source_table TEXT NOT NULL,
+  source_row_id TEXT NOT NULL,
+  name TEXT,
+  recipe_kind TEXT,
+  FOREIGN KEY(snapshot_id) REFERENCES dataset_snapshot(id),
+  UNIQUE(snapshot_id, source_table, source_row_id)
+);
+
+CREATE TABLE game_material (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  snapshot_id TEXT NOT NULL,
+  source_table TEXT NOT NULL,
+  source_row_id TEXT NOT NULL,
+  name TEXT,
+  FOREIGN KEY(snapshot_id) REFERENCES dataset_snapshot(id),
+  UNIQUE(snapshot_id, source_table, source_row_id)
+);
+
+CREATE TABLE game_dungeon (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  snapshot_id TEXT NOT NULL,
+  source_table TEXT NOT NULL,
+  source_row_id TEXT NOT NULL,
+  name TEXT,
+  FOREIGN KEY(snapshot_id) REFERENCES dataset_snapshot(id),
+  UNIQUE(snapshot_id, source_table, source_row_id)
+);
+
+CREATE TABLE game_boss (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  snapshot_id TEXT NOT NULL,
+  source_table TEXT NOT NULL,
+  source_row_id TEXT NOT NULL,
+  name TEXT,
+  FOREIGN KEY(snapshot_id) REFERENCES dataset_snapshot(id),
+  UNIQUE(snapshot_id, source_table, source_row_id)
+);
+
+CREATE TABLE game_progression (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  snapshot_id TEXT NOT NULL,
+  source_table TEXT NOT NULL,
+  source_row_id TEXT NOT NULL,
+  name TEXT,
+  FOREIGN KEY(snapshot_id) REFERENCES dataset_snapshot(id),
+  UNIQUE(snapshot_id, source_table, source_row_id)
+);
+
+CREATE TABLE user_character (
+  id TEXT NOT NULL PRIMARY KEY,
+  name TEXT NOT NULL,
+  level INTEGER,
+  combat_power INTEGER,
+  server TEXT,
+  notes TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE user_equipment (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  character_id TEXT NOT NULL,
+  slot TEXT NOT NULL,
+  source_table TEXT,
+  source_row_id TEXT,
+  item_level INTEGER,
+  FOREIGN KEY(character_id) REFERENCES user_character(id)
+);
+
+CREATE TABLE user_weapon (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  character_id TEXT NOT NULL,
+  slot TEXT NOT NULL,
+  source_table TEXT,
+  source_row_id TEXT,
+  item_level INTEGER,
+  FOREIGN KEY(character_id) REFERENCES user_character(id)
+);
+
+CREATE TABLE user_traits (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  character_id TEXT NOT NULL,
+  source_table TEXT,
+  source_row_id TEXT,
+  rank INTEGER,
+  FOREIGN KEY(character_id) REFERENCES user_character(id)
+);
+
+CREATE TABLE user_runes (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  character_id TEXT NOT NULL,
+  slot TEXT,
+  source_table TEXT,
+  source_row_id TEXT,
+  rune_level INTEGER,
+  FOREIGN KEY(character_id) REFERENCES user_character(id)
+);
+
+CREATE TABLE user_skills (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  character_id TEXT NOT NULL,
+  source_table TEXT,
+  source_row_id TEXT,
+  loadout TEXT,
+  FOREIGN KEY(character_id) REFERENCES user_character(id)
+);
+
+CREATE TABLE user_inventory (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  character_id TEXT NOT NULL,
+  source_table TEXT,
+  source_row_id TEXT,
+  quantity INTEGER NOT NULL DEFAULT 0,
+  FOREIGN KEY(character_id) REFERENCES user_character(id)
+);
+
+CREATE TABLE user_materials (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  character_id TEXT NOT NULL,
+  source_table TEXT,
+  source_row_id TEXT,
+  quantity INTEGER NOT NULL DEFAULT 0,
+  FOREIGN KEY(character_id) REFERENCES user_character(id)
+);
+
+CREATE TABLE user_currency (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  character_id TEXT NOT NULL,
+  currency TEXT NOT NULL,
+  amount INTEGER NOT NULL DEFAULT 0,
+  FOREIGN KEY(character_id) REFERENCES user_character(id)
+);
+
+CREATE TABLE user_cooking (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  character_id TEXT NOT NULL,
+  level INTEGER,
+  FOREIGN KEY(character_id) REFERENCES user_character(id)
+);
+
+CREATE TABLE user_build (
+  id TEXT NOT NULL PRIMARY KEY,
+  character_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  snapshot_id TEXT,
+  payload_json TEXT,
+  FOREIGN KEY(character_id) REFERENCES user_character(id)
+);
+
+CREATE TABLE user_goals (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  character_id TEXT NOT NULL,
+  goal_type TEXT NOT NULL,
+  label TEXT NOT NULL,
+  active INTEGER NOT NULL DEFAULT 1,
+  FOREIGN KEY(character_id) REFERENCES user_character(id)
+);
+
+CREATE TABLE user_combat_session (
+  id TEXT NOT NULL PRIMARY KEY,
+  character_id TEXT,
+  started_at TEXT,
+  ended_at TEXT,
+  source_path TEXT,
+  source_hash TEXT,
+  log_version TEXT,
+  notes TEXT,
+  FOREIGN KEY(character_id) REFERENCES user_character(id)
+);
+
+CREATE TABLE combat_event (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  session_id TEXT NOT NULL,
+  timestamp TEXT,
+  actor TEXT,
+  target TEXT,
+  skill_id TEXT,
+  skill_name TEXT,
+  damage INTEGER,
+  damage_type TEXT,
+  critical INTEGER,
+  heavy INTEGER,
+  hit INTEGER,
+  miss INTEGER,
+  log_type TEXT NOT NULL,
+  raw_line TEXT NOT NULL,
+  source_hash TEXT,
+  FOREIGN KEY(session_id) REFERENCES user_combat_session(id)
+);
+
+CREATE INDEX game_item_snapshot ON game_item(snapshot_id);
+CREATE INDEX game_rune_snapshot ON game_rune(snapshot_id);
+CREATE INDEX game_skill_snapshot ON game_skill(snapshot_id);
+CREATE INDEX game_recipe_snapshot ON game_recipe(snapshot_id);
+CREATE INDEX combat_event_session ON combat_event(session_id);
+
+insertSnapshot:
+INSERT INTO dataset_snapshot(id, source, extracted_at, game_build, game_version, schema_version, source_path, source_hash, decoder_version, active)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+clearActiveSnapshots:
+UPDATE dataset_snapshot SET active = 0;
+
+activateSnapshot:
+UPDATE dataset_snapshot SET active = 1 WHERE id = ?;
+
+selectSnapshot:
+SELECT * FROM dataset_snapshot WHERE id = ?;
+
+selectActiveSnapshot:
+SELECT * FROM dataset_snapshot WHERE active = 1 LIMIT 1;
+
+selectAllSnapshots:
+SELECT * FROM dataset_snapshot ORDER BY extracted_at DESC;
+
+insertAlias:
+INSERT OR REPLACE INTO dataset_alias(alias, snapshot_id) VALUES (?, ?);
+
+selectAlias:
+SELECT alias, snapshot_id FROM dataset_alias WHERE alias = ?;
+
+selectAliases:
+SELECT alias FROM dataset_alias WHERE snapshot_id = ? ORDER BY alias;
+
+insertGameItem:
+INSERT INTO game_item(snapshot_id, source_table, source_row_id, name, grade, category, icon_path)
+VALUES (?, ?, ?, ?, ?, ?, ?);
+
+insertGameRune:
+INSERT INTO game_rune(snapshot_id, source_table, source_row_id, name, grade)
+VALUES (?, ?, ?, ?, ?);
+
+insertGameSkill:
+INSERT INTO game_skill(snapshot_id, source_table, source_row_id, name, skill_type)
+VALUES (?, ?, ?, ?, ?);
+
+insertGameRecipe:
+INSERT INTO game_recipe(snapshot_id, source_table, source_row_id, name, recipe_kind)
+VALUES (?, ?, ?, ?, ?);
+
+insertGameWeapon:
+INSERT INTO game_weapon(snapshot_id, source_table, source_row_id, item_id, name, weapon_type)
+VALUES (?, ?, ?, ?, ?, ?);
+
+insertGameArmor:
+INSERT INTO game_armor(snapshot_id, source_table, source_row_id, item_id, name, slot, material)
+VALUES (?, ?, ?, ?, ?, ?, ?);
+
+insertGameAccessory:
+INSERT INTO game_accessory(snapshot_id, source_table, source_row_id, item_id, name, slot)
+VALUES (?, ?, ?, ?, ?, ?);
+
+insertGameRuneSynergy:
+INSERT INTO game_rune_synergy(snapshot_id, source_table, source_row_id, name)
+VALUES (?, ?, ?, ?);
+
+insertGameSkillEffect:
+INSERT INTO game_skill_effect(snapshot_id, source_table, source_row_id, skill_source_row_id, name)
+VALUES (?, ?, ?, ?, ?);
+
+insertGameStat:
+INSERT INTO game_stat(snapshot_id, source_table, source_row_id, name)
+VALUES (?, ?, ?, ?);
+
+insertGameTrait:
+INSERT INTO game_trait(snapshot_id, source_table, source_row_id, name)
+VALUES (?, ?, ?, ?);
+
+insertGameMaterial:
+INSERT INTO game_material(snapshot_id, source_table, source_row_id, name)
+VALUES (?, ?, ?, ?);
+
+insertGameItemStat:
+INSERT OR REPLACE INTO game_item_stat(
+  snapshot_id, source_table, source_row_id, stat_key, stat_name, raw_value, scope, confidence
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+
+countItemStats:
+SELECT COUNT(*) FROM game_item_stat WHERE snapshot_id = ?;
+
+countItemsWithStats:
+SELECT COUNT(DISTINCT source_row_id) FROM game_item_stat WHERE snapshot_id = ?;
+
+selectItemStats:
+SELECT source_table, source_row_id, stat_key, stat_name, raw_value, scope, confidence
+FROM game_item_stat
+WHERE snapshot_id = ? AND source_row_id = ?
+ORDER BY scope, stat_key;
+
+insertGameStatCurve:
+INSERT OR REPLACE INTO game_stat_curve(
+  snapshot_id, source_table, curve_id, level, stat_key, stat_name, raw_value, confidence
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+
+insertGameItemCurve:
+INSERT OR REPLACE INTO game_item_curve(
+  snapshot_id, source_table, source_row_id, curve_kind, curve_source_table, curve_id, max_level
+) VALUES (?, ?, ?, ?, ?, ?, ?);
+
+countStatCurvePoints:
+SELECT COUNT(*) FROM game_stat_curve WHERE snapshot_id = ?;
+
+countItemCurveLinks:
+SELECT COUNT(*) FROM game_item_curve WHERE snapshot_id = ?;
+
+selectItemCurves:
+SELECT curve_kind, curve_source_table, curve_id, max_level
+FROM game_item_curve
+WHERE snapshot_id = ? AND source_row_id = ?
+ORDER BY curve_kind;
+
+-- Curve points for one item, clipped to that item's own max_level when it has one.
+selectItemCurvePoints:
+SELECT c.curve_kind, c.curve_id, p.level, p.stat_key, p.stat_name, p.raw_value, p.confidence
+FROM game_item_curve c
+JOIN game_stat_curve p
+  ON p.snapshot_id = c.snapshot_id
+  AND p.source_table = c.curve_source_table
+  AND p.curve_id = c.curve_id
+WHERE c.snapshot_id = ? AND c.source_row_id = ?
+  AND (c.max_level IS NULL OR p.level <= c.max_level)
+ORDER BY c.curve_kind, p.level, p.stat_key;
+
+insertGameSkillFormula:
+INSERT INTO game_skill_formula(snapshot_id, source_table, source_row_id, skill_source_row_id, expression, confidence)
+VALUES (?, ?, ?, ?, ?, ?);
+
+countItems:
+SELECT COUNT(*) FROM game_item WHERE snapshot_id = ?;
+
+countRunes:
+SELECT COUNT(*) FROM game_rune WHERE snapshot_id = ?;
+
+countSkills:
+SELECT COUNT(*) FROM game_skill WHERE snapshot_id = ?;
+
+countRecipes:
+SELECT COUNT(*) FROM game_recipe WHERE snapshot_id = ?;
+
+countWeapons:
+SELECT COUNT(*) FROM game_weapon WHERE snapshot_id = ?;
+
+countArmor:
+SELECT COUNT(*) FROM game_armor WHERE snapshot_id = ?;
+
+countAccessories:
+SELECT COUNT(*) FROM game_accessory WHERE snapshot_id = ?;
+
+countRuneSynergies:
+SELECT COUNT(*) FROM game_rune_synergy WHERE snapshot_id = ?;
+
+countSkillEffects:
+SELECT COUNT(*) FROM game_skill_effect WHERE snapshot_id = ?;
+
+countStats:
+SELECT COUNT(*) FROM game_stat WHERE snapshot_id = ?;
+
+countTraits:
+SELECT COUNT(*) FROM game_trait WHERE snapshot_id = ?;
+
+countMaterials:
+SELECT COUNT(*) FROM game_material WHERE snapshot_id = ?;
+
+countSkillFormulas:
+SELECT COUNT(*) FROM game_skill_formula WHERE snapshot_id = ?;
+
+selectItems:
+SELECT source_table, source_row_id, name, grade, category
+FROM game_item
+WHERE snapshot_id = ?
+ORDER BY name;
+
+selectItemByName:
+SELECT source_table, source_row_id, name, grade, category
+FROM game_item
+WHERE snapshot_id = ? AND name = ?;
+
+selectItemByKey:
+SELECT source_table, source_row_id, name, grade, category
+FROM game_item
+WHERE snapshot_id = ? AND source_table = ? AND source_row_id = ?;
+
+selectRuneByKey:
+SELECT source_table, source_row_id, name, grade
+FROM game_rune
+WHERE snapshot_id = ? AND source_table = ? AND source_row_id = ?;
+
+selectSkillByKey:
+SELECT source_table, source_row_id, name, skill_type
+FROM game_skill
+WHERE snapshot_id = ? AND source_table = ? AND source_row_id = ?;
+
+selectRecipeByKey:
+SELECT source_table, source_row_id, name, recipe_kind
+FROM game_recipe
+WHERE snapshot_id = ? AND source_table = ? AND source_row_id = ?;
+
+selectWeaponByKey:
+SELECT source_table, source_row_id, name, weapon_type
+FROM game_weapon
+WHERE snapshot_id = ? AND source_table = ? AND source_row_id = ?;
+
+selectArmorByKey:
+SELECT source_table, source_row_id, name, slot, material
+FROM game_armor
+WHERE snapshot_id = ? AND source_table = ? AND source_row_id = ?;
+
+selectAccessoryByKey:
+SELECT source_table, source_row_id, name, slot
+FROM game_accessory
+WHERE snapshot_id = ? AND source_table = ? AND source_row_id = ?;
+
+selectRuneSynergyByKey:
+SELECT source_table, source_row_id, name
+FROM game_rune_synergy
+WHERE snapshot_id = ? AND source_table = ? AND source_row_id = ?;
+
+selectSkillEffectByKey:
+SELECT source_table, source_row_id, skill_source_row_id, name
+FROM game_skill_effect
+WHERE snapshot_id = ? AND source_table = ? AND source_row_id = ?;
+
+selectStatByKey:
+SELECT source_table, source_row_id, name
+FROM game_stat
+WHERE snapshot_id = ? AND source_table = ? AND source_row_id = ?;
+
+selectTraitByKey:
+SELECT source_table, source_row_id, name
+FROM game_trait
+WHERE snapshot_id = ? AND source_table = ? AND source_row_id = ?;
+
+selectMaterialByKey:
+SELECT source_table, source_row_id, name
+FROM game_material
+WHERE snapshot_id = ? AND source_table = ? AND source_row_id = ?;
+
+selectSkillFormulaByKey:
+SELECT source_table, source_row_id, skill_source_row_id, expression, confidence
+FROM game_skill_formula
+WHERE snapshot_id = ? AND source_table = ? AND source_row_id = ?;
+
+selectRunes:
+SELECT source_table, source_row_id, name, grade
+FROM game_rune
+WHERE snapshot_id = ?
+ORDER BY name;
+
+selectSkills:
+SELECT source_table, source_row_id, name, skill_type
+FROM game_skill
+WHERE snapshot_id = ?
+ORDER BY name;
+
+selectRecipes:
+SELECT source_table, source_row_id, name, recipe_kind
+FROM game_recipe
+WHERE snapshot_id = ?
+ORDER BY name;
+
+searchItems:
+SELECT source_table, source_row_id, name, grade, category
+FROM game_item
+WHERE snapshot_id = ? AND IFNULL(name, '') LIKE ?
+ORDER BY name;
+
+searchRunes:
+SELECT source_table, source_row_id, name, grade
+FROM game_rune
+WHERE snapshot_id = ? AND IFNULL(name, '') LIKE ?
+ORDER BY name;
+
+searchSkills:
+SELECT source_table, source_row_id, name, skill_type
+FROM game_skill
+WHERE snapshot_id = ? AND IFNULL(name, '') LIKE ?
+ORDER BY name;
+
+searchRecipes:
+SELECT source_table, source_row_id, name, recipe_kind
+FROM game_recipe
+WHERE snapshot_id = ? AND IFNULL(name, '') LIKE ?
+ORDER BY name;
+
+selectGameWeapons:
+SELECT source_table, source_row_id, name, weapon_type
+FROM game_weapon
+WHERE snapshot_id = ?
+ORDER BY name;
+
+searchGameWeapons:
+SELECT source_table, source_row_id, name, weapon_type
+FROM game_weapon
+WHERE snapshot_id = ? AND IFNULL(name, '') LIKE ?
+ORDER BY name;
+
+selectArmor:
+SELECT source_table, source_row_id, name, slot, material
+FROM game_armor
+WHERE snapshot_id = ?
+ORDER BY name;
+
+searchArmor:
+SELECT source_table, source_row_id, name, slot, material
+FROM game_armor
+WHERE snapshot_id = ? AND IFNULL(name, '') LIKE ?
+ORDER BY name;
+
+selectAccessories:
+SELECT source_table, source_row_id, name, slot
+FROM game_accessory
+WHERE snapshot_id = ?
+ORDER BY name;
+
+searchAccessories:
+SELECT source_table, source_row_id, name, slot
+FROM game_accessory
+WHERE snapshot_id = ? AND IFNULL(name, '') LIKE ?
+ORDER BY name;
+
+selectRuneSynergies:
+SELECT source_table, source_row_id, name
+FROM game_rune_synergy
+WHERE snapshot_id = ?
+ORDER BY name;
+
+searchRuneSynergies:
+SELECT source_table, source_row_id, name
+FROM game_rune_synergy
+WHERE snapshot_id = ? AND IFNULL(name, '') LIKE ?
+ORDER BY name;
+
+selectSkillEffects:
+SELECT source_table, source_row_id, skill_source_row_id, name
+FROM game_skill_effect
+WHERE snapshot_id = ?
+ORDER BY name;
+
+searchSkillEffects:
+SELECT source_table, source_row_id, skill_source_row_id, name
+FROM game_skill_effect
+WHERE snapshot_id = ? AND IFNULL(name, '') LIKE ?
+ORDER BY name;
+
+selectStats:
+SELECT source_table, source_row_id, name
+FROM game_stat
+WHERE snapshot_id = ?
+ORDER BY name;
+
+searchStats:
+SELECT source_table, source_row_id, name
+FROM game_stat
+WHERE snapshot_id = ? AND IFNULL(name, '') LIKE ?
+ORDER BY name;
+
+selectGameTraits:
+SELECT source_table, source_row_id, name
+FROM game_trait
+WHERE snapshot_id = ?
+ORDER BY name;
+
+searchGameTraits:
+SELECT source_table, source_row_id, name
+FROM game_trait
+WHERE snapshot_id = ? AND IFNULL(name, '') LIKE ?
+ORDER BY name;
+
+selectGameMaterials:
+SELECT source_table, source_row_id, name
+FROM game_material
+WHERE snapshot_id = ?
+ORDER BY name;
+
+searchGameMaterials:
+SELECT source_table, source_row_id, name
+FROM game_material
+WHERE snapshot_id = ? AND IFNULL(name, '') LIKE ?
+ORDER BY name;
+
+selectSkillFormulas:
+SELECT source_table, source_row_id, skill_source_row_id, expression, confidence
+FROM game_skill_formula
+WHERE snapshot_id = ?
+ORDER BY source_row_id;
+
+searchSkillFormulas:
+SELECT source_table, source_row_id, skill_source_row_id, expression, confidence
+FROM game_skill_formula
+WHERE snapshot_id = ? AND source_row_id LIKE ?
+ORDER BY source_row_id;
+
+insertCharacter:
+INSERT OR REPLACE INTO user_character(id, name, level, combat_power, server, notes, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+
+selectCharacter:
+SELECT * FROM user_character WHERE id = ?;
+
+selectCharacters:
+SELECT * FROM user_character ORDER BY name;
+
+deleteEquipment:
+DELETE FROM user_equipment WHERE character_id = ?;
+
+insertEquipment:
+INSERT INTO user_equipment(character_id, slot, source_table, source_row_id, item_level)
+VALUES (?, ?, ?, ?, ?);
+
+selectEquipment:
+SELECT slot, source_table, source_row_id, item_level FROM user_equipment WHERE character_id = ? ORDER BY slot;
+
+deleteWeapons:
+DELETE FROM user_weapon WHERE character_id = ?;
+
+insertWeapon:
+INSERT INTO user_weapon(character_id, slot, source_table, source_row_id, item_level)
+VALUES (?, ?, ?, ?, ?);
+
+selectWeapons:
+SELECT slot, source_table, source_row_id, item_level FROM user_weapon WHERE character_id = ? ORDER BY slot;
+
+deleteTraits:
+DELETE FROM user_traits WHERE character_id = ?;
+
+insertTrait:
+INSERT INTO user_traits(character_id, source_table, source_row_id, rank)
+VALUES (?, ?, ?, ?);
+
+selectTraits:
+SELECT source_table, source_row_id, rank FROM user_traits WHERE character_id = ?;
+
+deleteCharacterRunes:
+DELETE FROM user_runes WHERE character_id = ?;
+
+insertCharacterRune:
+INSERT INTO user_runes(character_id, slot, source_table, source_row_id, rune_level)
+VALUES (?, ?, ?, ?, ?);
+
+selectCharacterRunes:
+SELECT slot, source_table, source_row_id, rune_level FROM user_runes WHERE character_id = ?;
+
+deleteCharacterSkills:
+DELETE FROM user_skills WHERE character_id = ?;
+
+insertCharacterSkill:
+INSERT INTO user_skills(character_id, source_table, source_row_id, loadout)
+VALUES (?, ?, ?, ?);
+
+selectCharacterSkills:
+SELECT source_table, source_row_id, loadout FROM user_skills WHERE character_id = ?;
+
+deleteInventory:
+DELETE FROM user_inventory WHERE character_id = ?;
+
+insertInventory:
+INSERT INTO user_inventory(character_id, source_table, source_row_id, quantity)
+VALUES (?, ?, ?, ?);
+
+selectInventory:
+SELECT source_table, source_row_id, quantity FROM user_inventory WHERE character_id = ?;
+
+deleteMaterials:
+DELETE FROM user_materials WHERE character_id = ?;
+
+insertMaterial:
+INSERT INTO user_materials(character_id, source_table, source_row_id, quantity)
+VALUES (?, ?, ?, ?);
+
+selectMaterials:
+SELECT source_table, source_row_id, quantity FROM user_materials WHERE character_id = ?;
+
+deleteCurrency:
+DELETE FROM user_currency WHERE character_id = ?;
+
+insertCurrency:
+INSERT INTO user_currency(character_id, currency, amount)
+VALUES (?, ?, ?);
+
+selectCurrency:
+SELECT currency, amount FROM user_currency WHERE character_id = ?;
+
+deleteCooking:
+DELETE FROM user_cooking WHERE character_id = ?;
+
+insertCooking:
+INSERT INTO user_cooking(character_id, level)
+VALUES (?, ?);
+
+selectCooking:
+SELECT level FROM user_cooking WHERE character_id = ? LIMIT 1;
+
+deleteGoals:
+DELETE FROM user_goals WHERE character_id = ?;
+
+insertGoal:
+INSERT INTO user_goals(character_id, goal_type, label, active)
+VALUES (?, ?, ?, ?);
+
+selectGoals:
+SELECT goal_type, label, active FROM user_goals WHERE character_id = ?;
+
+deleteBuilds:
+DELETE FROM user_build WHERE character_id = ?;
+
+insertBuild:
+INSERT OR REPLACE INTO user_build(id, character_id, name, snapshot_id, payload_json)
+VALUES (?, ?, ?, ?, ?);
+
+selectBuilds:
+SELECT id, name, snapshot_id FROM user_build WHERE character_id = ? ORDER BY name;
+
+selectCombatSession:
+SELECT * FROM user_combat_session WHERE id = ?;
+
+selectCombatSessions:
+SELECT id, character_id, started_at, ended_at, source_path, log_version
+FROM user_combat_session
+ORDER BY started_at DESC;
+
+insertCombatSession:
+INSERT INTO user_combat_session(id, character_id, started_at, ended_at, source_path, source_hash, log_version, notes)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+
+insertCombatEvent:
+INSERT INTO combat_event(session_id, timestamp, actor, target, skill_id, skill_name, damage, damage_type, critical, heavy, hit, miss, log_type, raw_line, source_hash)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+selectCombatEvents:
+SELECT timestamp, actor, target, skill_id, skill_name, damage, critical, heavy, log_type
+FROM combat_event
+WHERE session_id = ?
+ORDER BY id;
+
+countCombatEvents:
+SELECT COUNT(*) FROM combat_event WHERE session_id = ?;
+
+sumCombatDamage:
+SELECT CAST(COALESCE(SUM(damage), 0) AS INTEGER) FROM combat_event WHERE session_id = ?;
+
+selectCombatSkillTotals:
+SELECT skill_name, skill_id, CAST(COALESCE(SUM(damage), 0) AS INTEGER) AS damage, COUNT(*) AS hits
+FROM combat_event
+WHERE session_id = ?
+GROUP BY skill_name, skill_id
+ORDER BY damage DESC;

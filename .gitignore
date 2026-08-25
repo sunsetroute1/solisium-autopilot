@@ -1,0 +1,27 @@
+.gradle/
+build/
+bin/
+.kotlin/
+.idea/
+*.iml
+local.properties
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+out/
+captures/
+.DS_Store
+Thumbs.db
+
+# Never commit extracted game data, warehouse copies, or archive keys.
+# Patterns are deliberately broad: a key committed once stays in history forever.
+/data/
+/warehouse/
+aes.txt
+aes*.key
+*.key
+*.pem
+secrets.properties
+*.local.json
+source-manifest.json
+**/source-manifest.json

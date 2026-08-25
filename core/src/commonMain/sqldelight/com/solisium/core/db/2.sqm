@@ -1,0 +1,28 @@
+-- Schema version 2 -> 3: shared enchant / item-level stat curves and the link
+-- from an item to the curve it follows.
+CREATE TABLE game_stat_curve (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  snapshot_id TEXT NOT NULL,
+  source_table TEXT NOT NULL,
+  curve_id TEXT NOT NULL,
+  level INTEGER NOT NULL,
+  stat_key TEXT NOT NULL,
+  stat_name TEXT,
+  raw_value INTEGER NOT NULL,
+  confidence TEXT NOT NULL,
+  FOREIGN KEY(snapshot_id) REFERENCES dataset_snapshot(id),
+  UNIQUE(snapshot_id, source_table, curve_id, level, stat_key)
+);
+
+CREATE TABLE game_item_curve (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  snapshot_id TEXT NOT NULL,
+  source_table TEXT NOT NULL,
+  source_row_id TEXT NOT NULL,
+  curve_kind TEXT NOT NULL,
+  curve_source_table TEXT NOT NULL,
+  curve_id TEXT NOT NULL,
+  max_level INTEGER,
+  FOREIGN KEY(snapshot_id) REFERENCES dataset_snapshot(id),
+  UNIQUE(snapshot_id, source_table, source_row_id, curve_kind)
+);

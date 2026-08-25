@@ -1,0 +1,84 @@
+{
+  "schema": "solisium.manual-character",
+  "schemaVersion": 1,
+  "character": {
+    "id": "fixture-character",
+    "name": "Fixture Hero",
+    "level": 60,
+    "combat_power": 7128,
+    "server": "fixture",
+    "updated_at": "2026-08-24T00:00:00Z"
+  },
+  "equipment": [
+    {
+      "slot": "head",
+      "source_table": "TLItemLooks_Equip",
+      "source_row_id": "fixture_head",
+      "item_level": 9
+    }
+  ],
+  "weapons": [
+    {
+      "slot": "main",
+      "source_table": "TLItemLooks_Equip",
+      "source_row_id": "fixture_sword",
+      "item_level": 9
+    }
+  ],
+  "traits": [
+    {
+      "source_table": "TLTrait",
+      "source_row_id": "fixture_trait",
+      "rank": 4
+    }
+  ],
+  "runes": [
+    {
+      "slot": "weapon_1",
+      "source_table": "TLRuneInfo",
+      "source_row_id": "fixture_rune",
+      "rune_level": 5
+    }
+  ],
+  "skills": [
+    {
+      "source_table": "TLSkill",
+      "source_row_id": "fixture_skill",
+      "loadout": "pve"
+    }
+  ],
+  "inventory": [
+    {
+      "source_table": "TLItemLooks",
+      "source_row_id": "fixture_stone",
+      "quantity": 12
+    }
+  ],
+  "materials": [
+    {
+      "source_table": "TLItemLooks",
+      "source_row_id": "fixture_ore",
+      "quantity": 40
+    }
+  ],
+  "currency": [
+    { "currency": "lucent", "amount": 1500 },
+    { "currency": "sollant", "amount": 80000 }
+  ],
+  "cooking": { "level": 18 },
+  "goals": [
+    {
+      "goal_type": "upgrade",
+      "label": "main weapon to item level 9",
+      "active": true
+    }
+  ],
+  "builds": [
+    {
+      "id": "fixture-build-pve",
+      "name": "PVE",
+      "snapshot_id": null,
+      "payload_json": "{\"notes\":\"synthetic fixture\"}"
+    }
+  ]
+}

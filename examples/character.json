@@ -1,0 +1,41 @@
+{
+  "schema": "solisium.manual-character",
+  "schemaVersion": 1,
+  "character": {
+    "id": "replace-me",
+    "name": "Your character",
+    "level": 60,
+    "combat_power": 0,
+    "server": ""
+  },
+  "equipment": [
+    {
+      "slot": "head",
+      "source_table": "TLItemLooks_Equip",
+      "source_row_id": "row-id-from-warehouse",
+      "item_level": 9
+    }
+  ],
+  "weapons": [
+    {
+      "slot": "main",
+      "source_table": "TLItemLooks_Equip",
+      "source_row_id": "row-id-from-warehouse",
+      "item_level": 9
+    }
+  ],
+  "traits": [
+    {
+      "source_table": "TLTrait",
+      "source_row_id": "row-id-from-warehouse",
+      "rank": 4
+    }
+  ],
+  "runes": [],
+  "skills": [],
+  "inventory": [],
+  "materials": [],
+  "currency": [],
+  "goals": [],
+  "builds": []
+}
