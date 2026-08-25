@@ -38,6 +38,7 @@ fun AppShell(model: AppModel) {
             when (model.screen) {
                 Screen.Overview -> OverviewScreen(model)
                 Screen.Catalog -> CatalogScreen(model)
+                Screen.Character -> CharacterScreen(model)
                 Screen.Combat -> CombatScreen(model)
                 Screen.Data -> DataScreen(model)
             }

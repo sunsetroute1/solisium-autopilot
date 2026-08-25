@@ -155,27 +155,9 @@ private fun importCombatLogs(db: SolisiumDatabase, pathArg: String?, characterId
 }
 
 private fun combatLogFiles(pathArg: String?): List<Path> {
-    if (pathArg == null) {
-        val folder = CombatLogPaths.detect()
-            ?: error("combat log folder not found under %LOCALAPPDATA%\\TL\\Saved\\CombatLogs")
-        val files = CombatLogPaths.listLogFiles(folder)
-        if (files.isEmpty()) error("no .txt files in $folder")
-        val newest = files.first()
-        if (files.size > 1) {
-            System.err.println("warning: importing newest ${newest.fileName}; ${files.size - 1} older log(s) skipped")
-        }
-        return listOf(newest)
-    }
-    val path = Path.of(pathArg)
-    return when {
-        Files.isDirectory(path) -> {
-            val files = CombatLogPaths.listLogFiles(path)
-            if (files.isEmpty()) error("no .txt files in $path")
-            files
-        }
-        Files.isRegularFile(path) -> listOf(path)
-        else -> error("path not found: $path")
-    }
+    val selection = CombatLogPaths.selectForImport(pathArg)
+    selection.warnings.forEach { System.err.println("warning: $it") }
+    return selection.files
 }
 
 private fun warnUnresolvedLoadout(db: SolisiumDatabase, characterId: String?) {

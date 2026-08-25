@@ -219,6 +219,43 @@ fun ErrorState(message: String) {
     }
 }
 
+/**
+ * The one button style in the app. `primary` marks the action a screen exists for;
+ * everything else is quieter so a panel never has two competing calls to action.
+ */
+@Composable
+fun ActionButton(
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    primary: Boolean = false,
+    enabled: Boolean = true,
+) {
+    val interaction = remember { MutableInteractionSource() }
+    val hovered by interaction.collectIsHoveredAsState()
+    val tint = if (primary) Palette.Accent else Palette.TextMuted
+    val fill by animateColorAsState(
+        when {
+            !enabled -> Color.Transparent
+            hovered -> tint.copy(alpha = 0.20f)
+            primary -> Palette.AccentSoft
+            else -> Palette.SurfaceHigh
+        },
+    )
+    val content = if (enabled) tint else Palette.TextFaint
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(7.dp))
+            .background(fill)
+            .border(1.dp, content.copy(alpha = if (enabled) 0.45f else 0.2f), RoundedCornerShape(7.dp))
+            .hoverable(interaction)
+            .let { if (enabled) it.clickable(interactionSource = interaction, indication = null, onClick = onClick) else it }
+            .padding(horizontal = Spacing.md, vertical = 7.dp),
+    ) {
+        Text(label, style = MaterialTheme.typography.bodySmall, color = content)
+    }
+}
+
 @Composable
 fun Divider(modifier: Modifier = Modifier) {
     Box(modifier.fillMaxWidth().height(1.dp).background(Palette.Border))

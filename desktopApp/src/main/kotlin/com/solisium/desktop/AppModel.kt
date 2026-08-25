@@ -4,15 +4,25 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.solisium.core.db.JvmDatabase
+import com.solisium.core.db.SolisiumDatabase
 import com.solisium.core.domain.CatalogCounts
 import com.solisium.core.domain.CombatSessionSummary
 import com.solisium.core.domain.DatasetSnapshot
 import com.solisium.core.domain.GameCurvePoint
 import com.solisium.core.domain.GameItemCurve
 import com.solisium.core.domain.GameItemStat
+import com.solisium.core.domain.ResolvedCharacterSheet
+import com.solisium.core.domain.UserCharacter
 import com.solisium.core.query.BuildMismatch
 import com.solisium.core.query.CatalogQuery
+import com.solisium.core.source.CombatLogDataSource
+import com.solisium.core.source.CombatLogPaths
+import com.solisium.core.source.ImportReceipt
+import com.solisium.core.source.ImportRequest
 import com.solisium.core.source.InstalledGameDataSource
+import com.solisium.core.source.ManualImportDataSource
+import com.solisium.core.source.TLHelperDataSource
+import com.solisium.core.source.WarehouseLocator
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlinx.coroutines.CoroutineScope
@@ -34,8 +44,20 @@ sealed interface Load<out T> {
 enum class Screen(val label: String, val blurb: String) {
     Overview("Overview", "Dataset provenance and catalog coverage"),
     Catalog("Catalog", "Search extracted game data"),
+    Character("Character", "Your loadout, resolved against the dataset"),
     Combat("Combat", "Observed damage from official logs"),
     Data("Data", "Snapshots and imports"),
+}
+
+/** Outcome of an import, kept so the UI can report exactly what landed. */
+data class ImportOutcome(
+    val label: String,
+    val receipts: List<ImportReceipt>,
+    val error: String? = null,
+) {
+    val imported: Int get() = receipts.sumOf { it.recordsImported }
+    val skipped: Int get() = receipts.sumOf { it.recordsSkipped }
+    val warnings: List<String> get() = receipts.flatMap { it.warnings }
 }
 
 /** A catalog kind rendered as a uniform row, so one list view serves every type. */
@@ -83,8 +105,9 @@ data class Overview(
 class AppModel(private val scope: CoroutineScope) {
     /** One JDBC connection shared by every screen, so calls are serialized. */
     private val dbLock = Mutex()
-    private val query: CatalogQuery? by lazy(LazyThreadSafetyMode.NONE) { openQuery() }
     private var openError: String? = null
+    private val database: SolisiumDatabase? by lazy(LazyThreadSafetyMode.NONE) { openDatabase() }
+    private val query: CatalogQuery? by lazy(LazyThreadSafetyMode.NONE) { database?.let { CatalogQuery(it) } }
 
     var screen by mutableStateOf(Screen.Overview)
         private set
@@ -113,8 +136,28 @@ class AppModel(private val scope: CoroutineScope) {
     var snapshots by mutableStateOf<Load<List<DatasetSnapshot>>>(Load.Loading)
         private set
 
+    var characters by mutableStateOf<Load<List<UserCharacter>>>(Load.Loading)
+        private set
+
+    var characterSheet by mutableStateOf<Load<ResolvedCharacterSheet>?>(null)
+        private set
+
+    var selectedCharacterId by mutableStateOf<String?>(null)
+        private set
+
+    /** True while an import runs, so the UI can disable the buttons rather than queue work. */
+    var importing by mutableStateOf(false)
+        private set
+
+    var lastImport by mutableStateOf<ImportOutcome?>(null)
+        private set
+
     private var searchJob: Job? = null
     private var detailJob: Job? = null
+
+    /** Suggested defaults for the import buttons; null when nothing was detected. */
+    val detectedWarehouse: Path? by lazy(LazyThreadSafetyMode.NONE) { runCatching { WarehouseLocator().find() }.getOrNull() }
+    val detectedLogFolder: Path? by lazy(LazyThreadSafetyMode.NONE) { runCatching { CombatLogPaths.detect() }.getOrNull() }
 
     init {
         refreshOverview()
@@ -126,8 +169,87 @@ class AppModel(private val scope: CoroutineScope) {
         when (target) {
             Screen.Overview -> refreshOverview()
             Screen.Catalog -> if (rows is Load.Loading) loadRows()
+            Screen.Character -> loadCharacters()
             Screen.Combat -> loadCombat()
             Screen.Data -> loadSnapshots()
+        }
+    }
+
+    fun selectCharacter(id: String) {
+        selectedCharacterId = id
+        characterSheet = Load.Loading
+        scope.launch {
+            characterSheet = guard {
+                val q = requireQuery()
+                dbLock.withLock {
+                    withContext(Dispatchers.IO) {
+                        val snapshotId = q.activeSnapshotId()
+                        q.resolveCharacter(id, snapshotId) ?: error("character $id not found")
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Imports run through the same `DataSource` adapters the CLI uses. The UI adds no
+     * mapping of its own; it only chooses a file and reports the receipt.
+     */
+    fun importWarehouse(path: Path) = runImport("Game data") {
+        listOf(TLHelperDataSource().importInto(it, ImportRequest(path = path.toString(), activate = true)))
+    }
+
+    fun importCombatLogs(path: Path?) = runImport("Combat logs") { db ->
+        val selection = CombatLogPaths.selectForImport(path?.toString())
+        val source = CombatLogDataSource()
+        selection.files.map { file ->
+            source.importInto(db, ImportRequest(path = file.toString(), content = Files.readString(file)))
+        }
+    }
+
+    fun importCharacter(path: Path) = runImport("Character") { db ->
+        listOf(
+            ManualImportDataSource().importInto(
+                db,
+                ImportRequest(path = path.toString(), content = Files.readString(path)),
+            ),
+        )
+    }
+
+    private fun runImport(label: String, block: (SolisiumDatabase) -> List<ImportReceipt>) {
+        if (importing) return
+        importing = true
+        lastImport = null
+        scope.launch {
+            val outcome = try {
+                val db = database ?: error(openError ?: "database unavailable")
+                val receipts = dbLock.withLock { withContext(Dispatchers.IO) { block(db) } }
+                ImportOutcome(label, receipts)
+            } catch (t: Throwable) {
+                if (t is kotlinx.coroutines.CancellationException) throw t
+                ImportOutcome(label, emptyList(), t.message ?: t::class.simpleName ?: "import failed")
+            }
+            lastImport = outcome
+            importing = false
+            // Everything on screen depends on the active snapshot, so refresh broadly.
+            refreshOverview()
+            loadSnapshots()
+            loadRows()
+            loadCombat()
+            loadCharacters()
+        }
+    }
+
+    private fun loadCharacters() {
+        scope.launch {
+            val loaded = guard {
+                val q = requireQuery()
+                dbLock.withLock { withContext(Dispatchers.IO) { q.characters() } }
+            }
+            characters = loaded
+            // Most people track one character, so an extra click to see it is pure friction.
+            val only = (loaded as? Load.Ok)?.value?.singleOrNull()
+            if (only != null && selectedCharacterId == null) selectCharacter(only.id)
         }
     }
 
@@ -275,8 +397,8 @@ class AppModel(private val scope: CoroutineScope) {
 
     private fun requireQuery(): CatalogQuery = query ?: error(openError ?: "database unavailable")
 
-    private fun openQuery(): CatalogQuery? = try {
-        CatalogQuery(JvmDatabase.openOrCreate(databasePath()))
+    private fun openDatabase(): SolisiumDatabase? = try {
+        JvmDatabase.openOrCreate(databasePath())
     } catch (t: Throwable) {
         openError = "Could not open ${databasePath()}: ${t.message}"
         null

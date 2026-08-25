@@ -6,7 +6,7 @@ This is not a bot, overlay injector, or game client. It never writes to the game
 
 ## Current status
 
-Phase 1–5 plus a live `24829515` catalog import: architecture, schema (version 3), CLI import/query, a Compose Desktop reader, typed gear/trait/effect/material/stat mapping, per-item base stat values, shared enchant and item-level curves, and manual character JSON.
+Phase 1–5 plus a live `24829515` catalog import: architecture, schema (version 3), CLI import/query, a Compose Desktop app that both imports and reads, typed gear/trait/effect/material/stat mapping, per-item base stat values, shared enchant and item-level curves, and manual character JSON.
 
 Stat values are stored as raw client integers, curve values as the client's cumulative total at a level, and neither is combined with the other because that stacking rule is unverified. Formula rows are never used to produce damage numbers.
 
@@ -30,7 +30,9 @@ Read these first:
 .\gradlew.bat :desktopApp:run
 ```
 
-Compose Desktop on JVM 17, reading the same `~/.solisium/solisium.sqlite` as the CLI. Four screens: Overview (provenance and coverage), Catalog (search with a stats and curve detail pane), Combat (observed per-skill damage), Data (snapshots). Import is still a CLI action; the UI only reads.
+Compose Desktop on JVM 17, reading the same `~/.solisium/solisium.sqlite` as the CLI (override with `SOLISIUM_DB`). Five screens: Overview (provenance and coverage), Catalog (search with a stats and curve detail pane), Character (resolved loadout), Combat (observed per-skill damage), Data (import and snapshot activation).
+
+The app is read-only with respect to the *game*; it does import into its own database. Data can import a TL-Helper warehouse, a combat log, or a character JSON, so the CLI is optional.
 
 Package a Windows installer with `.\gradlew.bat :desktopApp:packageMsi`.
 

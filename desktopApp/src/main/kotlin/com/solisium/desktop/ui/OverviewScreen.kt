@@ -68,7 +68,11 @@ private fun OverviewBody(overview: Overview) {
             .padding(horizontal = Spacing.xxl),
     ) {
         if (overview.buildWarning != null) {
-            WarningBanner(overview.buildWarning)
+            WarningBanner(
+                overview.buildWarning,
+                detail = "The game has been patched since this dataset was extracted. " +
+                    "Values may no longer match.",
+            )
             Spacer(Modifier.height(Spacing.lg))
         }
 
@@ -166,7 +170,7 @@ private fun CountGrid(counts: CatalogCounts) {
 }
 
 @Composable
-private fun WarningBanner(message: String) {
+fun WarningBanner(message: String, label: String = "stale data", detail: String? = null) {
     Column(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
             .background(Palette.Unverified.copy(alpha = 0.10f))
@@ -174,16 +178,14 @@ private fun WarningBanner(message: String) {
             .padding(Spacing.md),
     ) {
         Row {
-            Badge("stale data", Palette.Unverified)
+            Badge(label, Palette.Unverified)
         }
         Spacer(Modifier.height(Spacing.sm))
         Text(message, style = MaterialTheme.typography.bodyMedium, color = Palette.Text)
-        Spacer(Modifier.height(Spacing.xs))
-        Text(
-            "The game has been patched since this dataset was extracted. Values may no longer match.",
-            style = MaterialTheme.typography.bodySmall,
-            color = Palette.TextMuted,
-        )
+        if (detail != null) {
+            Spacer(Modifier.height(Spacing.xs))
+            Text(detail, style = MaterialTheme.typography.bodySmall, color = Palette.TextMuted)
+        }
     }
 }
 

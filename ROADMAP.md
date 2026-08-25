@@ -44,13 +44,15 @@ The collector now records every table package it can see (`tablePackageNames` in
 
 CLI: `query snapshots|counts|items|weapons|armor|accessories|traits|runes|synergies|skills|effects|formulas|recipes|materials|stats|item-stats|item-curves|lookup|characters|character|sessions|session`, `--name` filter (`query item-stats --row <item-row-id>`), `activate`, `alias`, `probe`. Character query resolves loadout keys against the active snapshot (or `--snapshot`) and labels missing keys `UNRESOLVED` instead of guessing names. `query session --id` prints observed per-skill damage from logged rows only.
 
-Desktop UI: `desktopApp`, Compose Multiplatform 1.8.2 on JVM 17, run with `gradlew :desktopApp:run`. Four screens — Overview (provenance, coverage, stale-dataset banner), Catalog (search across all twelve catalog kinds with a detail pane showing base stats and plotted upgrade curves), Combat (observed per-skill damage), Data (snapshots, activate). It reads the same `~/.solisium/solisium.sqlite` as the CLI.
+Desktop UI: `desktopApp`, Compose Multiplatform 1.8.2 on JVM 17, run with `gradlew :desktopApp:run`. Five screens — Overview (provenance, coverage, stale-dataset banner), Catalog (search across all twelve catalog kinds with a detail pane showing base stats and plotted upgrade curves), Character (resolved loadout, slot by slot), Combat (observed per-skill damage), Data (import plus snapshot activation). It reads the same `~/.solisium/solisium.sqlite` as the CLI, or `%SOLISIUM_DB%` when set.
+
+The CLI is no longer required to get data in. Data imports warehouses, combat logs, and character JSON through the same `DataSource` adapters the CLI uses, auto-detecting the warehouse (`WarehouseLocator`) and log folder (`CombatLogPaths`) and disabling the action honestly when neither is present. Import runs off the UI thread under the shared database mutex, and the receipt is shown with its warnings rather than a bare success.
 
 The UI holds no game logic: it calls `CatalogQuery` and renders what comes back. It never sums a base stat with a curve value, because that stacking rule is unverified. Provenance badges are attached to values rather than to screens, so a confidence label always travels with the number it describes.
 
 ## Phase 5 — Character-state ingestion (manual JSON done)
 
-Most reliable non-OCR source: **manual / user-supplied JSON**. `ManualImportDataSource` imports identity plus equipment, weapons, traits, runes, skills, inventory, materials, currency, cooking, goals, and named builds. Reimport of the same `character.id` replaces child rows and preserves `created_at`. Example document: `examples/character.json`. CLI: `import --source manual`, `query characters`, `query character --id`.
+Most reliable non-OCR source: **manual / user-supplied JSON**. `ManualImportDataSource` imports identity plus equipment, weapons, traits, runes, skills, inventory, materials, currency, cooking, goals, and named builds. Reimport of the same `character.id` replaces child rows and preserves `created_at`. Example document: `examples/character.json`. CLI: `import --source manual`, `query characters`, `query character --id`. Desktop: the Character screen, which resolves every loadout key against the active snapshot, keeps the slot visible next to the resolved item name, and badges unresolved keys `not in dataset` rather than guessing.
 
 Do not invent a local save parser. Hashed `.sav` files under `%LOCALAPPDATA%\TL\Saved\SaveGames` are detected and left unread.
 

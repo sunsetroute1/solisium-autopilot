@@ -72,7 +72,7 @@ Solisium Autopilot is the decision companion. Rules:
 | --- | --- | --- |
 | `core` | common / jvm / android | Domain, SQLDelight, `DataSource` contracts, combat-log parser, mapping |
 | `cli` | jvm | Windows command line: import, query, parse-log |
-| `desktopApp` | jvm | Compose Desktop reader over `core`. No queries of its own, no game math. |
+| `desktopApp` | jvm | Compose Desktop front end over `core`. No SQL of its own, no game math; imports by calling `DataSource`. |
 | `androidApp` | android | Empty shell until Phase 10. No game-install integration. |
 
 Windows-only code (Steam detection, warehouse import from `D:\TL_Data`) lives in `jvmMain`. Shared parsers and schema live in `commonMain`.
@@ -156,6 +156,7 @@ The JVM CLI came first. The Compose Desktop app (`desktopApp`) was added once th
 Rules the desktop UI follows, and any future UI must too:
 
 - Read through `CatalogQuery` / `SnapshotService` only. No SQL, no derived game values in the UI.
+- Import by calling a `DataSource`. Path-selection rules that both front ends need (which combat logs an import covers) live in `core`, not in the UI.
 - Show a confidence label next to a value, not once per screen. A number and its provenance travel together.
 - Never combine values whose combination rule is unverified. Raw client integers are shown as integers, never as percentages.
 - Distinguish "this table is empty" from "this query failed". Empty coverage is a fact about the dataset; an error is a fact about us.
