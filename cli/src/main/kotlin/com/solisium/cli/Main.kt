@@ -72,6 +72,7 @@ private fun printHelp() {
         solisium query item-stats --row <item-row-id> [--snapshot <id-or-alias>]
         solisium query item-curves --row <item-row-id> [--snapshot <id-or-alias>]
         solisium query lookup --table <source_table> --row <source_row_id> [--snapshot <id-or-alias>]
+        solisium query advise [--goal ranged|melee|magic|tank|support] [--character <id>] [--meta] [--slug <questlog-slug>]
         solisium query characters
         solisium query character --id <character-id> [--snapshot <id-or-alias>]
         solisium query sessions
@@ -110,7 +111,7 @@ private fun runProbe() {
                 "folder not found"
             },
     )
-    println("public_repo available=false live scrape is off")
+    println("public_repo import=false; Questlog/TLDB overlay is `query advise --meta` / `--slug` or the Build screen")
     val dbFile = dbPath(emptyMap())
     if (!Files.isRegularFile(dbFile)) {
         println("local_db not created yet ($dbFile)")
@@ -210,7 +211,7 @@ private fun runQuery(args: List<String>) {
     val snapshotKinds = setOf(
         "counts", "items", "weapons", "armor", "accessories", "traits", "runes", "synergies",
         "skills", "effects", "formulas", "recipes", "materials", "stats", "item-stats",
-        "item-curves", "lookup",
+        "item-curves", "lookup", "advise",
     )
     val snapshot = when {
         snapshotRef != null -> query.snapshotService().resolve(snapshotRef)
@@ -308,6 +309,41 @@ private fun runQuery(args: List<String>) {
                 println("unresolved table=$table row=$row")
             } else {
                 println("${hit.kind}\t${hit.name ?: "-"}\t${hit.detail ?: "-"}\t${hit.sourceTable}\t${hit.sourceRowId}")
+            }
+        }
+        "advise" -> {
+            val snapshotId = snapshot?.id ?: error("no active snapshot; import game data first")
+            val goal = com.solisium.core.query.BuildGoal.fromId(flags["goal"])
+            var community = if (flags.containsKey("meta") || args.contains("--meta")) {
+                val raw = com.solisium.core.meta.CommunityMetaClient().fetch(goal)
+                com.solisium.core.meta.CommunityOverlay.bind(raw, query, snapshotId)
+            } else {
+                null
+            }
+            flags["slug"]?.let { slug ->
+                val raw = com.solisium.core.meta.CommunityMetaClient().fetchCharacter(slug, community)
+                community = com.solisium.core.meta.CommunityOverlay.bind(raw, query, snapshotId)
+            }
+            val advice = com.solisium.core.query.BuildAdvisor(query).advise(
+                snapshotId,
+                goal,
+                flags["character"] ?: flags["id"],
+                community,
+            )
+            println("goal=${advice.goalId} snapshot=${advice.snapshotId} build=${advice.snapshotBuild ?: "-"}")
+            println(advice.scoringNote)
+            advice.briefing.forEach { println("brief $it") }
+            advice.slots.forEach { slot ->
+                val you = slot.equipped?.let { "you=${it.name}:${it.score}" } ?: "you=-"
+                val top = slot.recommended.firstOrNull()?.let { "top=${it.name}:${it.score}" } ?: "top=-"
+                println("slot ${slot.slot} $you $top gap=${slot.gap ?: "-"}")
+                slot.recommended.take(3).forEach { item ->
+                    println("  ${item.score}\t${item.name}\t${item.kind}\tcommunity=${item.communityHits}")
+                }
+            }
+            community?.let { meta ->
+                println("meta sources=${meta.sources.joinToString(",")} patch=${meta.patchLabel ?: "-"} items=${meta.items.size} skills=${meta.skills.size} builds=${meta.builds.size}")
+                meta.warnings.forEach { println("warning: $it") }
             }
         }
         "characters" -> query.characters().forEach { character ->

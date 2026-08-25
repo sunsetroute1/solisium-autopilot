@@ -17,6 +17,7 @@ Thumbs.db
 # Patterns are deliberately broad: a key committed once stays in history forever.
 /data/
 /warehouse/
+/tmp-probe/
 aes.txt
 aes*.key
 *.key

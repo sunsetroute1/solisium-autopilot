@@ -35,3 +35,18 @@ class DisplayNameTest {
         assertNull(DisplayName.fromEnums("None", null))
     }
 }
+
+class StatKeyLabelTest {
+    @Test
+    fun prefersWarehouseNameAndDisambiguatesCollisions() {
+        assertEquals("Attack Power", StatKeyLabel.of("attack_power_main_hand", "Attack Power"))
+        val labels = StatKeyLabel.map(
+            listOf(
+                "attack_power_main_hand" to "Attack Power",
+                "bonus_attack_power_main_hand" to "Attack Power",
+            ),
+        )
+        assertEquals("Attack Power (attack_power_main_hand)", labels["attack_power_main_hand"])
+        assertEquals("Attack Power (bonus_attack_power_main_hand)", labels["bonus_attack_power_main_hand"])
+    }
+}

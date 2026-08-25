@@ -19,7 +19,6 @@ import androidx.compose.ui.unit.dp
 import com.solisium.core.domain.CombatSessionSummary
 import com.solisium.desktop.AppModel
 import com.solisium.desktop.Load
-import com.solisium.desktop.theme.MonoStyle
 import com.solisium.desktop.theme.Palette
 import com.solisium.desktop.theme.Spacing
 
@@ -102,23 +101,14 @@ private fun SessionCard(session: CombatSessionSummary) {
             Spacer(Modifier.height(Spacing.lg))
             SectionLabel("By skill")
             Spacer(Modifier.height(Spacing.sm))
-            session.skillTotals.sortedByDescending { it.observedDamageSum }.forEach { total ->
-                Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        total.skillName ?: total.skillId ?: "unnamed",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Palette.Text,
-                        modifier = Modifier.weight(1f),
-                        maxLines = 1,
-                    )
-                    Text(
-                        "${total.hits.format()} hits",
-                        style = MonoStyle,
-                        color = Palette.TextFaint,
-                        modifier = Modifier.padding(end = Spacing.md),
-                    )
-                    Text(total.observedDamageSum.format(), style = MonoStyle, color = Palette.Text)
-                }
+            val ranked = session.skillTotals.sortedByDescending { it.observedDamageSum }
+            val peak = ranked.first().observedDamageSum.coerceAtLeast(1L)
+            ranked.forEach { total ->
+                ShareBar(
+                    label = total.skillName ?: total.skillId ?: "unnamed",
+                    share = total.observedDamageSum.toDouble() / peak,
+                    trailing = "${total.hits.format()} hits · ${total.observedDamageSum.format()}",
+                )
             }
         }
 

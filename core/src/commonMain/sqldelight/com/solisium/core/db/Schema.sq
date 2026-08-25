@@ -492,6 +492,12 @@ FROM game_item_stat
 WHERE snapshot_id = ? AND source_row_id = ?
 ORDER BY scope, stat_key;
 
+selectAllItemStats:
+SELECT source_table, source_row_id, stat_key, stat_name, raw_value, scope, confidence
+FROM game_item_stat
+WHERE snapshot_id = ?
+ORDER BY source_row_id, stat_key;
+
 insertGameStatCurve:
 INSERT OR REPLACE INTO game_stat_curve(
   snapshot_id, source_table, curve_id, level, stat_key, stat_name, raw_value, confidence

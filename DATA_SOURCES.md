@@ -41,7 +41,7 @@ Status values: **verified** (observed in client data, warehouse, or official log
 | Observed DPS | `sum(damage) / session duration` from the log | High as a log statistic | Yes | No | verified meaning: observed, not modeled |
 | Modeled DPS | Skill formulas + mitigation/contest curves | Incomplete (see unknown formulas) | No | Yes | unavailable as HIGH confidence |
 | Market prices | TLDB `https://tldb.info/api/ah/prices` (personal, unsupported) | Unofficial | Optional online | Yes | optional |
-| Questlog static catalog | Public tRPC read procedures (1,752 items, 132 runes, 210 skill sets, 544 masteries as of extraction-report) | Community mirror, change-prone | Optional; default off | Yes | optional reference only |
+| Questlog catalog / builds | Public tRPC read: `database.searchEntities`, `skillBuilder.getSkillSets` (user-initiated) | Community mirror, change-prone | Optional; default off | Yes | optional overlay on Build |
 | Blessings | Not in Questlog builder payloads (TL-Helper out of scope) | — | No | Yes | unavailable |
 
 ## Adapter notes
@@ -77,7 +77,7 @@ Accepts `solisium.manual-character` JSON for `user_character` plus loadout table
 
 ### PublicRepositoryDataSource
 
-Stub. Live Questlog tRPC fetch is undocumented and ToS-sensitive. User-pasted JSON is `ManualImportDataSource`, not this adapter.
+Does not import into `game_*` tables. Live Questlog tRPC (`database.searchEntities`, `skillBuilder.getSkillSets`, `characterBuilder.getCharacter`) and the TLDB homepage patch banner are a **user-initiated overlay** on the Build screen / `solisium query advise --meta` / `--slug`. Public character listing (`getCharacters`) is 403 without auth; a pasted slug is required. Missing slugs return `{status: NOT_FOUND}`. Results are labeled community, never extracted client data. User-pasted JSON remains `ManualImportDataSource`.
 
 ## What changes between patches
 

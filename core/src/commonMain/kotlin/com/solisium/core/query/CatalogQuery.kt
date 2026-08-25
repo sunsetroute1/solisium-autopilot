@@ -87,6 +87,14 @@ class CatalogQuery(private val db: SolisiumDatabase) {
             )
         }
 
+    fun allItemStats(snapshotId: String): List<GameItemStat> =
+        db.schemaQueries.selectAllItemStats(snapshotId).executeAsList().map {
+            GameItemStat(
+                snapshotId, it.source_table, it.source_row_id, it.stat_key,
+                it.stat_name, it.raw_value, it.scope, it.confidence,
+            )
+        }
+
     fun items(snapshotId: String, nameContains: String? = null): List<GameItem> {
         if (nameContains.isNullOrBlank()) {
             return db.schemaQueries.selectItems(snapshotId).executeAsList().map {

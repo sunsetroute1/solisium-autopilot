@@ -17,7 +17,7 @@ import com.solisium.desktop.ui.AppShell
 
 fun main() = application {
     val state = rememberWindowState(
-        size = DpSize(1240.dp, 820.dp),
+        size = DpSize(1320.dp, 860.dp),
         position = WindowPosition.Aligned(androidx.compose.ui.Alignment.Center),
     )
     Window(

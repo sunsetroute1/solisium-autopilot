@@ -30,7 +30,7 @@ Read these first:
 .\gradlew.bat :desktopApp:run
 ```
 
-Compose Desktop on JVM 17, reading the same `~/.solisium/solisium.sqlite` as the CLI (override with `SOLISIUM_DB`). Five screens: Overview (provenance and coverage), Catalog (search with a stats and curve detail pane), Character (resolved loadout), Combat (observed per-skill damage), Data (import and snapshot activation).
+Compose Desktop on JVM 17, reading the same `~/.solisium/solisium.sqlite` as the CLI (override with `SOLISIUM_DB`). Six screens: Overview (provenance and coverage), Build (goal picker, extracted ranks, optional Questlog/TLDB overlay), Catalog (search with a stats and curve detail pane), Character (resolved loadout), Combat (observed per-skill damage), Data (import and snapshot activation).
 
 The app is read-only with respect to the *game*; it does import into its own database. Data can import a TL-Helper warehouse, a combat log, or a character JSON, so the CLI is optional.
 
@@ -96,6 +96,7 @@ solisium query item-curves --row bow_c_t1_nomal_001
 solisium query characters
 solisium query character --id <id>
 solisium query lookup --table TLItemLooks_Equip --row <row-id>
+solisium query advise [--goal ranged|melee|magic|tank|support] [--character <id>] [--meta] [--slug <questlog-slug>]
 solisium query sessions
 solisium query session --id <session-id>
 solisium logs

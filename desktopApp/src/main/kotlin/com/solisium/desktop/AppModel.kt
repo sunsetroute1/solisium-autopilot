@@ -5,8 +5,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.solisium.core.db.JvmDatabase
 import com.solisium.core.db.SolisiumDatabase
+import com.solisium.core.domain.BuildAdvice
 import com.solisium.core.domain.CatalogCounts
 import com.solisium.core.domain.CombatSessionSummary
+import com.solisium.core.domain.CommunitySnapshot
 import com.solisium.core.domain.DatasetSnapshot
 import com.solisium.core.domain.DisplayName
 import com.solisium.core.domain.GameCurvePoint
@@ -14,6 +16,11 @@ import com.solisium.core.domain.GameItemCurve
 import com.solisium.core.domain.GameItemStat
 import com.solisium.core.domain.ResolvedCharacterSheet
 import com.solisium.core.domain.UserCharacter
+import com.solisium.core.meta.CommunityMetaClient
+import com.solisium.core.meta.CommunityOverlay
+import com.solisium.core.meta.OllamaNarrator
+import com.solisium.core.query.BuildAdvisor
+import com.solisium.core.query.BuildGoal
 import com.solisium.core.query.BuildMismatch
 import com.solisium.core.query.CatalogQuery
 import com.solisium.core.secret.AesKey
@@ -49,6 +56,7 @@ sealed interface Load<out T> {
 
 enum class Screen(val label: String, val blurb: String) {
     Overview("Home", "What to do next"),
+    Build("Build", "What kind of build do you want?"),
     Catalog("Gear", "Search by the name you see in game"),
     Character("Character", "Your loadout"),
     Combat("Combat", "Damage from official logs"),
@@ -177,6 +185,29 @@ class AppModel(private val scope: CoroutineScope) {
     var selectedCharacterId by mutableStateOf<String?>(null)
         private set
 
+    var goal by mutableStateOf(BuildGoal.RangedDps)
+        private set
+
+    var advice by mutableStateOf<Load<BuildAdvice>>(Load.Loading)
+        private set
+
+    var community by mutableStateOf<Load<CommunitySnapshot>?>(null)
+        private set
+
+    var narration by mutableStateOf<String?>(null)
+        private set
+
+    var metaRefreshing by mutableStateOf(false)
+        private set
+
+    var questlogSlug by mutableStateOf("")
+        private set
+
+    var characterFetching by mutableStateOf(false)
+        private set
+
+    private val metaByGoal = mutableMapOf<BuildGoal, CommunitySnapshot>()
+
     /** True while an import runs, so the UI can disable the buttons rather than queue work. */
     var importing by mutableStateOf(false)
         private set
@@ -206,6 +237,10 @@ class AppModel(private val scope: CoroutineScope) {
         screen = target
         when (target) {
             Screen.Overview -> refreshOverview()
+            Screen.Build -> {
+                loadCharacters()
+                refreshAdvice()
+            }
             Screen.Catalog -> if (rows is Load.Loading) loadRows()
             Screen.Character -> loadCharacters()
             Screen.Combat -> loadCombat()
@@ -363,6 +398,7 @@ class AppModel(private val scope: CoroutineScope) {
                     }
                 }
             }
+            if (screen == Screen.Build) refreshAdvice()
         }
     }
 
@@ -412,6 +448,117 @@ class AppModel(private val scope: CoroutineScope) {
             loadRows()
             loadCombat()
             loadCharacters()
+            refreshAdvice()
+        }
+    }
+
+    fun pickGoal(next: BuildGoal) {
+        if (next == goal) return
+        goal = next
+        narration = null
+        community = metaByGoal[next]?.let { Load.Ok(it) }
+        refreshAdvice()
+    }
+
+    fun refreshAdvice() {
+        val currentGoal = goal
+        val characterId = selectedCharacterId
+        val cachedCommunity = metaByGoal[currentGoal] ?: (community as? Load.Ok)?.value
+        scope.launch {
+            advice = Load.Loading
+            advice = read { q, snapshotId ->
+                BuildAdvisor(q).advise(snapshotId, currentGoal, characterId, cachedCommunity)
+            }
+            maybeNarrate()
+        }
+    }
+
+    /**
+     * Talks to Questlog tRPC and TLDB only because the user asked. Results overlay
+     * the extracted ranks; they never replace warehouse numbers. Cached per goal so
+     * switching Tank does not keep a bow search overlay.
+     */
+    fun refreshMeta() {
+        if (metaRefreshing) return
+        metaRefreshing = true
+        val currentGoal = goal
+        scope.launch {
+            if (goal == currentGoal) community = Load.Loading
+            val fetched = withContext(Dispatchers.IO) {
+                runCatching {
+                    val raw = CommunityMetaClient().fetch(currentGoal)
+                    bindCommunity(raw)
+                }
+            }
+            fetched.onSuccess { snap -> metaByGoal[currentGoal] = snap }
+            if (goal == currentGoal) {
+                community = fetched.fold(
+                    onSuccess = { Load.Ok(it) },
+                    onFailure = { Load.Err(it.message ?: "community fetch failed") },
+                )
+                metaRefreshing = false
+                refreshAdvice()
+            } else {
+                metaRefreshing = false
+            }
+        }
+    }
+
+    fun onQuestlogSlug(text: String) {
+        questlogSlug = text
+    }
+
+    /**
+     * Pastes a Questlog character-builder slug or URL. Listing is not public (403);
+     * a missing slug returns NOT_FOUND, not a crash.
+     */
+    fun loadQuestlogCharacter() {
+        val slug = CommunityMetaClient.slugFromInput(questlogSlug)
+        if (slug.isEmpty() || characterFetching) return
+        characterFetching = true
+        val currentGoal = goal
+        val prior = metaByGoal[currentGoal] ?: (community as? Load.Ok)?.value
+        scope.launch {
+            val fetched = withContext(Dispatchers.IO) {
+                runCatching {
+                    val raw = CommunityMetaClient().fetchCharacter(slug, prior)
+                    bindCommunity(raw)
+                }
+            }
+            fetched.onSuccess { snap ->
+                metaByGoal[currentGoal] = snap
+                if (goal == currentGoal) community = Load.Ok(snap)
+            }.onFailure { err ->
+                if (goal == currentGoal) {
+                    val existing = (community as? Load.Ok)?.value
+                    community = if (existing != null) {
+                        Load.Ok(existing.copy(warnings = existing.warnings + (err.message ?: "character fetch failed")))
+                    } else {
+                        Load.Err(err.message ?: "character fetch failed")
+                    }
+                }
+            }
+            characterFetching = false
+            if (goal == currentGoal) {
+                refreshAdvice()
+            }
+        }
+    }
+
+    private suspend fun bindCommunity(raw: CommunitySnapshot): CommunitySnapshot {
+        val q = query ?: return raw
+        return dbLock.withLock {
+            val snapshotId = q.activeSnapshotId() ?: return@withLock raw
+            CommunityOverlay.bind(raw, q, snapshotId)
+        }
+    }
+
+    private fun maybeNarrate() {
+        val current = (advice as? Load.Ok)?.value ?: return
+        scope.launch {
+            narration = withContext(Dispatchers.IO) {
+                runCatching { OllamaNarrator().explain(current) }.getOrNull()
+            }
         }
     }
 
@@ -425,6 +572,7 @@ class AppModel(private val scope: CoroutineScope) {
             // Most people track one character, so an extra click to see it is pure friction.
             val only = (loaded as? Load.Ok)?.value?.singleOrNull()
             if (only != null && selectedCharacterId == null) selectCharacter(only.id)
+            if (screen == Screen.Build) refreshAdvice()
         }
     }
 

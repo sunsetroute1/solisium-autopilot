@@ -9,7 +9,7 @@ class PublicRepositoryDataSource : DataSource {
         id = id,
         available = false,
         provides = emptyList(),
-        notes = "Stub. No license-clear public dataset is wired. Questlog live fetch is off by default.",
+        notes = "Not an import source. Questlog/TLDB live fetch is a user-initiated overlay on the Build screen.",
     )
 
     override fun importInto(db: SolisiumDatabase, request: ImportRequest): ImportReceipt {
@@ -17,7 +17,9 @@ class PublicRepositoryDataSource : DataSource {
             source = id,
             recordsImported = 0,
             recordsSkipped = 0,
-            warnings = listOf("PublicRepositoryDataSource is not implemented; refusing to scrape third-party APIs"),
+            warnings = listOf(
+                "PublicRepositoryDataSource does not import. Use the Build screen Search current meta action, or paste JSON through ManualImportDataSource.",
+            ),
         )
     }
 }

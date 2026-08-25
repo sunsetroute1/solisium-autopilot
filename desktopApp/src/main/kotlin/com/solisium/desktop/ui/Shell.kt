@@ -37,6 +37,7 @@ fun AppShell(model: AppModel) {
         Column(Modifier.fillMaxSize()) {
             when (model.screen) {
                 Screen.Overview -> OverviewScreen(model)
+                Screen.Build -> BuildScreen(model)
                 Screen.Catalog -> CatalogScreen(model)
                 Screen.Character -> CharacterScreen(model)
                 Screen.Combat -> CombatScreen(model)
