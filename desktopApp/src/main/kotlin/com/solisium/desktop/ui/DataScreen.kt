@@ -39,6 +39,10 @@ fun DataScreen(model: AppModel) {
                 Spacer(Modifier.height(Spacing.xl))
             }
             item {
+                KeyPanel(model)
+                Spacer(Modifier.height(Spacing.xl))
+            }
+            item {
                 SectionLabel("Datasets")
                 Spacer(Modifier.height(Spacing.sm))
                 Text(
@@ -131,6 +135,113 @@ private fun ImportPanel(model: AppModel) {
         model.lastImport?.let {
             Spacer(Modifier.height(Spacing.md))
             OutcomeStrip(it)
+        }
+    }
+}
+
+/**
+ * Key finder.
+ *
+ * The panel deliberately never displays a key. A candidate is identified by a short
+ * fingerprint and the place it came from, which is enough to choose between two
+ * candidates and to confirm later that the right one was stored.
+ */
+@Composable
+private fun KeyPanel(model: AppModel) {
+    val state = model.keys
+    Card(Modifier.fillMaxWidth()) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Archive key", style = MaterialTheme.typography.titleMedium, color = Palette.Text)
+            Spacer(Modifier.weight(1f))
+            if (state.stored.isEmpty()) Badge("none stored", Palette.TextFaint)
+        }
+        Spacer(Modifier.height(Spacing.xs))
+        Text(
+            "Only needed to extract game files yourself. This build ships without one.",
+            style = MaterialTheme.typography.bodySmall,
+            color = Palette.TextFaint,
+        )
+        Spacer(Modifier.height(Spacing.sm))
+        Text(
+            model.secretStorePath.toString(),
+            style = MonoStyle,
+            color = Palette.TextFaint,
+        )
+
+        if (state.stored.isNotEmpty()) {
+            Spacer(Modifier.height(Spacing.lg))
+            state.stored.forEach { ref ->
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Bold(ref.name)
+                        Spacer(Modifier.height(2.dp))
+                        Text("fingerprint ${ref.fingerprint}", style = MonoStyle, color = Palette.TextFaint)
+                    }
+                    ActionButton("Remove", { model.forgetKey(ref.name) })
+                }
+                Spacer(Modifier.height(Spacing.sm))
+            }
+        }
+
+        Spacer(Modifier.height(Spacing.lg))
+        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+            ActionButton(
+                label = if (state.scanning) "Searching" else "Find my key",
+                onClick = { model.scanForKeys() },
+                primary = state.stored.isEmpty(),
+                enabled = !state.scanning,
+            )
+            ActionButton(
+                label = "Search a folder",
+                onClick = {
+                    FilePickers.pickDirectory("Choose the folder holding your key")
+                        ?.let { model.scanForKeys(it) }
+                },
+                enabled = !state.scanning,
+            )
+        }
+
+        if (state.scanning) {
+            Spacer(Modifier.height(Spacing.md))
+            LoadingRow("Searching a few likely folders")
+        }
+
+        if (state.candidates.isNotEmpty()) {
+            Spacer(Modifier.height(Spacing.md))
+            Text(
+                if (state.candidates.size == 1) {
+                    "Found one key. Check the location looks right, then save it."
+                } else {
+                    "Found ${state.candidates.size} keys. Pick the one from the folder you trust."
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = Palette.TextMuted,
+            )
+            Spacer(Modifier.height(Spacing.sm))
+            state.candidates.forEach { candidate ->
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f).padding(end = Spacing.md)) {
+                        Bold("fingerprint ${candidate.fingerprint}")
+                        Spacer(Modifier.height(2.dp))
+                        Text(candidate.source, style = MonoStyle, color = Palette.TextFaint)
+                        Text(
+                            "recognised by ${candidate.evidence}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Palette.TextFaint,
+                        )
+                    }
+                    ActionButton("Save this key", { model.storeKey(candidate) }, primary = true)
+                }
+                Spacer(Modifier.height(Spacing.sm))
+            }
+        }
+
+        state.message?.let {
+            Spacer(Modifier.height(Spacing.md))
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(it, style = MaterialTheme.typography.bodySmall, color = Palette.TextMuted, modifier = Modifier.weight(1f))
+                ActionButton("Dismiss", { model.dismissKeyMessage() })
+            }
         }
     }
 }

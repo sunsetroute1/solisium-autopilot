@@ -15,6 +15,11 @@ import com.solisium.core.domain.ResolvedCharacterSheet
 import com.solisium.core.domain.UserCharacter
 import com.solisium.core.query.BuildMismatch
 import com.solisium.core.query.CatalogQuery
+import com.solisium.core.secret.AesKey
+import com.solisium.core.secret.KeyCandidate
+import com.solisium.core.secret.SecretRef
+import com.solisium.core.secret.SecretScanner
+import com.solisium.core.secret.SecretStore
 import com.solisium.core.source.CombatLogDataSource
 import com.solisium.core.source.CombatLogPaths
 import com.solisium.core.source.ImportReceipt
@@ -58,6 +63,24 @@ data class ImportOutcome(
     val imported: Int get() = receipts.sumOf { it.recordsImported }
     val skipped: Int get() = receipts.sumOf { it.recordsSkipped }
     val warnings: List<String> get() = receipts.flatMap { it.warnings }
+}
+
+/**
+ * State of the key finder.
+ *
+ * [candidates] carry key material, so this type is never logged and the UI only ever
+ * renders a candidate's fingerprint and where it came from.
+ */
+data class KeyState(
+    val stored: List<SecretRef> = emptyList(),
+    val candidates: List<KeyCandidate> = emptyList(),
+    val searchedRoots: List<String> = emptyList(),
+    val scanning: Boolean = false,
+    val scanned: Boolean = false,
+    val message: String? = null,
+) {
+    override fun toString(): String =
+        "KeyState(stored=$stored, candidates=${candidates.size}, scanning=$scanning)"
 }
 
 /** A catalog kind rendered as a uniform row, so one list view serves every type. */
@@ -152,6 +175,11 @@ class AppModel(private val scope: CoroutineScope) {
     var lastImport by mutableStateOf<ImportOutcome?>(null)
         private set
 
+    var keys by mutableStateOf(KeyState())
+        private set
+
+    private val secrets = SecretStore()
+
     private var searchJob: Job? = null
     private var detailJob: Job? = null
 
@@ -171,8 +199,95 @@ class AppModel(private val scope: CoroutineScope) {
             Screen.Catalog -> if (rows is Load.Loading) loadRows()
             Screen.Character -> loadCharacters()
             Screen.Combat -> loadCombat()
-            Screen.Data -> loadSnapshots()
+            Screen.Data -> {
+                loadSnapshots()
+                loadStoredKeys()
+            }
         }
+    }
+
+    // ---- Key finder -------------------------------------------------------------
+    //
+    // Nothing here writes a key anywhere except the store under %LOCALAPPDATA%, and
+    // nothing puts key material into a message shown on screen.
+
+    val secretStorePath: Path get() = secrets.path
+
+    private fun loadStoredKeys() {
+        keys = keys.copy(stored = runCatching { secrets.list() }.getOrDefault(emptyList()))
+    }
+
+    /**
+     * Looks for a key already on this machine. [root] narrows the search to one folder,
+     * which is how a user resolves an ambiguous result.
+     */
+    fun scanForKeys(root: Path? = null) {
+        if (keys.scanning) return
+        keys = keys.copy(scanning = true, message = null)
+        scope.launch {
+            val next = try {
+                val report = withContext(Dispatchers.IO) {
+                    SecretScanner(useDefaultRoots = root == null).scan(listOfNotNull(root))
+                }
+                keys.copy(
+                    candidates = report.candidates,
+                    searchedRoots = report.searchedRoots.map { it.toString() },
+                    scanning = false,
+                    scanned = true,
+                    message = if (report.candidates.isEmpty()) {
+                        "No key found in the folders searched. Choose the folder your key is in."
+                    } else {
+                        null
+                    },
+                )
+            } catch (t: Throwable) {
+                if (t is kotlinx.coroutines.CancellationException) throw t
+                keys.copy(scanning = false, scanned = true, message = "Search failed: ${t.message}")
+            }
+            keys = next
+            loadStoredKeys()
+        }
+    }
+
+    fun storeKey(candidate: KeyCandidate, name: String = "archive") {
+        keys = try {
+            val ref = secrets.put(name, candidate.keyHex)
+            // Drop the candidate list once something is stored, so key material is not
+            // held in UI state any longer than the choice needs it.
+            keys.copy(
+                candidates = emptyList(),
+                stored = secrets.list(),
+                message = "Saved as \"${ref.name}\" (fingerprint ${ref.fingerprint}).",
+            )
+        } catch (t: Throwable) {
+            keys.copy(message = "Could not save: ${t.message}")
+        }
+    }
+
+    /** Accepts a pasted key, rejecting anything that is not a 32-byte hex value. */
+    fun storeTypedKey(raw: String, name: String = "archive") {
+        val normalized = AesKey.normalize(raw)
+        if (normalized == null) {
+            keys = keys.copy(message = "That is not a 32-byte hex key (64 hex characters).")
+            return
+        }
+        storeKey(KeyCandidate("entered by hand", normalized, "typed in"), name)
+    }
+
+    fun forgetKey(name: String) {
+        keys = try {
+            val removed = secrets.remove(name)
+            keys.copy(
+                stored = secrets.list(),
+                message = if (removed) "Removed \"$name\"." else "No key named \"$name\".",
+            )
+        } catch (t: Throwable) {
+            keys.copy(message = "Could not remove: ${t.message}")
+        }
+    }
+
+    fun dismissKeyMessage() {
+        keys = keys.copy(message = null)
     }
 
     fun selectCharacter(id: String) {

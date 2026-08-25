@@ -40,11 +40,33 @@ Solisium Autopilot is a **read-only** companion. Easy Anti-Cheat and the game cl
 - Automate clicks, combat, movement, or purchases.
 - Bypass or evade Easy Anti-Cheat.
 - Send commands or input to the game client.
-- Brute-force, dump, or search the executable for archive keys.
+- Brute-force, dump, or search the game executable or pak files for archive keys.
 - Link FModel or other GPL pak explorers into this binary.
 - Ship decoded game tables, icons, or localization in the public repository.
 
-AES keys are **out of scope**. They stay in TL-Helper's gitignored `aes.txt` if that project uses them. Solisium never stores or transmits keys.
+## Archive keys
+
+Solisium never derives, recovers, or transmits a key. It can *hold* one the user
+already has, so extraction tooling does not have to be configured by hand.
+
+- **Stored** in `%LOCALAPPDATA%\Solisium\secrets.properties`, outside both the
+  repository and the install directory. Installing, upgrading, and uninstalling never
+  read, move, or delete it, and packaging cannot pick it up.
+- **Found, not cracked.** The key finder reads a bounded set of plausible *user*
+  folders (the warehouse data root, a sibling TL-Helper checkout, a folder the user
+  picks) and a few environment variables. It never touches the game install, its pak
+  files, or its executable, which is what "rejected forever" above rules out.
+- **Never displayed or logged.** A key is identified only by the first four bytes of
+  its SHA-256. `toString` on every type that carries key material omits it, so logging
+  a candidate, a list of them, or a scan report cannot leak one.
+- **Recognised by label, not shape.** A 32-byte key and a SHA-256 digest are both 64
+  hex characters. Matching on shape alone reported every content hash in every
+  manifest, so a value only counts as a key when the file holds nothing else or the
+  field naming it means "key" and not "hash".
+- **Enforced at build time.** `verifyNoSecretsInSource` and
+  `verifyNoSecretsInDistribution` fail the build if a key or credential file is in the
+  sources or in the packaged application image. Packaging depends on both, so shipping
+  a key is a build failure rather than a silent mistake.
 
 ## Threats and mitigations
 

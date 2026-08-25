@@ -10,6 +10,10 @@ import com.solisium.core.domain.ResolvedCharacterSheet
 import com.solisium.core.domain.ResolvedLoadoutLine
 import com.solisium.core.query.BuildMismatch
 import com.solisium.core.query.CatalogQuery
+import com.solisium.core.secret.AesKey
+import com.solisium.core.secret.ScanReport
+import com.solisium.core.secret.SecretScanner
+import com.solisium.core.secret.SecretStore
 import com.solisium.core.source.CombatLogDataSource
 import com.solisium.core.source.CombatLogPaths
 import com.solisium.core.source.ImportReceipt
@@ -33,6 +37,7 @@ fun main(args: Array<String>) {
         "logs" -> runLogs()
         "probe" -> runProbe()
         "detect-install" -> runDetect()
+        "keys" -> runKeys(args.drop(1))
         else -> {
             System.err.println("unknown command: $command")
             printHelp()
@@ -64,8 +69,15 @@ private fun printHelp() {
         solisium parse-log --path <CombatLog.txt>
         solisium logs
         solisium detect-install
+        solisium keys list
+        solisium keys scan [--path <folder>]        find a key already on this machine
+        solisium keys add --name <name> [--from <folder>] [--value <hex>]
+        solisium keys remove --name <name>
 
         Optional: --db <solisium.sqlite>   (default %USERPROFILE%\.solisium\solisium.sqlite)
+
+        Keys are stored under %LOCALAPPDATA%\Solisium, never in this repository and
+        never inside the installed application. Commands print fingerprints, not keys.
         """.trimIndent(),
     )
 }
@@ -454,6 +466,75 @@ private fun runDetect() {
     val capability = InstalledGameDataSource().probe()
     println("available=${capability.available}")
     println(capability.notes)
+}
+
+/**
+ * Key management. Every path through here prints fingerprints rather than keys, so a
+ * terminal scrollback, a screen share, or a pasted log cannot leak one.
+ */
+private fun runKeys(args: List<String>) {
+    val action = args.firstOrNull() ?: "list"
+    val flags = parseFlags(args.drop(1))
+    val store = SecretStore()
+    when (action) {
+        "list" -> {
+            val stored = store.list()
+            println("store ${store.path}")
+            if (stored.isEmpty()) {
+                println("no keys stored")
+            } else {
+                stored.forEach { println("${it.name}\tfingerprint=${it.fingerprint}") }
+            }
+        }
+        "scan" -> {
+            val report = scanForKeys(flags)
+            report.searchedRoots.forEach { println("searched $it") }
+            println("files read ${report.filesRead}")
+            report.skipped.take(5).forEach { println("skipped $it") }
+            if (report.candidates.isEmpty()) {
+                println("no 32-byte key found; pass --path <folder> to search somewhere specific")
+                return
+            }
+            report.candidates.forEach {
+                println("found fingerprint=${it.fingerprint} via ${it.evidence} at ${it.source}")
+            }
+            println("add one with: solisium keys add --name archive --from <folder containing it>")
+        }
+        "add" -> {
+            val name = flags["name"] ?: error("keys add needs --name")
+            // An explicit --value stays out of the scan path entirely.
+            val explicit = flags["value"]
+            val key = if (explicit != null) {
+                AesKey.normalize(explicit) ?: error("--value is not a 32-byte hex key")
+            } else {
+                val report = scanForKeys(flags)
+                val distinct = report.candidates.map { it.keyHex }.distinct()
+                when {
+                    distinct.isEmpty() -> error("no key found to add; try 'solisium keys scan'")
+                    distinct.size > 1 -> error(
+                        "found ${distinct.size} different keys; narrow it with --from <folder> " +
+                            "or pass --value",
+                    )
+                    else -> distinct.single()
+                }
+            }
+            val ref = store.put(name, key)
+            println("stored ${ref.name} fingerprint=${ref.fingerprint} in ${store.path}")
+            println("this file is outside the repository and outside any installed copy")
+        }
+        "remove" -> {
+            val name = flags["name"] ?: error("keys remove needs --name")
+            println(if (store.remove(name)) "removed $name" else "no key named $name")
+        }
+        else -> error("unknown keys action: $action (expected list, scan, add, or remove)")
+    }
+}
+
+private fun scanForKeys(flags: Map<String, String>): ScanReport {
+    val explicitRoot = flags["path"] ?: flags["from"]
+    val roots = explicitRoot?.let { listOf(Path.of(it)) } ?: emptyList()
+    // An explicit folder means exactly that folder, so a scan can be made reproducible.
+    return SecretScanner(useDefaultRoots = explicitRoot == null).scan(roots)
 }
 
 private fun dbPath(flags: Map<String, String>): Path {

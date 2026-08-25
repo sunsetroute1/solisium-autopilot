@@ -34,7 +34,43 @@ Compose Desktop on JVM 17, reading the same `~/.solisium/solisium.sqlite` as the
 
 The app is read-only with respect to the *game*; it does import into its own database. Data can import a TL-Helper warehouse, a combat log, or a character JSON, so the CLI is optional.
 
-Package a Windows installer with `.\gradlew.bat :desktopApp:packageMsi`.
+## Packaging
+
+```powershell
+.\gradlew.bat :desktopApp:packagePortableZip
+```
+
+Produces `desktopApp/build/distributions/Solisium-Autopilot-<version>-windows-x64.zip`
+containing the application, a bundled Java runtime, and a per-user installer. Extract it
+and run `install.cmd`: it installs to `%LOCALAPPDATA%\Programs`, adds Start Menu and
+Desktop shortcuts, and needs neither administrator rights nor an installed JDK. Uninstall
+with `.\Install-Solisium.ps1 -Uninstall`.
+
+`.\gradlew.bat :desktopApp:packageMsi` builds an MSI instead, but jpackage needs the
+WiX 3 toolset on `PATH` for that; the zip needs nothing beyond the JDK.
+
+Both packaging paths depend on a secret scan and fail if a key or credential file is
+found in the sources or the packaged image. Test fixtures that need key-shaped constants
+opt out with a `secret-scan-allow-fixture` marker, so the exemption is visible in review.
+
+## Archive keys
+
+No key ships in a build, and none is needed to use the app on an already-imported
+dataset. If you have one, the app can find it: **Data → Archive key → Find my key**
+searches a few likely folders, shows a short fingerprint rather than the key, and asks
+before storing anything.
+
+```text
+solisium keys scan                                   look for a key on this machine
+solisium keys add --name archive --from <folder>      store the one found there
+solisium keys add --name archive --value <hex>        store one you paste in
+solisium keys list                                    fingerprints only
+solisium keys remove --name archive
+```
+
+Keys live in `%LOCALAPPDATA%\Solisium\secrets.properties`, outside this repository and
+outside any installed copy. See [THREAT_MODEL.md](THREAT_MODEL.md) for what the finder
+will and will not touch.
 
 ## CLI
 
