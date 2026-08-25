@@ -53,6 +53,7 @@ fun Badge(
     text: String,
     color: Color = Palette.TextMuted,
     modifier: Modifier = Modifier,
+    caps: Boolean = true,
 ) {
     Box(
         modifier = modifier
@@ -62,7 +63,7 @@ fun Badge(
             .padding(horizontal = 6.dp, vertical = 2.dp),
     ) {
         Text(
-            text = text.uppercase(),
+            text = if (caps) text.uppercase() else text,
             style = MaterialTheme.typography.labelSmall,
             color = color,
         )

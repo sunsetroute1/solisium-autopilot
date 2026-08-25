@@ -166,10 +166,13 @@ private fun ResultRow(row: CatalogRow, selected: Boolean, onClick: () -> Unit) {
                 color = Palette.Text,
                 maxLines = 1,
             )
-            Text(row.sourceRowId, style = MonoStyle, color = Palette.TextFaint, maxLines = 1)
+            // Unnamed rows fall back to the row id, so repeating it below would be noise.
+            if (row.name != row.sourceRowId) {
+                Text(row.sourceRowId, style = MonoStyle, color = Palette.TextFaint, maxLines = 1)
+            }
         }
-        if (!row.meta.isNullOrBlank()) {
-            Badge(row.meta, Palette.TextMuted, Modifier.padding(end = Spacing.md))
+        prettyEnum(row.meta)?.let {
+            Badge(it, Palette.TextMuted, Modifier.padding(end = Spacing.md), caps = false)
         }
     }
 }
@@ -230,9 +233,10 @@ private fun BaseStats(detail: RowDetail) {
             )
             return@Card
         }
+        val labels = statLabels(detail.stats.map { it.statKey to it.statName }.distinct())
         detail.stats.forEach { stat ->
             KeyValueRow(
-                key = stat.statName ?: stat.statKey,
+                key = labels[stat.statKey] ?: stat.statKey,
                 value = stat.rawValue.format(),
                 keyWidth = 190.dp,
             )

@@ -49,11 +49,13 @@ private val SeriesColors = listOf(
 @Composable
 fun CurveChart(points: List<GameCurvePoint>, modifier: Modifier = Modifier) {
     if (points.isEmpty()) return
+    // Grouped by stat key, never by display name: distinct keys can share a name, and
+    // merging them would interleave two series into one meaningless zigzag.
     val series = remember(points) {
-        points.groupBy { it.statName ?: it.statKey }
-            .mapValues { (_, pts) -> pts.sortedBy { it.level } }
-            .entries
-            .sortedByDescending { entry -> entry.value.maxOf { it.rawValue } }
+        val labels = statLabels(points.map { it.statKey to it.statName }.distinct())
+        points.groupBy { it.statKey }
+            .map { (key, pts) -> (labels[key] ?: key) to pts.sortedBy { it.level } }
+            .sortedByDescending { entry -> entry.second.maxOf { it.rawValue } }
     }
     val levels = remember(points) { points.map { it.level } }
     val minLevel = levels.min()
@@ -61,7 +63,7 @@ fun CurveChart(points: List<GameCurvePoint>, modifier: Modifier = Modifier) {
     val maxValue = points.maxOf { it.rawValue }
 
     if (maxLevel == minLevel) {
-        SingleLevelTable(series.map { it.key to it.value })
+        SingleLevelTable(series)
         return
     }
 
@@ -93,7 +95,7 @@ fun CurveChart(points: List<GameCurvePoint>, modifier: Modifier = Modifier) {
 
                 series.forEachIndexed { index, entry ->
                     val color = SeriesColors[index % SeriesColors.size]
-                    val pts = entry.value
+                    val pts = entry.second
                     val path = Path()
                     pts.forEachIndexed { i, point ->
                         val px = x(point.level)
@@ -116,7 +118,7 @@ fun CurveChart(points: List<GameCurvePoint>, modifier: Modifier = Modifier) {
         }
 
         Spacer(Modifier.height(Spacing.sm))
-        Legend(series.map { it.key to it.value.maxOf { p -> p.rawValue } })
+        Legend(series.map { it.first to it.second.maxOf { p -> p.rawValue } })
     }
 }
 
