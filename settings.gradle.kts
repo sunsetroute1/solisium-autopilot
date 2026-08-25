@@ -17,4 +17,5 @@ dependencyResolutionManagement {
 rootProject.name = "solisium-autopilot"
 include(":core")
 include(":cli")
+include(":desktopApp")
 include(":androidApp")

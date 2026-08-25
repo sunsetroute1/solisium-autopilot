@@ -1,6 +1,8 @@
 # Schema
 
-Solisium schema version **2**. SQLDelight migrations live under `core/src/commonMain/sqldelight/com/solisium/core/db/` as `<from-version>.sqm`; `1.sqm` adds `game_item_stat`. SQLite is the only database.
+Solisium schema version **3**. SQLDelight migrations live under `core/src/commonMain/sqldelight/com/solisium/core/db/` as `<from-version>.sqm`; `1.sqm` adds `game_item_stat`, `2.sqm` adds `game_stat_curve` and `game_item_curve`. SQLite is the only database.
+
+A migration file and the matching `CREATE TABLE` in `Schema.sq` must stay identical, or a long-lived database ends up shaped differently from a fresh one. `MigrationTest` guards this by dropping the migration-created tables from a full database, letting the migrations rebuild them, and comparing the definitions against a freshly created database.
 
 `JvmDatabase.openOrCreate` reads `PRAGMA user_version` and applies pending migrations. Databases written before migrations existed report `user_version` 0, which still picks up every migration, so an existing local database gains new tables instead of silently lacking them.
 
@@ -47,6 +49,8 @@ Every game table includes `source_table` + `source_row_id` so a warehouse key su
 | `game_skill_formula` | `TLFormulaParameterNew` rows at `confidence` `extracted`; `expression` lists the distinct `formula_type` values. Nothing computes damage from them. `confidence` is `extracted` / `derived` / `modeled` / `unsupported` |
 | `game_stat` | Named stats (`TLStats`, localized through `TLStatAttrLooks`) |
 | `game_item_stat` | Per-item base stat values from `TLItemMainStatInit`, reached through `TLItemStats.main_stat_base_id` + `main_stat_base_seed`. `raw_value` is the unscaled client integer; `scope` is `main_base`; `confidence` is `extracted` |
+| `game_stat_curve` | Shared enchant / item-level stat curves from `TLItemMainStatEnchant` (keyed `id` + `enchant_level`) and `TLItemMainLevelStat` (keyed `Id` + `item_level`). `raw_value` is the client's **cumulative total at `level`**, not a per-level delta. Stored once per curve: 42 enchant and 45 item-level curves serve 1,458 items |
+| `game_item_curve` | Which curve an item follows, one row per `curve_kind` (`enchant`, `item_level`). `max_level` is the item's own `enchant_level_max`, so reads can be clipped and a +3 item never shows a +12 row |
 | `game_food` | Food items (empty; needs `TLItemLotteryUnit` to resolve cooking results) |
 | `game_recipe` | Cooking/crafting recipes (Phase 1 mapper target) |
 | `game_material` | Items the client lists as ingredients in `TLCraftingMaterialGroup.Materials[].Item` or `TLCookingRecipe.*IngredientList[].ItemID`, resolved to a known item row |

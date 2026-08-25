@@ -40,9 +40,13 @@ Do not treat research warehouse `24118850` as this PC's current patch. AES keys 
 
 The collector now records every table package it can see (`tablePackageNames` in the run manifest): **1,415 tables**, of which 46 are decoded. That turns "we have no data for X" into a checkable claim — most remaining gaps are uncollected tables, not missing ones.
 
-## Phase 4 — Local database browser (CLI done)
+## Phase 4 — Local database browser (CLI and desktop UI done)
 
-CLI: `query snapshots|counts|items|weapons|armor|accessories|traits|runes|synergies|skills|effects|formulas|recipes|materials|stats|item-stats|lookup|characters|character|sessions|session`, `--name` filter (`query item-stats --row <item-row-id>`), `activate`, `alias`, `probe`. Character query resolves loadout keys against the active snapshot (or `--snapshot`) and labels missing keys `UNRESOLVED` instead of guessing names. `query session --id` prints observed per-skill damage from logged rows only. No Compose desktop yet. Still not the product home screen.
+CLI: `query snapshots|counts|items|weapons|armor|accessories|traits|runes|synergies|skills|effects|formulas|recipes|materials|stats|item-stats|item-curves|lookup|characters|character|sessions|session`, `--name` filter (`query item-stats --row <item-row-id>`), `activate`, `alias`, `probe`. Character query resolves loadout keys against the active snapshot (or `--snapshot`) and labels missing keys `UNRESOLVED` instead of guessing names. `query session --id` prints observed per-skill damage from logged rows only.
+
+Desktop UI: `desktopApp`, Compose Multiplatform 1.8.2 on JVM 17, run with `gradlew :desktopApp:run`. Four screens — Overview (provenance, coverage, stale-dataset banner), Catalog (search across all twelve catalog kinds with a detail pane showing base stats and plotted upgrade curves), Combat (observed per-skill damage), Data (snapshots, activate). It reads the same `~/.solisium/solisium.sqlite` as the CLI.
+
+The UI holds no game logic: it calls `CatalogQuery` and renders what comes back. It never sums a base stat with a curve value, because that stacking rule is unverified. Provenance badges are attached to values rather than to screens, so a confidence label always travels with the number it describes.
 
 ## Phase 5 — Character-state ingestion (manual JSON done)
 
@@ -68,9 +72,13 @@ Inputs that now exist: **4,254 per-item base stat values across 1,458 items** (`
 
 Item stat values come from `TLItemStats.main_stat_base_id` + `main_stat_base_seed` → `TLItemMainStatInit`, verified at 1,837/1,839 pointers resolving with zero misses. Stored as raw client integers: the client scales stats per field (675 attack speed, 1600 range) and no scale factor has been verified, so Solisium must not render them as percentages.
 
+Enchant and item-level curves are now mapped: **9,785 curve points and 2,924 item→curve links**. `TLItemMainStatEnchant` is keyed by `id` + `enchant_level`, `TLItemMainLevelStat` by `Id` + `item_level`, and both pointers resolve 1,837/1,837 with zero misses. Curves are *shared* — 42 enchant curves and 45 item-level curves serve 1,458 items — so they are stored once in `game_stat_curve` and referenced from `game_item_curve` rather than copied per item. Each item's link carries its own `enchant_level_max` (one of 0, 1, 3, 6, 9, 12), and reads are clipped to that cap so a +3 item never shows a +12 row.
+
+Curve values are **cumulative totals at a level, not per-level deltas**. Evidence: the `kBow` curve reads 5, 10, 15, 20, 25, 30, 35, 40, 45, 51, 56, 61 across levels 1–12, so the increment stays near +5 while the stored figure ramps.
+
 Still missing for a real comparison:
 
-- **Enchant and item-level curves.** `TLItemMainStatEnchant` / `TLItemMainLevelStat` are collected but unmapped, so comparisons only hold at base (+0) values.
+- **The stacking rule.** Whether a curve value adds to the base stat is unverified, so nothing sums them. This is the last blocker for "what does +9 actually give me".
 - **Rolled extra stats.** `TLItemExtraStatInit` is a shared roll table, not per-item data; per-item rolls are not in the client tables at all.
 - **Trait value curves.** `TLItemTraitsBaseValue` / `TLItemTraitsEnchantValue` are collected but unmapped.
 - **The formula → skill link.** `TLEffectProperty.formula_parameter` is the candidate edge, still unverified.

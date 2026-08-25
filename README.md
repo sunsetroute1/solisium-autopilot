@@ -6,7 +6,9 @@ This is not a bot, overlay injector, or game client. It never writes to the game
 
 ## Current status
 
-Phase 1–5 plus a live `24829515` catalog import: architecture, schema (version 2), CLI import/query, typed gear/trait/effect/material/stat mapping, per-item base stat values, and manual character JSON. Stat values are stored as raw client integers and formula rows are never used to produce damage numbers. There is no product UI yet.
+Phase 1–5 plus a live `24829515` catalog import: architecture, schema (version 3), CLI import/query, a Compose Desktop reader, typed gear/trait/effect/material/stat mapping, per-item base stat values, shared enchant and item-level curves, and manual character JSON.
+
+Stat values are stored as raw client integers, curve values as the client's cumulative total at a level, and neither is combined with the other because that stacking rule is unverified. Formula rows are never used to produce damage numbers.
 
 Read these first:
 
@@ -22,7 +24,17 @@ Read these first:
 .\gradlew.bat :core:jvmTest :cli:run --args="help"
 ```
 
-The CLI is the only user-facing surface in this phase:
+## Desktop app
+
+```powershell
+.\gradlew.bat :desktopApp:run
+```
+
+Compose Desktop on JVM 17, reading the same `~/.solisium/solisium.sqlite` as the CLI. Four screens: Overview (provenance and coverage), Catalog (search with a stats and curve detail pane), Combat (observed per-skill damage), Data (snapshots). Import is still a CLI action; the UI only reads.
+
+Package a Windows installer with `.\gradlew.bat :desktopApp:packageMsi`.
+
+## CLI
 
 ```text
 solisium probe
@@ -36,6 +48,7 @@ solisium query traits --name Critical
 solisium query materials --name Obsidian
 solisium query formulas --name Struggle
 solisium query item-stats --row bow_c_t1_nomal_001
+solisium query item-curves --row bow_c_t1_nomal_001
 solisium query characters
 solisium query character --id <id>
 solisium query lookup --table TLItemLooks_Equip --row <row-id>
