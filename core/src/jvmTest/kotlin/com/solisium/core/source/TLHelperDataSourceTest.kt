@@ -11,6 +11,38 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class TLHelperDataSourceTest {
+    /**
+     * A failed import must not disturb the dataset that was already there. Before the
+     * snapshot insert moved inside the transaction, a mid-import failure committed a new
+     * active snapshot with no game rows and left the previous snapshot deactivated,
+     * which silently emptied every query.
+     */
+    @Test
+    fun aFailedImportLeavesThePreviousSnapshotActive() {
+        val good = WarehouseFixtures.writeMiniWarehouse()
+        val broken = WarehouseFixtures.writeBrokenWarehouse()
+        try {
+            val db = JvmDatabase.inMemory()
+            val source = TLHelperDataSource()
+            source.importInto(db, ImportRequest(path = good.toString(), activate = true))
+            val query = CatalogQuery(db)
+            val original = query.activeSnapshotId()!!
+            val itemsBefore = query.items(original).size
+
+            val failure = runCatching {
+                source.importInto(db, ImportRequest(path = broken.toString(), activate = true))
+            }.exceptionOrNull()
+            assertTrue(failure != null, "the duplicate item key should have failed the import")
+
+            assertEquals(original, query.activeSnapshotId(), "active snapshot must not change")
+            assertEquals(1, query.snapshots().size, "the failed import must not leave a snapshot row")
+            assertEquals(itemsBefore, query.items(original).size)
+        } finally {
+            Files.deleteIfExists(good)
+            Files.deleteIfExists(broken)
+        }
+    }
+
     @Test
     fun mapsWarehouseRecordsIntoSolisiumTables() {
         val warehouse = WarehouseFixtures.writeMiniWarehouse()

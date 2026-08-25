@@ -36,21 +36,25 @@ class InstalledGameDataSource(
                 warnings = listOf("Throne and Liberty install not found"),
             )
         val snapshotId = randomUuid()
-        if (request.activate) {
-            db.schemaQueries.clearActiveSnapshots()
+        // Deactivating the old snapshot and inserting the new one must be atomic,
+        // otherwise a failure between them leaves no snapshot active at all.
+        db.transaction {
+            if (request.activate) {
+                db.schemaQueries.clearActiveSnapshots()
+            }
+            db.schemaQueries.insertSnapshot(
+                id = snapshotId,
+                source = id,
+                extracted_at = Instant.now().toString(),
+                game_build = detected.buildId ?: "unknown",
+                game_version = "unknown",
+                schema_version = SchemaVersion.CURRENT.toLong(),
+                source_path = detected.installPath.toString(),
+                source_hash = detected.pakFingerprint,
+                decoder_version = null,
+                active = if (request.activate) 1L else 0L,
+            )
         }
-        db.schemaQueries.insertSnapshot(
-            id = snapshotId,
-            source = id,
-            extracted_at = Instant.now().toString(),
-            game_build = detected.buildId ?: "unknown",
-            game_version = "unknown",
-            schema_version = SchemaVersion.CURRENT.toLong(),
-            source_path = detected.installPath.toString(),
-            source_hash = detected.pakFingerprint,
-            decoder_version = null,
-            active = if (request.activate) 1L else 0L,
-        )
         return ImportReceipt(
             source = id,
             snapshotId = snapshotId,

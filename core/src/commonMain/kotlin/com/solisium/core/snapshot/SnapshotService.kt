@@ -30,8 +30,12 @@ class SnapshotService(private val db: SolisiumDatabase) {
      */
     fun activate(idOrAlias: String): DatasetSnapshot {
         val snapshot = resolve(idOrAlias) ?: throw SnapshotNotFoundException(idOrAlias)
-        db.schemaQueries.clearActiveSnapshots()
-        db.schemaQueries.activateSnapshot(snapshot.id)
+        // Clearing the flag and setting the new one must be atomic, or a failure
+        // between them leaves the database with no active snapshot.
+        db.transaction {
+            db.schemaQueries.clearActiveSnapshots()
+            db.schemaQueries.activateSnapshot(snapshot.id)
+        }
         return get(snapshot.id) ?: throw SnapshotNotFoundException(snapshot.id)
     }
 

@@ -5,6 +5,43 @@ import java.nio.file.Path
 import java.sql.DriverManager
 
 object WarehouseFixtures {
+    /**
+     * A warehouse holding the same item key twice. `insertGameItem` is a plain INSERT
+     * against `UNIQUE(snapshot_id, source_table, source_row_id)`, so the import writes
+     * the first row and then fails on the duplicate. Used to prove the import is atomic.
+     */
+    fun writeBrokenWarehouse(build: String = "24999999"): Path {
+        val warehouse = Files.createTempFile("tl-helper-broken", ".sqlite")
+        DriverManager.getConnection("jdbc:sqlite:${warehouse.toAbsolutePath()}").use { connection ->
+            connection.createStatement().use { statement ->
+                statement.execute(
+                    """
+                    CREATE TABLE records (
+                      record_id TEXT,
+                      row_id TEXT,
+                      record_type TEXT,
+                      table_name TEXT,
+                      name_loc TEXT,
+                      game_build TEXT,
+                      game_version TEXT,
+                      decoder_version TEXT,
+                      raw_json TEXT
+                    )
+                    """.trimIndent(),
+                )
+                statement.execute(
+                    """
+                    INSERT INTO records VALUES
+                    ('TLItemLooks_Equip:ok_bow','ok_bow','item','TLItemLooks_Equip','Sound Bow','$build','9.9.9','0.2.0','{"grade":"Epic"}'),
+                    ('TLItemLooks_Equip:dupe','dupe_bow','item','TLItemLooks_Equip','Duplicate Bow','$build','9.9.9','0.2.0','{"grade":"Epic"}'),
+                    ('TLItemLooks_Equip:dupe-again','dupe_bow','item','TLItemLooks_Equip','Duplicate Bow','$build','9.9.9','0.2.0','{"grade":"Epic"}')
+                    """.trimIndent(),
+                )
+            }
+        }
+        return warehouse
+    }
+
     fun writeMiniWarehouse(build: String = "24118850"): Path {
         val warehouse = Files.createTempFile("tl-helper-fixture", ".sqlite")
         DriverManager.getConnection("jdbc:sqlite:${warehouse.toAbsolutePath()}").use { connection ->

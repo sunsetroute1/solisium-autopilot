@@ -76,21 +76,6 @@ class TLHelperDataSource(
             val warnings = mutableListOf<String>()
             if (builds.size > 1) warnings.add("mixed game_build values: ${builds.joinToString()}")
             val snapshotId = randomUuid()
-            if (request.activate) {
-                db.schemaQueries.clearActiveSnapshots()
-            }
-            db.schemaQueries.insertSnapshot(
-                id = snapshotId,
-                source = id,
-                extracted_at = Instant.now().toString(),
-                game_build = builds.firstOrNull() ?: "unknown",
-                game_version = versions.firstOrNull() ?: "unknown",
-                schema_version = SchemaVersion.CURRENT.toLong(),
-                source_path = warehouse.toAbsolutePath().toString(),
-                source_hash = sourceHash,
-                decoder_version = decoders.firstOrNull(),
-                active = if (request.activate) 1L else 0L,
-            )
             val equipByRowId = rows.filter { it.tableName == "TLItemEquip" }.associateBy { it.rowId }
             val looksNameByRowId = rows.filter { it.tableName == "TLItemLooks_Equip" }
                 .associate { it.rowId to it.name }
@@ -98,7 +83,25 @@ class TLHelperDataSource(
                 .groupBy { it.rowId }
             var imported = 0
             var skipped = 0
+            // The snapshot row and its game rows must commit together. Activating first
+            // and failing later would leave an empty snapshot active with the previous
+            // one already deactivated.
             db.transaction {
+                if (request.activate) {
+                    db.schemaQueries.clearActiveSnapshots()
+                }
+                db.schemaQueries.insertSnapshot(
+                    id = snapshotId,
+                    source = id,
+                    extracted_at = Instant.now().toString(),
+                    game_build = builds.firstOrNull() ?: "unknown",
+                    game_version = versions.firstOrNull() ?: "unknown",
+                    schema_version = SchemaVersion.CURRENT.toLong(),
+                    source_path = warehouse.toAbsolutePath().toString(),
+                    source_hash = sourceHash,
+                    decoder_version = decoders.firstOrNull(),
+                    active = if (request.activate) 1L else 0L,
+                )
                 for (row in rows) {
                     if (mapRow(db, snapshotId, row, equipByRowId, looksNameByRowId)) {
                         imported++
