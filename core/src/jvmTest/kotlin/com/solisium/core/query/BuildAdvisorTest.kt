@@ -135,4 +135,41 @@ class BuildAdvisorTest {
             Files.deleteIfExists(warehouse)
         }
     }
+
+    @Test
+    fun classTypeLimitsWeaponRanksToThePair() {
+        val warehouse = WarehouseFixtures.writeMiniWarehouse()
+        try {
+            val db = JvmDatabase.inMemory()
+            val snapshotId = TLHelperDataSource().importInto(
+                db,
+                ImportRequest(path = warehouse.toString(), activate = true),
+            ).snapshotId!!
+            val query = CatalogQuery(db)
+            val gladiator = query.findBuildClass(snapshotId, name = "Gladiator")!!
+            assertEquals("community", gladiator.source)
+            val advice = BuildAdvisor(query).advise(
+                snapshotId,
+                BuildGoal.RangedDps,
+                classOption = gladiator,
+            )
+            assertEquals("Gladiator", advice.className)
+            assertTrue(advice.slots.none { it.slot == "bow" && it.recommended.isNotEmpty() })
+            assertTrue(advice.briefing.any { it.contains("Gladiator") })
+            val scout = query.findBuildClass(snapshotId, name = "Scout")!!
+            val scoutAdvice = BuildAdvisor(query).advise(snapshotId, BuildGoal.MeleeDps, classOption = scout)
+            assertEquals("Fixture Longbow", scoutAdvice.slots.single { it.slot == "bow" }.recommended.single().name)
+        } finally {
+            Files.deleteIfExists(warehouse)
+        }
+    }
+
+    @Test
+    fun extraAxisKeysRankOnlyWarehouseStatsThatExist() {
+        val keys = BuildGoal.MeleeDps.keysOn(setOf("attack_power_main_hand")) +
+            StatAxis.HitChance.keysOn(setOf("melee_accuracy", "made_up_stat"))
+        assertTrue("attack_power_main_hand" in keys)
+        assertTrue("melee_accuracy" in keys)
+        assertTrue("made_up_stat" !in keys)
+    }
 }

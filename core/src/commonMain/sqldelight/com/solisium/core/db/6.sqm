@@ -1,0 +1,26 @@
+-- Schema version 6 -> 7: extracted item combat-power weights plus a derived item map.
+CREATE TABLE game_combat_power (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  snapshot_id TEXT NOT NULL,
+  source_table TEXT NOT NULL,
+  source_row_id TEXT NOT NULL,
+  category TEXT,
+  base_power INTEGER NOT NULL,
+  potential_power INTEGER,
+  payload TEXT,
+  confidence TEXT NOT NULL,
+  FOREIGN KEY(snapshot_id) REFERENCES dataset_snapshot(id),
+  UNIQUE(snapshot_id, source_table, source_row_id)
+);
+
+CREATE TABLE game_item_power (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  snapshot_id TEXT NOT NULL,
+  item_source_table TEXT NOT NULL,
+  item_source_row_id TEXT NOT NULL,
+  power_source_row_id TEXT NOT NULL,
+  evidence TEXT NOT NULL,
+  confidence TEXT NOT NULL,
+  FOREIGN KEY(snapshot_id) REFERENCES dataset_snapshot(id),
+  UNIQUE(snapshot_id, item_source_row_id)
+);

@@ -2,9 +2,11 @@ package com.solisium.core.query
 
 import com.solisium.core.domain.AxisScore
 import com.solisium.core.domain.BuildAdvice
+import com.solisium.core.domain.BuildClassOption
 import com.solisium.core.domain.CommunitySnapshot
 import com.solisium.core.domain.DisplayName
 import com.solisium.core.domain.GameAccessory
+import com.solisium.core.domain.GameItemPower
 import com.solisium.core.domain.GameItemStat
 import com.solisium.core.domain.GameWeapon
 import com.solisium.core.domain.RankedGear
@@ -16,6 +18,7 @@ import com.solisium.core.domain.StatContribution
 import com.solisium.core.domain.StatKeyLabel
 import com.solisium.core.meta.MetaBriefing
 import com.solisium.core.meta.TextNorm
+import com.solisium.core.source.EquipCategory
 
 /**
  * Ranks extracted catalog gear for a chosen goal. Community data is an overlay, never
@@ -28,12 +31,18 @@ class BuildAdvisor(private val query: CatalogQuery) {
         characterId: String? = null,
         community: CommunitySnapshot? = null,
         perSlot: Int = 5,
+        extraKeys: Set<String> = emptySet(),
+        axes: List<StatAxis> = emptyList(),
+        classOption: BuildClassOption? = null,
     ): BuildAdvice {
         val snapshot = query.snapshotService().get(snapshotId)
         val stats = query.allItemStats(snapshotId).filter { it.scope == "main_base" }
         val byRow = stats.groupBy { it.sourceRowId }
         val availableKeys = stats.map { it.statKey }.toSet()
-        val keys = goal.keysOn(availableKeys)
+        val keys = goal.keysOn(availableKeys) +
+            extraKeys.filter { it in availableKeys } +
+            axes.flatMap { it.keysOn(availableKeys) }
+        val weaponTokens = classOption?.tokens ?: goal.weaponTokens
         val weapons = query.weapons(snapshotId)
         val armor = query.armor(snapshotId)
         val accessories = query.accessories(snapshotId)
@@ -41,8 +50,9 @@ class BuildAdvisor(private val query: CatalogQuery) {
             .mapNotNull { item -> item.sourceRowId to item.grade.takeUnless { it.isNullOrBlank() } }
             .toMap()
         val weaponsById = weapons.associateBy { it.sourceRowId }
+        val itemPower = query.itemPowerByRow(snapshotId)
 
-        val weaponRanks = rankWeapons(weapons, byRow, keys, goal, community, grades)
+        val weaponRanks = rankWeapons(weapons, byRow, keys, weaponTokens, community, grades, itemPower)
         val armorRanks = rankSlotted(
             armor.map { Triple(slotLabel(it.slot) ?: "armor", it.name, it) },
             byRow,
@@ -52,6 +62,7 @@ class BuildAdvisor(private val query: CatalogQuery) {
             tableOf = { it.sourceTable },
             idOf = { it.sourceRowId },
             grades = grades,
+            itemPower = itemPower,
         )
         val accessoryRanks = rankSlotted(
             accessories.map { Triple(slotLabel(it.slot) ?: "accessory", it.name, it) },
@@ -62,6 +73,7 @@ class BuildAdvisor(private val query: CatalogQuery) {
             tableOf = { it.sourceTable },
             idOf = { it.sourceRowId },
             grades = grades,
+            itemPower = itemPower,
         )
 
         val rankedBySlot = linkedMapOf<String, MutableList<RankedGear>>()
@@ -77,7 +89,7 @@ class BuildAdvisor(private val query: CatalogQuery) {
 
         val sheet = characterId?.let { query.resolveCharacter(it, snapshotId) }
         val slots = rankedBySlot.map { (slot, ranked) ->
-            val equipped = equippedIn(sheet, slot, byRow, keys, community, weaponsById, grades)
+            val equipped = equippedIn(sheet, slot, byRow, keys, community, weaponsById, grades, itemPower)
             val top = ranked.take(perSlot)
             SlotAdvice(
                 slot = slot,
@@ -104,20 +116,25 @@ class BuildAdvisor(private val query: CatalogQuery) {
             community = community,
             briefing = emptyList(),
             characterName = sheet?.sheet?.character?.name,
+            className = classOption?.name ?: sheet?.weaponClass?.name,
+            classSource = classOption?.source ?: sheet?.weaponClass?.source,
+            classWeaponsLabel = classOption?.weaponsLabel ?: sheet?.weaponClass?.weaponsLabel,
+            weaponTokens = weaponTokens.toList(),
         )
-        return advice.copy(briefing = MetaBriefing.lines(advice, goal))
+        return advice.copy(briefing = MetaBriefing.lines(advice, goal, classOption))
     }
 
     private fun rankWeapons(
         weapons: List<GameWeapon>,
         byRow: Map<String, List<GameItemStat>>,
         keys: Set<String>,
-        goal: BuildGoal,
+        weaponTokens: Set<String>,
         community: CommunitySnapshot?,
         grades: Map<String, String?>,
+        itemPower: Map<String, GameItemPower>,
     ): List<RankedGear> = weapons.mapNotNull { weapon ->
         val name = DisplayName.of(weapon.name, weapon.sourceRowId) ?: return@mapNotNull null
-        if (!goal.acceptsWeapon(weapon.weaponType)) return@mapNotNull null
+        if (!acceptsWeapon(weapon.weaponType, weaponTokens)) return@mapNotNull null
         val row = byRow[weapon.sourceRowId] ?: emptyList()
         scored(
             slot = slotLabel(weapon.weaponType) ?: "weapon",
@@ -129,6 +146,8 @@ class BuildAdvisor(private val query: CatalogQuery) {
             row = row,
             keys = keys,
             community = community,
+            itemPower = itemPower[weapon.sourceRowId],
+            itemLevel = null,
         )
     }
 
@@ -141,6 +160,7 @@ class BuildAdvisor(private val query: CatalogQuery) {
         tableOf: (T) -> String,
         idOf: (T) -> String,
         grades: Map<String, String?>,
+        itemPower: Map<String, GameItemPower>,
     ): List<RankedGear> = rows.mapNotNull { (slot, rawName, item) ->
         val id = idOf(item)
         val name = DisplayName.of(rawName, id) ?: return@mapNotNull null
@@ -154,6 +174,8 @@ class BuildAdvisor(private val query: CatalogQuery) {
             row = byRow[id] ?: emptyList(),
             keys = keys,
             community = community,
+            itemPower = itemPower[id],
+            itemLevel = null,
         )
     }
 
@@ -167,11 +189,14 @@ class BuildAdvisor(private val query: CatalogQuery) {
         row: List<GameItemStat>,
         keys: Set<String>,
         community: CommunitySnapshot?,
+        itemPower: GameItemPower?,
+        itemLevel: Long?,
     ): RankedGear? {
         val contributions = row.filter { it.statKey in keys && it.rawValue != 0L }
             .map { StatContribution(it.statKey, it.rawValue, it.scope) }
         val score = contributions.sumOf { it.rawValue }
         if (score <= 0L) return null
+        val weights = ModeledCombatPower.warehouseWeights(itemPower, itemLevel)
         return RankedGear(
             slot = slot,
             name = name,
@@ -182,6 +207,9 @@ class BuildAdvisor(private val query: CatalogQuery) {
             kind = kind,
             contributions = contributions.sortedByDescending { it.rawValue },
             communityHits = communityHits(name, community),
+            itemPower = weights?.current,
+            itemPowerEvidence = itemPower?.evidence,
+            potentialPower = weights?.potential,
         )
     }
 
@@ -193,11 +221,14 @@ class BuildAdvisor(private val query: CatalogQuery) {
         community: CommunitySnapshot?,
         weaponsById: Map<String, GameWeapon>,
         grades: Map<String, String?>,
+        itemPower: Map<String, GameItemPower>,
     ): RankedGear? {
         if (sheet == null) return null
         val line = sheet.lines.firstOrNull { matchesSlot(it, slot, weaponsById) } ?: return null
         val id = line.sourceRowId ?: return null
         val name = DisplayName.of(line.hit?.name, id) ?: id
+        val itemLevel = itemLevelOf(sheet, id)
+        val weights = ModeledCombatPower.warehouseWeights(itemPower[id], itemLevel)
         return scored(
             slot = slot,
             name = name,
@@ -208,6 +239,8 @@ class BuildAdvisor(private val query: CatalogQuery) {
             row = byRow[id] ?: emptyList(),
             keys = keys,
             community = community,
+            itemPower = itemPower[id],
+            itemLevel = itemLevel,
         ) ?: RankedGear(
             slot = slot,
             name = name,
@@ -218,8 +251,15 @@ class BuildAdvisor(private val query: CatalogQuery) {
             kind = line.kind,
             contributions = emptyList(),
             communityHits = communityHits(name, community),
+            itemPower = weights?.current,
+            itemPowerEvidence = itemPower[id]?.evidence,
+            potentialPower = weights?.potential,
         )
     }
+
+    private fun itemLevelOf(sheet: ResolvedCharacterSheet, id: String): Long? =
+        sheet.sheet.weapons.firstOrNull { it.sourceRowId == id }?.itemLevel
+            ?: sheet.sheet.equipment.firstOrNull { it.sourceRowId == id }?.itemLevel
 
     private fun matchesSlot(
         line: ResolvedLoadoutLine,
@@ -296,6 +336,11 @@ class BuildAdvisor(private val query: CatalogQuery) {
             "head", "chest", "hands", "legs", "feet", "cloak",
             "necklace", "earring", "ring", "bracelet", "belt", "brooch",
         )
+
+        private fun acceptsWeapon(token: String?, allowed: Set<String>): Boolean {
+            val normalized = EquipCategory.token(token) ?: return false
+            return normalized in allowed
+        }
 
         private fun slotLabel(raw: String?): String? =
             DisplayName.prettyEnum(raw)?.lowercase() ?: raw?.substringAfterLast("::")?.removePrefix("k")?.lowercase()

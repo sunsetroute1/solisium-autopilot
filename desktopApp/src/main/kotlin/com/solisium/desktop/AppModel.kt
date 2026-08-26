@@ -7,37 +7,56 @@ import com.solisium.core.db.JvmDatabase
 import com.solisium.core.db.SolisiumDatabase
 import com.solisium.core.domain.BuildAdvice
 import com.solisium.core.domain.CatalogCounts
+import com.solisium.core.domain.CatalogHit
+import com.solisium.core.domain.ClassSource
 import com.solisium.core.domain.CombatSessionSummary
 import com.solisium.core.domain.CommunitySnapshot
 import com.solisium.core.domain.DatasetSnapshot
+import com.solisium.core.domain.DesiredBuildPlan
+import com.solisium.core.domain.DiscoveredInfluence
 import com.solisium.core.domain.DisplayName
 import com.solisium.core.domain.GameCurvePoint
 import com.solisium.core.domain.GameItemCurve
+import com.solisium.core.domain.GameItemPower
 import com.solisium.core.domain.GameItemStat
+import com.solisium.core.domain.QuestlogItemOverlay
 import com.solisium.core.domain.ResolvedCharacterSheet
+import com.solisium.core.domain.StatKeyLabel
 import com.solisium.core.domain.UserCharacter
+import com.solisium.core.domain.BuildClassOption
+import com.solisium.core.domain.WeaponTypeLabel
+import com.solisium.core.domain.WeaponClassMatch
 import com.solisium.core.meta.CommunityMetaClient
 import com.solisium.core.meta.CommunityOverlay
+import com.solisium.core.meta.CommunityWeaponClasses
 import com.solisium.core.meta.OllamaNarrator
-import com.solisium.core.query.BuildAdvisor
 import com.solisium.core.query.BuildGoal
 import com.solisium.core.query.BuildMismatch
 import com.solisium.core.query.CatalogQuery
+import com.solisium.core.query.DesiredBuildPlanner
+import com.solisium.core.query.StatAxis
+import com.solisium.core.query.WeaponClassResolver
 import com.solisium.core.secret.AesKey
 import com.solisium.core.secret.KeyCandidate
 import com.solisium.core.secret.SecretRef
 import com.solisium.core.secret.SecretScanner
 import com.solisium.core.secret.SecretStore
+import com.solisium.core.source.CharacterLocator
+import com.solisium.core.source.CharacterSheetJson
 import com.solisium.core.source.CombatLogDataSource
 import com.solisium.core.source.CombatLogPaths
+import com.solisium.core.source.GearCatalogFilter
 import com.solisium.core.source.ImportReceipt
 import com.solisium.core.source.ImportRequest
 import com.solisium.core.source.InstalledGameDataSource
 import com.solisium.core.source.ManualImportDataSource
+import com.solisium.core.source.PatchWatch
+import com.solisium.core.source.PatchWatchReport
 import com.solisium.core.source.TLHelperDataSource
 import com.solisium.core.source.WarehouseLocator
 import java.nio.file.Files
 import java.nio.file.Path
+import java.time.Instant
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -125,6 +144,10 @@ data class RowDetail(
     val stats: List<GameItemStat>,
     val curves: List<GameItemCurve>,
     val curvePoints: List<GameCurvePoint>,
+    val combatPower: GameItemPower? = null,
+    val questlog: QuestlogItemOverlay? = null,
+    val questlogWarning: String? = null,
+    val category: String? = null,
 )
 
 data class Overview(
@@ -149,6 +172,12 @@ class AppModel(private val scope: CoroutineScope) {
         private set
 
     var overview by mutableStateOf<Load<Overview>>(Load.Loading)
+        private set
+
+    var patchWatch by mutableStateOf<PatchWatchReport?>(null)
+        private set
+
+    var discoveredInfluences by mutableStateOf<List<DiscoveredInfluence>>(emptyList())
         private set
 
     var kind by mutableStateOf(CatalogKind.Items)
@@ -185,7 +214,57 @@ class AppModel(private val scope: CoroutineScope) {
     var selectedCharacterId by mutableStateOf<String?>(null)
         private set
 
+    var characterDraft by mutableStateOf<CharacterSheetJson.Draft?>(null)
+        private set
+
+    private var characterDraftDirty = false
+    private var attemptedCharacterAutoImport = false
+
+    var characterSuggestField by mutableStateOf<String?>(null)
+        private set
+
+    var characterSuggestions by mutableStateOf<List<CatalogHit>>(emptyList())
+        private set
+
+    var characterSuggestionsReady by mutableStateOf(false)
+        private set
+
+    private var gearSuggestJob: Job? = null
+    private var gearSuggestSeq = 0
+
     var goal by mutableStateOf(BuildGoal.RangedDps)
+        private set
+
+    var buildClasses by mutableStateOf<List<BuildClassOption>>(emptyList())
+        private set
+
+    var selectedClassKey by mutableStateOf<String?>(null)
+        private set
+
+    var classQuery by mutableStateOf("")
+        private set
+
+    private var classChosenByUser = false
+
+    var axes by mutableStateOf(setOf<StatAxis>())
+        private set
+
+    var extraStatKeys by mutableStateOf(setOf<String>())
+        private set
+
+    var extraStatQuery by mutableStateOf("")
+        private set
+
+    var availableStatKeys by mutableStateOf<List<Pair<String, String>>>(emptyList())
+        private set
+
+    var desiredCombatPowerText by mutableStateOf("")
+        private set
+
+    var desiredGearScoreText by mutableStateOf("")
+        private set
+
+    var plan by mutableStateOf<Load<DesiredBuildPlan>>(Load.Loading)
         private set
 
     var advice by mutableStateOf<Load<BuildAdvice>>(Load.Loading)
@@ -222,18 +301,37 @@ class AppModel(private val scope: CoroutineScope) {
 
     private var searchJob: Job? = null
     private var detailJob: Job? = null
+    private var desiredJob: Job? = null
 
     /** Suggested defaults for the import buttons; null when nothing was detected. */
     val detectedWarehouse: Path? by lazy(LazyThreadSafetyMode.NONE) { runCatching { WarehouseLocator().find() }.getOrNull() }
     val detectedLogFolder: Path? by lazy(LazyThreadSafetyMode.NONE) { runCatching { CombatLogPaths.detect() }.getOrNull() }
 
+    var detectedCharacterFiles by mutableStateOf<List<Path>>(emptyList())
+        private set
+
+    val detectedCharacter: Path? get() = detectedCharacterFiles.firstOrNull()
+
+    val characterPickerDirectory: Path
+        get() = runCatching { CharacterLocator().pickerDirectory() }.getOrElse {
+            Path.of(System.getProperty("user.home"), ".solisium", "characters")
+        }
+
     init {
         refreshOverview()
         loadRows()
         offerFoundKey()
+        refreshCharacterDetection()
+        if (detectedCharacter != null) {
+            importDetectedCharacters()
+        } else {
+            loadCharacters()
+        }
+        startPatchWatch()
     }
 
     fun go(target: Screen) {
+        if (target != Screen.Character) clearGearSuggestions()
         screen = target
         when (target) {
             Screen.Overview -> refreshOverview()
@@ -386,10 +484,11 @@ class AppModel(private val scope: CoroutineScope) {
     }
 
     fun selectCharacter(id: String) {
+        clearGearSuggestions()
         selectedCharacterId = id
         characterSheet = Load.Loading
         scope.launch {
-            characterSheet = guard {
+            val loaded = guard {
                 val q = requireQuery()
                 dbLock.withLock {
                     withContext(Dispatchers.IO) {
@@ -398,7 +497,136 @@ class AppModel(private val scope: CoroutineScope) {
                     }
                 }
             }
+            characterSheet = loaded
+            val resolved = (loaded as? Load.Ok)?.value
+            if (resolved != null) {
+                val next = CharacterSheetJson.fromResolved(resolved)
+                if (characterDraft?.id != next.id || !characterDraftDirty) {
+                    characterDraft = next
+                    characterDraftDirty = false
+                }
+                if (!classChosenByUser) {
+                    selectedClassKey = matchClassKey(resolved.weaponClass)
+                }
+            }
             if (screen == Screen.Build) refreshAdvice()
+        }
+    }
+
+    fun updateCharacterDraft(next: CharacterSheetJson.Draft, classEdited: Boolean = false) {
+        characterDraft = applyClass(next, classEdited)
+        characterDraftDirty = true
+    }
+
+    fun classSuggestion(draft: CharacterSheetJson.Draft): WeaponClassMatch {
+        val q = query ?: return WeaponClassResolver.resolve(emptyList(), null, null)
+        val snapshotId = q.activeSnapshotId()
+        val main = draft.weapons.firstOrNull { it.slot == "main" }?.name
+        val offhand = draft.weapons.firstOrNull { it.slot == "offhand" }?.name
+        return q.suggestClass(snapshotId, main, offhand)
+    }
+
+    fun knownClassNames(): List<String> {
+        val q = query ?: return CommunityWeaponClasses.names()
+        return q.knownClassNames(q.activeSnapshotId())
+    }
+
+    fun useSuggestedClass() {
+        val draft = characterDraft ?: return
+        val suggestion = classSuggestion(draft)
+        val name = suggestion.name ?: return
+        updateCharacterDraft(
+            draft.copy(className = name, classSource = suggestion.source.orEmpty()),
+            classEdited = false,
+        )
+    }
+
+    private fun applyClass(next: CharacterSheetJson.Draft, classEdited: Boolean): CharacterSheetJson.Draft {
+        val suggestion = classSuggestion(next)
+        if (classEdited) {
+            val source = if (suggestion.name != null && WeaponClassResolver.sameTitle(suggestion.name, next.className)) {
+                suggestion.source.orEmpty()
+            } else {
+                ClassSource.MANUAL
+            }
+            return next.copy(classSource = source)
+        }
+        if (ClassSource.isManual(next.classSource)) return next
+        if (!suggestion.pairResolved) return next
+        return next.copy(
+            className = suggestion.name.orEmpty(),
+            classSource = suggestion.source.orEmpty(),
+        )
+    }
+
+    /**
+     * Typeahead against the active warehouse. No snapshot means an empty list, not an
+     * error — the user can still type a name by hand.
+     */
+    fun onGearQuery(fieldId: String, text: String, slot: String?, layer: String? = null) {
+        characterSuggestField = fieldId
+        val raw = text.trim()
+        if (raw.length < 2) {
+            gearSuggestSeq++
+            gearSuggestJob?.cancel()
+            characterSuggestions = emptyList()
+            characterSuggestionsReady = false
+            return
+        }
+        val seq = ++gearSuggestSeq
+        characterSuggestionsReady = false
+        gearSuggestJob?.cancel()
+        gearSuggestJob = scope.launch {
+            delay(180)
+            val hits = try {
+                dbLock.withLock {
+                    withContext(Dispatchers.IO) {
+                        val q = query ?: return@withContext emptyList()
+                        val snapshotId = q.activeSnapshotId() ?: return@withContext emptyList()
+                        if (layer != null) q.suggestBuildLayer(snapshotId, raw, layer)
+                        else q.suggestGear(snapshotId, raw, slot)
+                    }
+                }
+            } catch (t: Throwable) {
+                if (t is kotlinx.coroutines.CancellationException) throw t
+                emptyList()
+            }
+            if (seq != gearSuggestSeq) return@launch
+            characterSuggestions = hits
+            characterSuggestionsReady = true
+        }
+    }
+
+    fun onGearFieldBlur(fieldId: String) {
+        scope.launch {
+            delay(120)
+            if (characterSuggestField == fieldId) clearGearSuggestions()
+        }
+    }
+
+    fun clearGearSuggestions() {
+        gearSuggestSeq++
+        gearSuggestJob?.cancel()
+        characterSuggestField = null
+        characterSuggestions = emptyList()
+        characterSuggestionsReady = false
+    }
+
+    fun saveCharacterDraft() {
+        val draft = characterDraft
+            ?: (characterSheet as? Load.Ok)?.value?.let { CharacterSheetJson.fromResolved(it) }
+            ?: return
+        runImport("Character") { db ->
+            val locator = CharacterLocator()
+            locator.prepareHome()
+            val path = locator.find() ?: locator.charactersDir().resolve("character.json")
+            val sheet = (characterSheet as? Load.Ok)?.value?.sheet
+            val json = CharacterSheetJson.write(draft, sheet, Instant.now().toString())
+            Files.createDirectories(path.parent)
+            Files.writeString(path, json)
+            locator.remember(path)
+            characterDraftDirty = false
+            listOf(ManualImportDataSource().importInto(db, ImportRequest(path = path.toString(), content = json)))
         }
     }
 
@@ -410,21 +638,104 @@ class AppModel(private val scope: CoroutineScope) {
         listOf(TLHelperDataSource().importInto(it, ImportRequest(path = path.toString(), activate = true)))
     }
 
-    fun importCombatLogs(path: Path?) = runImport("Combat logs") { db ->
-        val selection = CombatLogPaths.selectForImport(path?.toString())
-        val source = CombatLogDataSource()
-        selection.files.map { file ->
-            source.importInto(db, ImportRequest(path = file.toString(), content = Files.readString(file)))
+    fun importReadyWarehouse() {
+        val path = patchWatch?.warehouse?.path ?: return
+        importWarehouse(path)
+    }
+
+    private fun startPatchWatch() {
+        scope.launch {
+            delay(1_500)
+            while (true) {
+                checkPatch(autoImport = true)
+                delay(patchWatchInterval())
+            }
         }
     }
 
-    fun importCharacter(path: Path) = runImport("Character") { db ->
-        listOf(
-            ManualImportDataSource().importInto(
+    private fun patchWatchInterval(): Long =
+        System.getenv("SOLISIUM_PATCH_WATCH_MS")?.toLongOrNull()?.takeIf { it >= 5_000L }
+            ?: PatchWatch.DEFAULT_INTERVAL_MS
+
+    private suspend fun checkPatch(autoImport: Boolean) {
+        if (importing) return
+        val q = query ?: return
+        val active = try {
+            dbLock.withLock { withContext(Dispatchers.IO) { q.snapshotService().active() } }
+        } catch (t: Throwable) {
+            if (t is kotlinx.coroutines.CancellationException) throw t
+            return
+        }
+        val report = try {
+            withContext(Dispatchers.IO) {
+                PatchWatch(lastPakFingerprint = { readPakCache() }).inspect(active)
+            }
+        } catch (t: Throwable) {
+            if (t is kotlinx.coroutines.CancellationException) throw t
+            return
+        }
+        patchWatch = report
+        report.pakFingerprint?.let { writePakCache(it) }
+        if (autoImport && report.canImport) {
+            val path = report.warehouse?.path ?: return
+            importWarehouse(path)
+        }
+    }
+
+    private fun pakCachePath(): Path =
+        Path.of(System.getProperty("user.home"), ".solisium", "patch-watch.pak")
+
+    private fun readPakCache(): String? =
+        runCatching { Files.readString(pakCachePath()).trim().takeIf { it.isNotEmpty() } }.getOrNull()
+
+    private fun writePakCache(fingerprint: String) {
+        runCatching {
+            val path = pakCachePath()
+            Files.createDirectories(path.parent)
+            Files.writeString(path, fingerprint)
+        }
+    }
+
+    fun importCombatLogs(path: Path?) = runImport("Combat logs") { db ->
+        val selection = CombatLogPaths.selectForImport(path?.toString())
+        val source = CombatLogDataSource()
+        selection.files.mapIndexed { index, file ->
+            val receipt = source.importInto(
                 db,
-                ImportRequest(path = path.toString(), content = Files.readString(path)),
-            ),
-        )
+                ImportRequest(path = file.toString(), content = Files.readString(file)),
+            )
+            if (index == 0 && selection.warnings.isNotEmpty()) {
+                receipt.copy(warnings = receipt.warnings + selection.warnings)
+            } else {
+                receipt
+            }
+        }
+    }
+
+    fun importCharacter(path: Path) = importCharacters(listOf(path))
+
+    fun importDetectedCharacters() {
+        val locator = CharacterLocator()
+        runCatching { locator.prepareHome() }
+        val files = locator.findImportable()
+        if (files.isEmpty()) return
+        importCharacters(files)
+    }
+
+    fun importCharacters(paths: List<Path>) {
+        if (paths.isEmpty()) return
+        runImport("Character") { db ->
+            val locator = CharacterLocator()
+            val source = ManualImportDataSource()
+            paths.map { path ->
+                val receipt = source.importInto(
+                    db,
+                    ImportRequest(path = path.toString(), content = Files.readString(path)),
+                )
+                locator.remember(path)
+                receipt
+            }
+        }
     }
 
     private fun runImport(label: String, block: (SolisiumDatabase) -> List<ImportReceipt>) {
@@ -442,14 +753,24 @@ class AppModel(private val scope: CoroutineScope) {
             }
             lastImport = outcome
             importing = false
-            // Everything on screen depends on the active snapshot, so refresh broadly.
             refreshOverview()
             loadSnapshots()
             loadRows()
             loadCombat()
             loadCharacters()
+            refreshCharacterDetection()
+            val importedId = outcome.receipts.mapNotNull { it.characterId }.lastOrNull()
+            if (label == "Character" && (importedId != null || selectedCharacterId != null)) {
+                selectCharacter(importedId ?: selectedCharacterId!!)
+            }
             refreshAdvice()
         }
+    }
+
+    private fun refreshCharacterDetection() {
+        val locator = CharacterLocator()
+        runCatching { locator.prepareHome() }
+        detectedCharacterFiles = runCatching { locator.findImportable() }.getOrDefault(emptyList())
     }
 
     fun pickGoal(next: BuildGoal) {
@@ -460,14 +781,117 @@ class AppModel(private val scope: CoroutineScope) {
         refreshAdvice()
     }
 
+    fun pickClass(option: BuildClassOption?) {
+        selectedClassKey = option?.key
+        classChosenByUser = true
+        classQuery = ""
+        refreshAdvice()
+    }
+
+    fun onClassQuery(text: String) {
+        classQuery = text
+    }
+
+    fun selectedClassOption(): BuildClassOption? =
+        selectedClassKey?.let { key -> buildClasses.firstOrNull { it.key == key } }
+
+    private fun matchClassKey(match: WeaponClassMatch?): String? {
+        if (match == null) return null
+        return buildClasses.firstOrNull { option ->
+            option.key == WeaponTypeLabel.pairKey(match.weaponA, match.weaponB) ||
+                WeaponClassResolver.sameTitle(option.name, match.name)
+        }?.key
+    }
+
+    fun toggleAxis(axis: StatAxis) {
+        axes = if (axis in axes) axes - axis else axes + axis
+        refreshAdvice()
+    }
+
+    fun addExtraStat(key: String) {
+        if (key.isBlank()) return
+        extraStatKeys = extraStatKeys + key
+        extraStatQuery = ""
+        refreshAdvice()
+    }
+
+    fun removeExtraStat(key: String) {
+        extraStatKeys = extraStatKeys - key
+        refreshAdvice()
+    }
+
+    fun onExtraStatQuery(text: String) {
+        extraStatQuery = text
+    }
+
+    fun onDesiredCombatPower(text: String) {
+        desiredCombatPowerText = text
+        desiredJob?.cancel()
+        desiredJob = scope.launch {
+            delay(180)
+            refreshAdvice()
+        }
+    }
+
+    fun onDesiredGearScore(text: String) {
+        desiredGearScoreText = text
+        desiredJob?.cancel()
+        desiredJob = scope.launch {
+            delay(180)
+            refreshAdvice()
+        }
+    }
+
     fun refreshAdvice() {
         val currentGoal = goal
         val characterId = selectedCharacterId
         val cachedCommunity = metaByGoal[currentGoal] ?: (community as? Load.Ok)?.value
+        val selectedAxes = axes.toList()
+        val extras = extraStatKeys
+        val classKey = selectedClassKey
+        val classLocked = classChosenByUser
+        val desiredCp = parseTypedLong(desiredCombatPowerText)
+        val desiredGs = parseTypedLong(desiredGearScoreText)
         scope.launch {
+            plan = Load.Loading
             advice = Load.Loading
-            advice = read { q, snapshotId ->
-                BuildAdvisor(q).advise(snapshotId, currentGoal, characterId, cachedCommunity)
+            val loaded = read { q, snapshotId ->
+                val labels = StatKeyLabel.map(q.statKeys(snapshotId))
+                val options = q.buildClassOptions(snapshotId)
+                val classOption = if (classLocked) {
+                    classKey?.let { key -> options.firstOrNull { it.key == key } }
+                } else {
+                    val fromCharacter = characterId?.let { q.resolveCharacter(it, snapshotId)?.weaponClass }
+                    q.findBuildClass(snapshotId, match = fromCharacter, key = classKey)
+                }
+                val planned = DesiredBuildPlanner(q).plan(
+                    snapshotId = snapshotId,
+                    goal = currentGoal,
+                    characterId = characterId,
+                    community = cachedCommunity,
+                    desiredCombatPower = desiredCp,
+                    desiredGearScore = desiredGs,
+                    axes = selectedAxes,
+                    extraKeys = extras,
+                    classOption = classOption,
+                )
+                Triple(labels, planned, options)
+            }
+            when (loaded) {
+                is Load.Ok -> {
+                    availableStatKeys = loaded.value.first.toList()
+                    buildClasses = loaded.value.third
+                    plan = Load.Ok(loaded.value.second)
+                    advice = Load.Ok(loaded.value.second.advice)
+                    if (!classLocked) {
+                        selectedClassKey = loaded.value.second.selectedClass?.key
+                    }
+                }
+                is Load.Err -> {
+                    plan = Load.Err(loaded.message)
+                    advice = Load.Err(loaded.message)
+                }
+                Load.Loading -> Unit
             }
             maybeNarrate()
         }
@@ -569,6 +993,12 @@ class AppModel(private val scope: CoroutineScope) {
                 dbLock.withLock { withContext(Dispatchers.IO) { q.characters() } }
             }
             characters = loaded
+            val none = (loaded as? Load.Ok)?.value?.isEmpty() == true
+            if (none && !attemptedCharacterAutoImport && detectedCharacter != null && !importing) {
+                attemptedCharacterAutoImport = true
+                importDetectedCharacters()
+                return@launch
+            }
             // Most people track one character, so an extra click to see it is pure friction.
             val only = (loaded as? Load.Ok)?.value?.singleOrNull()
             if (only != null && selectedCharacterId == null) selectCharacter(only.id)
@@ -599,13 +1029,32 @@ class AppModel(private val scope: CoroutineScope) {
         detailJob?.cancel()
         detail = Load.Loading
         detailJob = scope.launch {
-            detail = read { q, snapshotId ->
-                RowDetail(
-                    row = row,
-                    stats = q.itemStats(snapshotId, row.sourceRowId),
-                    curves = q.itemCurves(snapshotId, row.sourceRowId),
-                    curvePoints = q.itemCurvePoints(snapshotId, row.sourceRowId),
-                )
+            when (val warehouse = read { q, snapshotId ->
+                q.itemDetail(snapshotId, row.sourceTable, row.sourceRowId)
+            }) {
+                is Load.Err -> {
+                    detail = warehouse
+                    return@launch
+                }
+                is Load.Loading -> return@launch
+                is Load.Ok -> {
+                    val base = warehouse.value
+                    val questlog = withContext(Dispatchers.IO) {
+                        runCatching { CommunityMetaClient().fetchItem(row.sourceRowId) }
+                    }
+                    detail = Load.Ok(
+                        RowDetail(
+                            row = row,
+                            stats = base.warehouseStats,
+                            curves = base.curves,
+                            curvePoints = base.curvePoints,
+                            combatPower = base.combatPower,
+                            questlog = questlog.getOrNull(),
+                            questlogWarning = questlog.exceptionOrNull()?.message,
+                            category = base.category,
+                        ),
+                    )
+                }
             }
         }
     }
@@ -632,6 +1081,9 @@ class AppModel(private val scope: CoroutineScope) {
                 val counts = snapshot?.let {
                     dbLock.withLock { withContext(Dispatchers.IO) { q.counts(it.id) } }
                 }
+                discoveredInfluences = snapshot?.let {
+                    dbLock.withLock { withContext(Dispatchers.IO) { q.discoveredInfluences(it.id) } }
+                }.orEmpty()
                 Overview(
                     snapshot = snapshot,
                     counts = counts,
@@ -703,8 +1155,24 @@ class AppModel(private val scope: CoroutineScope) {
             )
         }
         return when (target) {
-            CatalogKind.Items -> q.items(snapshotId, term).mapNotNull {
-                emit(it.name, it.sourceTable, it.sourceRowId, null, it.grade, looksOnly = true)
+            CatalogKind.Items -> q.items(snapshotId, term).mapNotNull { item ->
+                if (!GearCatalogFilter.isGearListRow(
+                        item.sourceTable,
+                        item.sourceRowId,
+                        item.name,
+                        item.category,
+                    )
+                ) {
+                    return@mapNotNull null
+                }
+                emit(
+                    item.name,
+                    item.sourceTable,
+                    item.sourceRowId,
+                    DisplayName.prettyEnum(item.category),
+                    item.grade,
+                    looksOnly = true,
+                )
             }
             CatalogKind.Weapons -> q.weapons(snapshotId, term).mapNotNull {
                 emit(it.name, it.sourceTable, it.sourceRowId, DisplayName.prettyEnum(it.weaponType))
@@ -764,6 +1232,12 @@ class AppModel(private val scope: CoroutineScope) {
     }
 
     private fun requireQuery(): CatalogQuery = query ?: error(openError ?: "database unavailable")
+
+    private fun parseTypedLong(raw: String): Long? {
+        val digits = raw.filter { it.isDigit() }
+        if (digits.isEmpty()) return null
+        return digits.toLongOrNull()
+    }
 
     private fun openDatabase(): SolisiumDatabase? = try {
         JvmDatabase.openOrCreate(databasePath())

@@ -18,14 +18,31 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.solisium.core.domain.CombatSessionSummary
 import com.solisium.desktop.AppModel
+import com.solisium.desktop.FilePickers
+import com.solisium.desktop.ImportOutcome
 import com.solisium.desktop.Load
+import com.solisium.desktop.theme.MonoStyle
 import com.solisium.desktop.theme.Palette
 import com.solisium.desktop.theme.Spacing
 
 @Composable
 fun CombatScreen(model: AppModel) {
     Column(Modifier.fillMaxSize()) {
-        PageHeader("Combat", "Damage the game itself recorded, not a simulation")
+        PageHeader(
+            title = "Combat",
+            subtitle = "Damage the game itself recorded, not a simulation",
+            trailing = { CombatImportActions(model) },
+        )
+        Column(Modifier.padding(horizontal = Spacing.xxl)) {
+            if (model.importing) {
+                LoadingRow("Importing combat log")
+                Spacer(Modifier.height(Spacing.md))
+            }
+            model.lastImport?.takeIf { it.label == "Combat logs" }?.let { outcome ->
+                CombatImportOutcome(outcome)
+                Spacer(Modifier.height(Spacing.md))
+            }
+        }
         when (val state = model.combat) {
             is Load.Loading -> LoadingRow("Reading sessions")
             is Load.Err -> Column(Modifier.padding(horizontal = Spacing.xxl)) { ErrorState(state.message) }
@@ -33,22 +50,7 @@ fun CombatScreen(model: AppModel) {
                 val sessions = state.value
                 if (sessions.isEmpty()) {
                     Column(Modifier.padding(horizontal = Spacing.xxl)) {
-                        Card {
-                            Text(
-                                "No combat logs imported",
-                                style = MaterialTheme.typography.titleMedium,
-                                color = Palette.Text,
-                            )
-                            Spacer(Modifier.height(Spacing.sm))
-                            Text(
-                                "Throne and Liberty writes a log after combat ends. Import one to see " +
-                                    "observed damage per skill.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = Palette.TextMuted,
-                            )
-                            Spacer(Modifier.height(Spacing.md))
-                            CodeLine("solisium import --source combat-log")
-                        }
+                        EmptyCombatState(model)
                     }
                     return@Column
                 }
@@ -64,6 +66,120 @@ fun CombatScreen(model: AppModel) {
 }
 
 @Composable
+private fun CombatImportActions(model: AppModel) {
+    val logs = model.detectedLogFolder
+    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+        ActionButton(
+            label = "Import newest",
+            onClick = { model.importCombatLogs(null) },
+            primary = true,
+            enabled = !model.importing && logs != null,
+        )
+        ActionButton(
+            label = "Choose file",
+            onClick = {
+                FilePickers.pickFile("Select a combat log", ".txt", logs)
+                    ?.let { model.importCombatLogs(it) }
+            },
+            enabled = !model.importing,
+        )
+        ActionButton(
+            label = "Choose folder",
+            onClick = {
+                FilePickers.pickDirectory("Select a combat log folder", logs)
+                    ?.let { model.importCombatLogs(it) }
+            },
+            enabled = !model.importing,
+        )
+    }
+}
+
+@Composable
+private fun EmptyCombatState(model: AppModel) {
+    val logs = model.detectedLogFolder
+    Card {
+        Text(
+            "No combat logs imported",
+            style = MaterialTheme.typography.titleMedium,
+            color = Palette.Text,
+        )
+        Spacer(Modifier.height(Spacing.sm))
+        Text(
+            "Throne and Liberty writes a log after combat ends when logging is enabled in game settings. " +
+                "Import the newest log from your CombatLogs folder, or pick a file manually.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = Palette.TextMuted,
+        )
+        Spacer(Modifier.height(Spacing.sm))
+        Text(
+            logs?.toString() ?: "No CombatLogs folder found under %LOCALAPPDATA%\\TL\\Saved\\CombatLogs",
+            style = MonoStyle,
+            color = Palette.TextFaint,
+        )
+        Spacer(Modifier.height(Spacing.lg))
+        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+            ActionButton(
+                label = "Import newest",
+                onClick = { model.importCombatLogs(null) },
+                primary = true,
+                enabled = !model.importing && logs != null,
+            )
+            ActionButton(
+                label = "Choose file",
+                onClick = {
+                    FilePickers.pickFile("Select a combat log", ".txt", logs)
+                        ?.let { model.importCombatLogs(it) }
+                },
+                enabled = !model.importing,
+            )
+            ActionButton(
+                label = "Choose folder",
+                onClick = {
+                    FilePickers.pickDirectory("Select a combat log folder", logs)
+                        ?.let { model.importCombatLogs(it) }
+                },
+                enabled = !model.importing,
+            )
+        }
+        if (logs == null) {
+            Spacer(Modifier.height(Spacing.sm))
+            Text(
+                "Enable combat logging in game, or use Choose file if your logs are saved elsewhere.",
+                style = MaterialTheme.typography.bodySmall,
+                color = Palette.TextFaint,
+            )
+        }
+    }
+}
+
+@Composable
+private fun CombatImportOutcome(outcome: ImportOutcome) {
+    val failed = outcome.error != null
+    val tint = if (failed) Palette.Danger else Palette.Extracted
+    Card(Modifier.fillMaxWidth()) {
+        Text(
+            if (failed) "Combat log import failed" else "Combat log imported",
+            style = MaterialTheme.typography.titleSmall,
+            color = tint,
+        )
+        Spacer(Modifier.height(Spacing.xs))
+        if (failed) {
+            Text(outcome.error!!, style = MonoStyle, color = Palette.TextMuted)
+        } else {
+            Text(
+                "${formatLong(outcome.imported.toLong())} events mapped, ${formatLong(outcome.skipped.toLong())} skipped",
+                style = MaterialTheme.typography.bodySmall,
+                color = Palette.TextMuted,
+            )
+        }
+        outcome.warnings.take(4).forEach { warning ->
+            Spacer(Modifier.height(2.dp))
+            Text(warning, style = MaterialTheme.typography.bodySmall, color = Palette.Unverified)
+        }
+    }
+}
+
+@Composable
 private fun SessionCard(session: CombatSessionSummary) {
     Card(Modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -74,7 +190,7 @@ private fun SessionCard(session: CombatSessionSummary) {
                     color = Palette.Text,
                 )
                 Text(
-                    "log v${session.logVersion ?: "?"} · ${session.eventCount.format()} events",
+                    "log v${session.logVersion ?: "?"} · ${formatLong(session.eventCount)} events",
                     style = MaterialTheme.typography.bodySmall,
                     color = Palette.TextFaint,
                 )
@@ -86,7 +202,7 @@ private fun SessionCard(session: CombatSessionSummary) {
         Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
             StatTile(
                 label = "Observed damage",
-                value = session.observedDamageSum.format(),
+                value = formatLong(session.observedDamageSum),
                 modifier = Modifier.weight(1f),
             )
             StatTile(
@@ -107,7 +223,7 @@ private fun SessionCard(session: CombatSessionSummary) {
                 ShareBar(
                     label = total.skillName ?: total.skillId ?: "unnamed",
                     share = total.observedDamageSum.toDouble() / peak,
-                    trailing = "${total.hits.format()} hits · ${total.observedDamageSum.format()}",
+                    trailing = "${formatLong(total.hits)} hits · ${formatLong(total.observedDamageSum)}",
                 )
             }
         }

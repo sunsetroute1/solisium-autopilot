@@ -45,6 +45,9 @@ class TLHelperDataSource(
                 "game_item_stat",
                 "game_stat_curve",
                 "game_item_curve",
+                "game_class",
+                "game_combat_power",
+                "game_skill",
                 "dataset_snapshot",
             ),
             notes = locator.describe(),
@@ -86,6 +89,7 @@ class TLHelperDataSource(
             // The snapshot row and its game rows must commit together. Activating first
             // and failing later would leave an empty snapshot active with the previous
             // one already deactivated.
+            val skippedInfluenceTables = linkedSetOf<String>()
             db.transaction {
                 if (request.activate) {
                     db.schemaQueries.clearActiveSnapshots()
@@ -107,6 +111,9 @@ class TLHelperDataSource(
                         imported++
                     } else {
                         skipped++
+                        if (looksLikeUnmappedBuildTable(row.tableName)) {
+                            skippedInfluenceTables += row.tableName
+                        }
                     }
                 }
                 val materials = mapMaterials(db, snapshotId, rows, itemsByRowId, nameIndex)
@@ -127,6 +134,20 @@ class TLHelperDataSource(
                 if (itemStats.unresolvedPointers > 0) {
                     warnings.add(
                         "${itemStats.unresolvedPointers} item stat pointer(s) had no value row; skipped",
+                    )
+                }
+                val powerLinks = mapItemPowerLinks(db, snapshotId, rows)
+                imported += powerLinks.mapped
+                if (powerLinks.tablePresent) {
+                    warnings.add(
+                        "${powerLinks.mapped} item(s) mapped to TLItemCombatPower weights " +
+                            "(derived; not live character CP). ${powerLinks.unresolved} equip row(s) stayed unresolved.",
+                    )
+                }
+                if (skippedInfluenceTables.isNotEmpty()) {
+                    warnings.add(
+                        "warehouse tables present but unmapped (candidate build influences, not CP): " +
+                            skippedInfluenceTables.sorted().joinToString(),
                     )
                 }
             }
@@ -189,6 +210,34 @@ class TLHelperDataSource(
                 )
                 return true
             }
+            "TLItemCombatPower" -> {
+                db.schemaQueries.insertGameCombatPower(
+                    snapshot_id = snapshotId,
+                    source_table = row.tableName,
+                    source_row_id = row.rowId,
+                    category = present(json.str("Category")),
+                    base_power = json.long("BaseCombatPower") ?: 0L,
+                    potential_power = json.long("ItemPotentialCombatPower"),
+                    payload = row.rawJson,
+                    confidence = "extracted",
+                )
+                return true
+            }
+        }
+        if (WeaponClassMapper.considers(row.tableName)) {
+            val parsed = WeaponClassMapper.parse(row.tableName, row.rowId, row.name, json)
+            if (parsed != null) {
+                db.schemaQueries.insertGameClass(
+                    snapshot_id = snapshotId,
+                    source_table = parsed.sourceTable,
+                    source_row_id = parsed.sourceRowId,
+                    name = parsed.name,
+                    weapon_a = parsed.weaponA,
+                    weapon_b = parsed.weaponB,
+                )
+                return true
+            }
+            return false
         }
         return when (row.recordType.lowercase()) {
             "item" -> {
@@ -255,12 +304,17 @@ class TLHelperDataSource(
                 true
             }
             "skill" -> {
+                val skillType = present(json.strAny("skill_category", "skillType", "skill_type"))
+                val classified = SkillFamilyLookup.classify(row.rowId, skillType)
                 db.schemaQueries.insertGameSkill(
                     snapshot_id = snapshotId,
                     source_table = row.tableName,
                     source_row_id = row.rowId,
                     name = DisplayName.of(row.name, row.rowId) ?: nameIndex[row.rowId],
-                    skill_type = present(json.strAny("skill_category", "skillType", "skill_type")),
+                    skill_type = skillType,
+                    family = classified.family.id,
+                    weapon_token = classified.weaponToken,
+                    family_confidence = classified.confidence,
                 )
                 true
             }
@@ -410,6 +464,57 @@ class TLHelperDataSource(
         return ItemStatResult(imported, unlinked, unresolved)
     }
 
+    private data class ItemPowerLinkResult(
+        val tablePresent: Boolean,
+        val mapped: Int,
+        val unresolved: Int,
+    )
+
+    /**
+     * Links `TLItemEquip` rows to `TLItemCombatPower` using the conservative derived
+     * mapper. Unresolved A/AA families stay unmapped. The result is not live CP.
+     */
+    private fun mapItemPowerLinks(
+        db: SolisiumDatabase,
+        snapshotId: String,
+        rows: List<WarehouseRecord>,
+    ): ItemPowerLinkResult {
+        val powerRows = rows.filter { it.tableName == "TLItemCombatPower" }
+        if (powerRows.isEmpty()) return ItemPowerLinkResult(false, 0, 0)
+        val available = powerRows.map { it.rowId }.toSet()
+        var mapped = 0
+        var unresolved = 0
+        for (row in rows) {
+            if (row.tableName != "TLItemEquip") continue
+            val json = parseJson(row.rawJson)
+            val mapping = CombatPowerLookup.infer(
+                itemId = row.rowId,
+                equipCategory = json.str("equip_category"),
+                itemGrade = json.strAny("item_grade", "grade"),
+                affectsCategoryLevel = json.strAny("affects_category_Level", "affects_category_level"),
+                levelSelectId = json.str("level_select_id"),
+                minLevel = json.long("limit_level_min"),
+                maxLevel = json.long("limit_level_max"),
+                availableRows = available,
+            )
+            val powerRowId = mapping.rowId
+            if (powerRowId == null) {
+                if (mapping.evidence != "unsupported-equipment-type") unresolved++
+                continue
+            }
+            db.schemaQueries.insertGameItemPower(
+                snapshot_id = snapshotId,
+                item_source_table = row.tableName,
+                item_source_row_id = row.rowId,
+                power_source_row_id = powerRowId,
+                evidence = mapping.evidence,
+                confidence = "derived",
+            )
+            mapped++
+        }
+        return ItemPowerLinkResult(true, mapped, unresolved)
+    }
+
     /**
      * Stores the shared enchant and item-level curves once each. `TLItemMainStatEnchant`
      * is keyed by `id` + `enchant_level`, `TLItemMainLevelStat` by `Id` + `item_level`,
@@ -547,6 +652,17 @@ class TLHelperDataSource(
             }
         }
         return out
+    }
+
+    private fun looksLikeUnmappedBuildTable(tableName: String): Boolean {
+        val name = tableName.lowercase()
+        return name.contains("specialization") ||
+            name.contains("materialstat") ||
+            name.contains("skilloptional") ||
+            name.contains("transcend") ||
+            name.contains("weaponmastery") ||
+            name.contains("skillcore") ||
+            name.contains("guardian") && name.contains("pc")
     }
 
     private fun recipeKind(tableName: String): String? = when (tableName) {

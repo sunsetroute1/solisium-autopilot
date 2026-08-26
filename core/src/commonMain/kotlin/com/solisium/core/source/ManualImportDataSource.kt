@@ -1,6 +1,8 @@
 package com.solisium.core.source
 
 import com.solisium.core.db.SolisiumDatabase
+import com.solisium.core.domain.BuildLayer
+import com.solisium.core.domain.LoadoutKeys
 import com.solisium.core.json.JsonParseException
 import com.solisium.core.json.JsonParser
 import com.solisium.core.json.JsonValue
@@ -25,6 +27,8 @@ class ManualImportDataSource : DataSource {
             "user_traits",
             "user_runes",
             "user_skills",
+            "user_weapon_mastery",
+            "user_build_layer",
             "user_inventory",
             "user_materials",
             "user_currency",
@@ -49,6 +53,8 @@ class ManualImportDataSource : DataSource {
             db.schemaQueries.deleteTraits(parsed.id)
             db.schemaQueries.deleteCharacterRunes(parsed.id)
             db.schemaQueries.deleteCharacterSkills(parsed.id)
+            db.schemaQueries.deleteWeaponMastery(parsed.id)
+            db.schemaQueries.deleteBuildLayers(parsed.id)
             db.schemaQueries.deleteInventory(parsed.id)
             db.schemaQueries.deleteMaterials(parsed.id)
             db.schemaQueries.deleteCurrency(parsed.id)
@@ -60,6 +66,14 @@ class ManualImportDataSource : DataSource {
                 name = parsed.name,
                 level = parsed.level,
                 combat_power = parsed.combatPower,
+                gear_score = parsed.gearScore,
+                strength = parsed.strength,
+                dexterity = parsed.dexterity,
+                wisdom = parsed.wisdom,
+                perception = parsed.perception,
+                fortitude = parsed.fortitude,
+                class_name = parsed.className,
+                class_source = parsed.classSource,
                 server = parsed.server,
                 notes = parsed.notes,
                 created_at = createdAt,
@@ -67,11 +81,11 @@ class ManualImportDataSource : DataSource {
             )
             imported += 1
             parsed.equipment.forEach { row ->
-                db.schemaQueries.insertEquipment(parsed.id, row.slot, row.sourceTable, row.sourceRowId, row.itemLevel)
+                db.schemaQueries.insertEquipment(parsed.id, row.slot, row.sourceTable, row.sourceRowId, row.itemLevel, row.name)
                 imported += 1
             }
             parsed.weapons.forEach { row ->
-                db.schemaQueries.insertWeapon(parsed.id, row.slot, row.sourceTable, row.sourceRowId, row.itemLevel)
+                db.schemaQueries.insertWeapon(parsed.id, row.slot, row.sourceTable, row.sourceRowId, row.itemLevel, row.name)
                 imported += 1
             }
             parsed.traits.forEach { row ->
@@ -89,11 +103,23 @@ class ManualImportDataSource : DataSource {
                 imported += 1
             }
             parsed.skills.forEach { row ->
-                db.schemaQueries.insertCharacterSkill(parsed.id, row.sourceTable, row.sourceRowId, row.loadout)
+                db.schemaQueries.insertCharacterSkill(
+                    parsed.id, row.sourceTable, row.sourceRowId, row.loadout, row.name, row.skillLevel, row.family,
+                )
+                imported += 1
+            }
+            parsed.weaponMastery.forEach { row ->
+                db.schemaQueries.insertWeaponMastery(parsed.id, row.weapon, row.level)
+                imported += 1
+            }
+            parsed.buildLayers.forEach { row ->
+                db.schemaQueries.insertBuildLayer(
+                    parsed.id, row.layer, row.slot, row.sourceTable, row.sourceRowId, row.name, row.level,
+                )
                 imported += 1
             }
             parsed.inventory.forEach { row ->
-                db.schemaQueries.insertInventory(parsed.id, row.sourceTable, row.sourceRowId, row.quantity)
+                db.schemaQueries.insertInventory(parsed.id, row.sourceTable, row.sourceRowId, row.quantity, row.name)
                 imported += 1
             }
             parsed.materials.forEach { row ->
@@ -131,6 +157,14 @@ class ManualImportDataSource : DataSource {
         val name: String,
         val level: Long?,
         val combatPower: Long?,
+        val gearScore: Long?,
+        val strength: Long?,
+        val dexterity: Long?,
+        val wisdom: Long?,
+        val perception: Long?,
+        val fortitude: Long?,
+        val className: String?,
+        val classSource: String?,
         val server: String?,
         val notes: String?,
         val updatedAt: String,
@@ -139,6 +173,8 @@ class ManualImportDataSource : DataSource {
         val traits: List<TraitRef>,
         val runes: List<RuneRef>,
         val skills: List<SkillRef>,
+        val weaponMastery: List<MasteryRef>,
+        val buildLayers: List<LayerRef>,
         val inventory: List<StackRef>,
         val materials: List<StackRef>,
         val currency: List<CurrencyRef>,
@@ -154,6 +190,7 @@ class ManualImportDataSource : DataSource {
         val sourceTable: String?,
         val sourceRowId: String?,
         val itemLevel: Long?,
+        val name: String?,
     )
 
     internal data class TraitRef(
@@ -173,12 +210,30 @@ class ManualImportDataSource : DataSource {
         val sourceTable: String?,
         val sourceRowId: String?,
         val loadout: String?,
+        val name: String? = null,
+        val skillLevel: Long? = null,
+        val family: String? = null,
+    )
+
+    internal data class MasteryRef(
+        val weapon: String,
+        val level: Long?,
+    )
+
+    internal data class LayerRef(
+        val layer: String,
+        val slot: String?,
+        val sourceTable: String?,
+        val sourceRowId: String?,
+        val name: String?,
+        val level: Long?,
     )
 
     internal data class StackRef(
         val sourceTable: String?,
         val sourceRowId: String?,
         val quantity: Long,
+        val name: String?,
     )
 
     internal data class CurrencyRef(
@@ -203,6 +258,23 @@ class ManualImportDataSource : DataSource {
         private const val SCHEMA_ID = "solisium.manual-character"
         private const val MANUAL_ONLY =
             "inventory/currency/cooking were imported from this JSON only; there is no verified local file source"
+
+        private val LAYER_ALIASES = listOf(
+            "skill_cores" to BuildLayer.SkillCore.id,
+            "skillCores" to BuildLayer.SkillCore.id,
+            "guardian_skills" to BuildLayer.Guardian.id,
+            "guardianSkills" to BuildLayer.Guardian.id,
+            "transcendence_skills" to BuildLayer.Transcendence.id,
+            "material_effects" to BuildLayer.MaterialEffect.id,
+            "materialEffects" to BuildLayer.MaterialEffect.id,
+            "gemstone_skills" to BuildLayer.Gemstone.id,
+            "gemstoneSkills" to BuildLayer.Gemstone.id,
+            "equipment_skills" to BuildLayer.EquipmentSkill.id,
+            "equipmentSkills" to BuildLayer.EquipmentSkill.id,
+            "specializations" to BuildLayer.Specialization.id,
+            "mastery_nodes" to BuildLayer.Mastery.id,
+            "masteryNodes" to BuildLayer.Mastery.id,
+        )
 
         internal fun parseDocument(text: String, characterIdOverride: String? = null): ParsedDocument {
             val root = try {
@@ -236,6 +308,13 @@ class ManualImportDataSource : DataSource {
             skipped += readRunes(root.arr("runes"), warnings, runes)
             val skills = mutableListOf<SkillRef>()
             skipped += readSkills(root.arr("skills"), warnings, skills)
+            val mastery = mutableListOf<MasteryRef>()
+            skipped += readMastery(root.arr("weapon_mastery").ifEmpty { root.arr("weaponMastery") }, warnings, mastery)
+            val layers = mutableListOf<LayerRef>()
+            skipped += readLayers(root.arr("build_layers").ifEmpty { root.arr("buildLayers") }, warnings, layers)
+            LAYER_ALIASES.forEach { (key, layerId) ->
+                skipped += readLayers(root.arr(key), warnings, layers, defaultLayer = layerId)
+            }
             val inventory = mutableListOf<StackRef>()
             skipped += readStacks(root.arr("inventory"), "inventory", warnings, inventory)
             val materials = mutableListOf<StackRef>()
@@ -256,6 +335,14 @@ class ManualImportDataSource : DataSource {
                 name = name,
                 level = character.longAny("level"),
                 combatPower = character.longAny("combat_power", "combatPower"),
+                gearScore = character.longAny("gear_score", "gearScore"),
+                strength = character.readStat("strength", "str"),
+                dexterity = character.readStat("dexterity", "dex"),
+                wisdom = character.readStat("wisdom", "int", "intelligence"),
+                perception = character.readStat("perception", "per"),
+                fortitude = character.readStat("fortitude", "con", "constitution"),
+                className = character.readClassName(),
+                classSource = character.readClassSource(),
                 server = character.strAny("server"),
                 notes = character.strAny("notes"),
                 updatedAt = character.strAny("updated_at", "updatedAt") ?: "1970-01-01T00:00:00Z",
@@ -264,6 +351,8 @@ class ManualImportDataSource : DataSource {
                 traits = traits,
                 runes = runes,
                 skills = skills,
+                weaponMastery = mastery,
+                buildLayers = layers,
                 inventory = inventory,
                 materials = materials,
                 currency = currency,
@@ -273,6 +362,24 @@ class ManualImportDataSource : DataSource {
                 skipped = skipped,
                 warnings = warnings,
             )
+        }
+
+        private fun JsonValue.Obj.readClassName(): String? {
+            val nested = obj("class")
+            return nested?.strAny("name", "title")?.takeIf { it.isNotBlank() }
+                ?: strAny("class_name", "className")?.takeIf { it.isNotBlank() }
+                ?: str("class")?.takeIf { it.isNotBlank() }
+        }
+
+        private fun JsonValue.Obj.readClassSource(): String? {
+            val nested = obj("class")
+            return nested?.strAny("source", "class_source", "classSource")
+                ?: strAny("class_source", "classSource")
+        }
+
+        private fun JsonValue.Obj.readStat(vararg keys: String): Long? {
+            val nested = obj("stat_points") ?: obj("stats") ?: obj("attributes")
+            return nested?.longAny(*keys) ?: longAny(*keys)
         }
 
         private fun asObject(value: JsonValue, label: String, warnings: MutableList<String>): JsonValue.Obj? {
@@ -305,12 +412,16 @@ class ManualImportDataSource : DataSource {
                     skipped += 1
                     return@forEach
                 }
+                val name = obj.strAny("name")?.takeIf { it.isNotBlank() }
+                val table = sourceTable(obj)?.takeIf { it.isNotBlank() }
+                val rowId = sourceRowId(obj)?.takeUnless { LoadoutKeys.isUnspecified(it) }
                 out.add(
                     SlottedRef(
                         slot = slot,
-                        sourceTable = sourceTable(obj),
-                        sourceRowId = sourceRowId(obj),
+                        sourceTable = table,
+                        sourceRowId = rowId,
                         itemLevel = obj.longAny("item_level", "itemLevel"),
+                        name = name,
                     ),
                 )
             }
@@ -391,16 +502,85 @@ class ManualImportDataSource : DataSource {
                     skipped += 1
                     return@forEach
                 }
-                if (sourceTable(obj) == null && sourceRowId(obj) == null) {
-                    warnings.add("skill row missing source_table/source_row_id")
+                val name = obj.strAny("name")?.takeIf { it.isNotBlank() }
+                val table = sourceTable(obj)
+                val rowId = sourceRowId(obj)
+                if (table == null && rowId == null && name == null) {
+                    warnings.add("skill row missing name or source_table/source_row_id")
                     skipped += 1
                     return@forEach
                 }
                 out.add(
                     SkillRef(
-                        sourceTable = sourceTable(obj),
-                        sourceRowId = sourceRowId(obj),
+                        sourceTable = table,
+                        sourceRowId = rowId,
                         loadout = obj.strAny("loadout"),
+                        name = name,
+                        skillLevel = obj.longAny("level", "skill_level", "skillLevel"),
+                        family = obj.strAny("family"),
+                    ),
+                )
+            }
+            return skipped
+        }
+
+        private fun readMastery(
+            items: List<JsonValue>,
+            warnings: MutableList<String>,
+            out: MutableList<MasteryRef>,
+        ): Int {
+            var skipped = 0
+            items.forEach { item ->
+                val obj = asObject(item, "weapon_mastery", warnings) ?: run {
+                    skipped += 1
+                    return@forEach
+                }
+                val weapon = obj.strAny("weapon", "name")?.takeIf { it.isNotBlank() }
+                if (weapon == null) {
+                    warnings.add("weapon_mastery row missing weapon")
+                    skipped += 1
+                    return@forEach
+                }
+                out.add(MasteryRef(weapon = weapon, level = obj.longAny("level", "skill_level", "skillLevel")))
+            }
+            return skipped
+        }
+
+        private fun readLayers(
+            items: List<JsonValue>,
+            warnings: MutableList<String>,
+            out: MutableList<LayerRef>,
+            defaultLayer: String? = null,
+        ): Int {
+            var skipped = 0
+            items.forEach { item ->
+                val obj = asObject(item, "build_layer", warnings) ?: run {
+                    skipped += 1
+                    return@forEach
+                }
+                val layer = obj.strAny("layer")?.takeIf { it.isNotBlank() }
+                    ?: defaultLayer
+                    ?: run {
+                        warnings.add("build_layer row missing layer")
+                        skipped += 1
+                        return@forEach
+                    }
+                val name = obj.strAny("name")?.takeIf { it.isNotBlank() }
+                val table = sourceTable(obj)
+                val rowId = sourceRowId(obj)
+                if (table == null && rowId == null && name == null) {
+                    warnings.add("build_layer row missing name or source_table/source_row_id")
+                    skipped += 1
+                    return@forEach
+                }
+                out.add(
+                    LayerRef(
+                        layer = layer,
+                        slot = obj.strAny("slot"),
+                        sourceTable = table,
+                        sourceRowId = rowId,
+                        name = name,
+                        level = obj.longAny("level", "skill_level", "skillLevel"),
                     ),
                 )
             }
@@ -419,9 +599,10 @@ class ManualImportDataSource : DataSource {
                     skipped += 1
                     return@forEach
                 }
-                val quantity = obj.longAny("quantity")
-                if (quantity == null) {
-                    warnings.add("$kind row missing quantity")
+                val quantity = obj.longAny("quantity") ?: 1L
+                val name = obj.strAny("name")?.takeIf { it.isNotBlank() }
+                if (sourceTable(obj) == null && sourceRowId(obj) == null && name == null) {
+                    warnings.add("$kind row missing name or source_table/source_row_id")
                     skipped += 1
                     return@forEach
                 }
@@ -430,6 +611,7 @@ class ManualImportDataSource : DataSource {
                         sourceTable = sourceTable(obj),
                         sourceRowId = sourceRowId(obj),
                         quantity = quantity,
+                        name = name,
                     ),
                 )
             }

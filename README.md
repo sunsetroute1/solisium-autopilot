@@ -6,7 +6,7 @@ This is not a bot, overlay injector, or game client. It never writes to the game
 
 ## Current status
 
-Phase 1–5 plus a live `24829515` catalog import: architecture, schema (version 3), CLI import/query, a Compose Desktop app that both imports and reads, typed gear/trait/effect/material/stat mapping, per-item base stat values, shared enchant and item-level curves, and manual character JSON.
+Phase 1–5 plus a live `24829515` catalog import: architecture, schema (version 8), CLI import/query, a Compose Desktop app that both imports and reads, typed gear/trait/effect/material/stat mapping, per-item base stat values, shared enchant and item-level curves, and a manual character sheet (combat power, gear score, allocated stat points, weapon-pair class, every equipment slot, bag inventory, weapon mastery levels, and the skills-screen layers).
 
 Stat values are stored as raw client integers, curve values as the client's cumulative total at a level, and neither is combined with the other because that stacking rule is unverified. Formula rows are never used to produce damage numbers.
 
@@ -30,7 +30,7 @@ Read these first:
 .\gradlew.bat :desktopApp:run
 ```
 
-Compose Desktop on JVM 17, reading the same `~/.solisium/solisium.sqlite` as the CLI (override with `SOLISIUM_DB`). Six screens: Overview (provenance and coverage), Build (goal picker, extracted ranks, optional Questlog/TLDB overlay), Catalog (search with a stats and curve detail pane), Character (resolved loadout), Combat (observed per-skill damage), Data (import and snapshot activation).
+Compose Desktop on JVM 17, reading the same `~/.solisium/solisium.sqlite` as the CLI (override with `SOLISIUM_DB`). Six screens: Overview (provenance, coverage, stale-dataset banner, patch watch), Build (goal picker, T&L class types, Questlog-style modeled CP/GS from warehouse item weights plus typed window targets, extracted ranks, skills-screen influence coverage, optional Questlog/TLDB overlay), Catalog (search with a stats and curve detail pane), Character (resolved loadout plus mastery and sidebar layers), Combat (observed per-skill damage), Data (import and snapshot activation).
 
 The app is read-only with respect to the *game*; it does import into its own database. Data can import a TL-Helper warehouse, a combat log, or a character JSON, so the CLI is optional.
 
@@ -96,10 +96,12 @@ solisium query item-curves --row bow_c_t1_nomal_001
 solisium query characters
 solisium query character --id <id>
 solisium query lookup --table TLItemLooks_Equip --row <row-id>
-solisium query advise [--goal ranged|melee|magic|tank|support] [--character <id>] [--meta] [--slug <questlog-slug>]
+solisium query advise [--goal ranged|melee|magic|tank|support] [--class <Gladiator>] [--character <id>] [--meta] [--slug <questlog-slug>] [--desired-cp <n>] [--desired-gs <n>] [--axes hit,evasion,endurance] [--stat <key>]
 solisium query sessions
 solisium query session --id <session-id>
 solisium logs
+solisium detect-install
+solisium patch-check [--import]
 solisium activate --snapshot <id-or-alias>
 solisium parse-log --path <CombatLog.txt>
 ```

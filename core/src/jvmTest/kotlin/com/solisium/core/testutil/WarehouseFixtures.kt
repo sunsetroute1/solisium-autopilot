@@ -95,4 +95,78 @@ object WarehouseFixtures {
         }
         return warehouse
     }
+
+    fun withPcClass(warehouse: Path, build: String = "24118850"): Path {
+        DriverManager.getConnection("jdbc:sqlite:${warehouse.toAbsolutePath()}").use { connection ->
+            connection.createStatement().use { statement ->
+                statement.execute(
+                    """
+                    INSERT INTO records VALUES
+                    ('TLPcClass:gladiator','gladiator','reference','TLPcClass','Gladiator','$build','1.431.22.7761','0.2.0','{"weapon_a":"EItemCategory::kSword2h","weapon_b":"EItemCategory::kSpear"}'),
+                    ('TLPcClass:incomplete','incomplete','reference','TLPcClass','No Pair','$build','1.431.22.7761','0.2.0','{"weapon_a":"EItemCategory::kGauntlet"}'),
+                    ('TLItemLooks_Equip:fixture_gs','fixture_gs','item','TLItemLooks_Equip','Fixture Greatsword','$build','1.431.22.7761','0.2.0','{"grade":"Epic"}'),
+                    ('TLItemEquip:fixture_gs','fixture_gs','item','TLItemEquip',null,'$build','1.431.22.7761','0.2.0','{"equip_category":"EItemCategory::kSword2h","item_grade":"EItemGrade::kAA"}'),
+                    ('TLItemLooks_Equip:fixture_spear','fixture_spear','item','TLItemLooks_Equip','Fixture Spear','$build','1.431.22.7761','0.2.0','{"grade":"Epic"}'),
+                    ('TLItemEquip:fixture_spear','fixture_spear','item','TLItemEquip',null,'$build','1.431.22.7761','0.2.0','{"equip_category":"EItemCategory::kSpear","item_grade":"EItemGrade::kAA"}')
+                    """.trimIndent(),
+                )
+            }
+        }
+        return warehouse
+    }
+
+    fun withCalanthiaGear(warehouse: Path, build: String = "24118850"): Path {
+        DriverManager.getConnection("jdbc:sqlite:${warehouse.toAbsolutePath()}").use { connection ->
+            connection.createStatement().use { statement ->
+                statement.execute(
+                    """
+                    INSERT INTO records VALUES
+                    ('TLItemLooks_Equip:calanthia_head','calanthia_head','item','TLItemLooks_Equip','Calanthia''s Visage','$build','1.431.22.7761','0.2.0','{"grade":"Heroic"}'),
+                    ('TLItemEquip:calanthia_head','calanthia_head','item','TLItemEquip',null,'$build','1.431.22.7761','0.2.0','{"equip_category":"EItemCategory::kHead","item_grade":"EItemGrade::kAAA"}'),
+                    ('TLItemLooks:calanthia_box','calanthia_box','item','TLItemLooks','Calanthia Armor Selection Chest','$build','1.431.22.7761','0.2.0','{}')
+                    """.trimIndent(),
+                )
+            }
+        }
+        return warehouse
+    }
+
+    fun withCombatPower(warehouse: Path, build: String = "24118850"): Path {
+        DriverManager.getConnection("jdbc:sqlite:${warehouse.toAbsolutePath()}").use { connection ->
+            connection.createStatement().use { statement ->
+                statement.execute(
+                    """
+                    INSERT INTO records VALUES
+                    ('TLItemCombatPower:weapon_aa_t2','weapon_aa_t2','reference','TLItemCombatPower',null,'$build','1.431.22.7761','0.2.0','{"BaseCombatPower":64,"ItemPotentialCombatPower":30,"Category":"ETLCombatPowerCategory::kWeapon","ItemEnchantCombatPowerList":[{"CombatPower":0},{"CombatPower":8}]}'),
+                    ('TLItemCombatPower:weapon_aaa_t1','weapon_aaa_t1','reference','TLItemCombatPower',null,'$build','1.431.22.7761','0.2.0','{"BaseCombatPower":80,"Category":"ETLCombatPowerCategory::kWeapon"}'),
+                    ('TLItemLooks_Equip:bow_aa_t2_fixture','bow_aa_t2_fixture','item','TLItemLooks_Equip','Fixture Tier Bow','$build','1.431.22.7761','0.2.0','{"grade":"Epic"}'),
+                    ('TLItemEquip:bow_aa_t2_fixture','bow_aa_t2_fixture','item','TLItemEquip',null,'$build','1.431.22.7761','0.2.0','{"equip_category":"EItemCategory::kBow","item_grade":"EItemGrade::kAA"}'),
+                    ('TLItemLooks_Equip:sword_a_t1_fixture','sword_a_t1_fixture','item','TLItemLooks_Equip','Fixture Unresolved Sword','$build','1.431.22.7761','0.2.0','{"grade":"Rare"}'),
+                    ('TLItemEquip:sword_a_t1_fixture','sword_a_t1_fixture','item','TLItemEquip',null,'$build','1.431.22.7761','0.2.0','{"equip_category":"EItemCategory::kSword","item_grade":"EItemGrade::kA"}'),
+                    ('TLItemLooks_Equip:sword_aaa_unambiguous','sword_aaa_unambiguous','item','TLItemLooks_Equip','Fixture AAA Sword','$build','1.431.22.7761','0.2.0','{"grade":"Heroic"}'),
+                    ('TLItemEquip:sword_aaa_unambiguous','sword_aaa_unambiguous','item','TLItemEquip',null,'$build','1.431.22.7761','0.2.0','{"equip_category":"EItemCategory::kSword2h","item_grade":"EItemGrade::kAAA"}')
+                    """.trimIndent(),
+                )
+            }
+        }
+        return warehouse
+    }
+
+    fun withSkillFamilies(warehouse: Path, build: String = "24118850"): Path {
+        DriverManager.getConnection("jdbc:sqlite:${warehouse.toAbsolutePath()}").use { connection ->
+            connection.createStatement().use { statement ->
+                statement.execute(
+                    """
+                    INSERT INTO records VALUES
+                    ('TLSkill:WP_SW2_Slam','WP_SW2_Slam','skill','TLSkill','Gauntlet Slam','$build','1.431.22.7761','0.2.0','{"skill_category":"ESkillCategory::kSkill"}'),
+                    ('TLSkill:WM_GT_Unstoppable','WM_GT_Unstoppable','skill','TLSkill','Unstoppable','$build','1.431.22.7761','0.2.0','{"skill_category":"ESkillCategory::kPassive"}'),
+                    ('TLSkill:WP_Item_core','WP_Item_core','skill','TLSkill','Talus''s Transcendent Barrier','$build','1.431.22.7761','0.2.0','{"skill_category":"ESkillCategory::kItem"}'),
+                    ('TLSkill:Gem_Attack_01','Gem_Attack_01','skill','TLSkill','Gemstone Attack','$build','1.431.22.7761','0.2.0','{"skill_category":"ESkillCategory::kItem"}'),
+                    ('TLItemLooks:perk_orb_aa_t3_boss_001','perk_orb_aa_t3_boss_001','item','TLItemLooks','Skill Core: Talus''s Transcendent Barrier','$build','1.431.22.7761','0.2.0','{}')
+                    """.trimIndent(),
+                )
+            }
+        }
+        return warehouse
+    }
 }

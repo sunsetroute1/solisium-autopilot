@@ -6,6 +6,7 @@
     "name": "Fixture Hero",
     "level": 60,
     "combat_power": 7128,
+    "gear_score": 6400,
     "server": "fixture",
     "updated_at": "2026-08-24T00:00:00Z"
   },

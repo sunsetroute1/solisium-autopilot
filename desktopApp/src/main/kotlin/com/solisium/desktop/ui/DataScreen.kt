@@ -83,6 +83,10 @@ private fun ImportPanel(model: AppModel) {
             style = MaterialTheme.typography.bodySmall,
             color = Palette.TextFaint,
         )
+        model.patchWatch?.let { watch ->
+            Spacer(Modifier.height(Spacing.sm))
+            Text(watch.reason, style = MaterialTheme.typography.bodySmall, color = Palette.TextMuted)
+        }
         Spacer(Modifier.height(Spacing.lg))
 
         val warehouse = model.detectedWarehouse
@@ -112,18 +116,23 @@ private fun ImportPanel(model: AppModel) {
                 FilePickers.pickFile("Select a combat log", ".txt", logs)
                     ?.let { model.importCombatLogs(it) }
             },
+            onChooseFolder = {
+                FilePickers.pickDirectory("Select a combat log folder", logs)
+                    ?.let { model.importCombatLogs(it) }
+            },
         )
         Divider(Modifier.padding(vertical = Spacing.md))
 
         ImportRow(
             title = "Character",
-            detail = "A loadout JSON you wrote by hand. The game exposes no character API.",
-            detected = false,
+            detail = model.detectedCharacter?.toString()
+                ?: "No sheet yet. One will be created at ${model.characterPickerDirectory} on first run.",
+            detected = model.detectedCharacter != null,
             busy = model.importing,
-            primaryLabel = null,
-            onPrimary = null,
+            primaryLabel = "Import",
+            onPrimary = model.detectedCharacter?.let { { model.importDetectedCharacters() } },
             onChoose = {
-                FilePickers.pickFile("Select a character JSON", ".json")
+                FilePickers.pickFile("Select a character JSON", ".json", model.characterPickerDirectory)
                     ?.let { model.importCharacter(it) }
             },
         )
@@ -262,6 +271,7 @@ private fun ImportRow(
     primaryLabel: String?,
     onPrimary: (() -> Unit)?,
     onChoose: () -> Unit,
+    onChooseFolder: (() -> Unit)? = null,
 ) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f).padding(end = Spacing.md)) {
@@ -285,6 +295,9 @@ private fun ImportRow(
                 )
             }
             ActionButton("Choose file", onChoose, enabled = !busy)
+            if (onChooseFolder != null) {
+                ActionButton("Choose folder", onChooseFolder, enabled = !busy)
+            }
         }
     }
 }

@@ -1,6 +1,7 @@
 package com.solisium.core.meta
 
 import com.solisium.core.domain.BuildAdvice
+import com.solisium.core.domain.BuildClassOption
 import com.solisium.core.query.BuildGoal
 
 /**
@@ -8,9 +9,20 @@ import com.solisium.core.query.BuildGoal
  * An optional LLM may rephrase this; it must not add stats.
  */
 object MetaBriefing {
-    fun lines(advice: BuildAdvice, goal: BuildGoal): List<String> {
+    fun lines(advice: BuildAdvice, goal: BuildGoal, classOption: BuildClassOption? = null): List<String> {
         val lines = mutableListOf<String>()
         lines += "Goal: ${goal.label}. ${goal.blurb}"
+        if (classOption != null) {
+            lines += "Class: ${classOption.name} (${classOption.weaponsLabel}). " +
+                "${classOption.source}. Weapon ranks and skill coverage use this pair only."
+        } else {
+            advice.className?.let { name ->
+                lines += "Character class: $name" +
+                    (advice.classWeaponsLabel?.let { " ($it)" } ?: "") +
+                    (advice.classSource?.let { " · $it" } ?: "") +
+                    ". Pick a class type to limit weapon ranks to that pair."
+            }
+        }
         lines += advice.scoringNote
         advice.snapshotBuild?.let { lines += "Warehouse build $it is the numeric source." }
         val weaponSlots = advice.slots.filter { it.slot in WEAPON_SLOTS }

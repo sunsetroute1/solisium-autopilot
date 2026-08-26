@@ -15,6 +15,9 @@ data class RankedGear(
     val kind: String,
     val contributions: List<StatContribution>,
     val communityHits: Int = 0,
+    val itemPower: Long? = null,
+    val itemPowerEvidence: String? = null,
+    val potentialPower: Long? = null,
 )
 
 data class StatContribution(
@@ -77,4 +80,8 @@ data class BuildAdvice(
     val community: CommunitySnapshot?,
     val briefing: List<String>,
     val characterName: String?,
+    val className: String? = null,
+    val classSource: String? = null,
+    val classWeaponsLabel: String? = null,
+    val weaponTokens: List<String> = emptyList(),
 )

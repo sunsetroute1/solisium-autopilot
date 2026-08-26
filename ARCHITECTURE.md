@@ -64,7 +64,7 @@ Solisium Autopilot is the decision companion. Rules:
 - Do not adopt TL-Helper `records` / `raw_json` as the application schema.
 - Do not reimplement pak decryption, FModel, or `decode-tljson-table.mjs`.
 - Do implement `TLHelperDataSource`: read `tl-<build>.sqlite` and map into Solisium entities.
-- Pak change detection here is Steam build ID + pak hashes only. The prompt is: "New game data detected. Import updated TL-Helper warehouse?"
+- Pak change detection here is Steam build ID + pak mtimes only. When a matching `tl-<build>.sqlite` appears, Solisium imports it. If the game is ahead of the warehouse, the prompt is: run TL-Helper's extract, then Solisium will import. New skill-id prefixes become typed build influences; they are not combat-power formulas.
 
 ## Modules
 

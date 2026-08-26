@@ -33,3 +33,12 @@ fun statLabels(keyToName: List<Pair<String, String?>>): Map<String, String> {
         key to label
     }
 }
+
+fun formatStatScope(scope: String): String = when (scope) {
+    "main_base" -> "Base (+0)"
+    "enchant" -> "Enchant"
+    "item_level" -> "Item level"
+    else -> prettyEnum(scope) ?: scope.replace('_', ' ').replaceFirstChar { it.uppercase() }
+}
+
+fun formatLong(value: Long): String = "%,d".format(value)

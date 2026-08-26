@@ -92,7 +92,8 @@ Logs contain character names, skill names, and damage. They stay on the user's m
 1. Read Steam build id.
 2. Hash or mtime pak files.
 3. Compare to the last imported snapshot's recorded build/hash.
-4. Ask the user to run TL-Helper's update pipeline and import the new warehouse.
+4. Auto-import a matching TL-Helper `tl-<build>.sqlite` when its hash is new.
+5. If the game is ahead of the warehouse, ask the user to run TL-Helper's extract — Solisium does not unpack paks.
 
 It is not allowed to unpack paks inside Solisium.
 

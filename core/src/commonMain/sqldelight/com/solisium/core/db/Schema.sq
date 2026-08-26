@@ -105,6 +105,9 @@ CREATE TABLE game_skill (
   source_row_id TEXT NOT NULL,
   name TEXT,
   skill_type TEXT,
+  family TEXT,
+  weapon_token TEXT,
+  family_confidence TEXT,
   FOREIGN KEY(snapshot_id) REFERENCES dataset_snapshot(id),
   UNIQUE(snapshot_id, source_table, source_row_id)
 );
@@ -251,11 +254,60 @@ CREATE TABLE game_progression (
   UNIQUE(snapshot_id, source_table, source_row_id)
 );
 
+CREATE TABLE game_class (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  snapshot_id TEXT NOT NULL,
+  source_table TEXT NOT NULL,
+  source_row_id TEXT NOT NULL,
+  name TEXT,
+  weapon_a TEXT,
+  weapon_b TEXT,
+  FOREIGN KEY(snapshot_id) REFERENCES dataset_snapshot(id),
+  UNIQUE(snapshot_id, source_table, source_row_id)
+);
+
+-- Item-component combat-power weights from TLItemCombatPower. These are not
+-- live character CP and are not a gear-score watermark.
+CREATE TABLE game_combat_power (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  snapshot_id TEXT NOT NULL,
+  source_table TEXT NOT NULL,
+  source_row_id TEXT NOT NULL,
+  category TEXT,
+  base_power INTEGER NOT NULL,
+  potential_power INTEGER,
+  payload TEXT,
+  confidence TEXT NOT NULL,
+  FOREIGN KEY(snapshot_id) REFERENCES dataset_snapshot(id),
+  UNIQUE(snapshot_id, source_table, source_row_id)
+);
+
+-- Derived item-id → combat-power-row map. There is no warehouse foreign key.
+CREATE TABLE game_item_power (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  snapshot_id TEXT NOT NULL,
+  item_source_table TEXT NOT NULL,
+  item_source_row_id TEXT NOT NULL,
+  power_source_row_id TEXT NOT NULL,
+  evidence TEXT NOT NULL,
+  confidence TEXT NOT NULL,
+  FOREIGN KEY(snapshot_id) REFERENCES dataset_snapshot(id),
+  UNIQUE(snapshot_id, item_source_row_id)
+);
+
 CREATE TABLE user_character (
   id TEXT NOT NULL PRIMARY KEY,
   name TEXT NOT NULL,
   level INTEGER,
   combat_power INTEGER,
+  gear_score INTEGER,
+  strength INTEGER,
+  dexterity INTEGER,
+  wisdom INTEGER,
+  perception INTEGER,
+  fortitude INTEGER,
+  class_name TEXT,
+  class_source TEXT,
   server TEXT,
   notes TEXT,
   created_at TEXT NOT NULL,
@@ -269,6 +321,7 @@ CREATE TABLE user_equipment (
   source_table TEXT,
   source_row_id TEXT,
   item_level INTEGER,
+  name TEXT,
   FOREIGN KEY(character_id) REFERENCES user_character(id)
 );
 
@@ -279,6 +332,7 @@ CREATE TABLE user_weapon (
   source_table TEXT,
   source_row_id TEXT,
   item_level INTEGER,
+  name TEXT,
   FOREIGN KEY(character_id) REFERENCES user_character(id)
 );
 
@@ -307,6 +361,29 @@ CREATE TABLE user_skills (
   source_table TEXT,
   source_row_id TEXT,
   loadout TEXT,
+  name TEXT,
+  skill_level INTEGER,
+  family TEXT,
+  FOREIGN KEY(character_id) REFERENCES user_character(id)
+);
+
+CREATE TABLE user_weapon_mastery (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  character_id TEXT NOT NULL,
+  weapon TEXT NOT NULL,
+  level INTEGER,
+  FOREIGN KEY(character_id) REFERENCES user_character(id)
+);
+
+CREATE TABLE user_build_layer (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  character_id TEXT NOT NULL,
+  layer TEXT NOT NULL,
+  slot TEXT,
+  source_table TEXT,
+  source_row_id TEXT,
+  name TEXT,
+  level INTEGER,
   FOREIGN KEY(character_id) REFERENCES user_character(id)
 );
 
@@ -316,6 +393,7 @@ CREATE TABLE user_inventory (
   source_table TEXT,
   source_row_id TEXT,
   quantity INTEGER NOT NULL DEFAULT 0,
+  name TEXT,
   FOREIGN KEY(character_id) REFERENCES user_character(id)
 );
 
@@ -436,8 +514,8 @@ INSERT INTO game_rune(snapshot_id, source_table, source_row_id, name, grade)
 VALUES (?, ?, ?, ?, ?);
 
 insertGameSkill:
-INSERT INTO game_skill(snapshot_id, source_table, source_row_id, name, skill_type)
-VALUES (?, ?, ?, ?, ?);
+INSERT INTO game_skill(snapshot_id, source_table, source_row_id, name, skill_type, family, weapon_token, family_confidence)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
 
 insertGameRecipe:
 INSERT INTO game_recipe(snapshot_id, source_table, source_row_id, name, recipe_kind)
@@ -575,6 +653,61 @@ SELECT COUNT(*) FROM game_material WHERE snapshot_id = ?;
 countSkillFormulas:
 SELECT COUNT(*) FROM game_skill_formula WHERE snapshot_id = ?;
 
+countClasses:
+SELECT COUNT(*) FROM game_class WHERE snapshot_id = ?;
+
+insertGameClass:
+INSERT INTO game_class(snapshot_id, source_table, source_row_id, name, weapon_a, weapon_b)
+VALUES (?, ?, ?, ?, ?, ?);
+
+selectClasses:
+SELECT source_table, source_row_id, name, weapon_a, weapon_b
+FROM game_class
+WHERE snapshot_id = ?
+ORDER BY name COLLATE NOCASE;
+
+selectClassByWeapons:
+SELECT source_table, source_row_id, name, weapon_a, weapon_b
+FROM game_class
+WHERE snapshot_id = ? AND weapon_a = ? AND weapon_b = ?;
+
+searchClasses:
+SELECT source_table, source_row_id, name, weapon_a, weapon_b
+FROM game_class
+WHERE snapshot_id = ? AND (IFNULL(name, '') LIKE ? OR source_row_id LIKE ?)
+ORDER BY name COLLATE NOCASE;
+
+countCombatPower:
+SELECT COUNT(*) FROM game_combat_power WHERE snapshot_id = ?;
+
+countItemPower:
+SELECT COUNT(*) FROM game_item_power WHERE snapshot_id = ?;
+
+insertGameCombatPower:
+INSERT INTO game_combat_power(snapshot_id, source_table, source_row_id, category, base_power, potential_power, payload, confidence)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+
+insertGameItemPower:
+INSERT INTO game_item_power(snapshot_id, item_source_table, item_source_row_id, power_source_row_id, evidence, confidence)
+VALUES (?, ?, ?, ?, ?, ?);
+
+selectCombatPower:
+SELECT source_table, source_row_id, category, base_power, potential_power, payload, confidence
+FROM game_combat_power
+WHERE snapshot_id = ?;
+
+selectItemPower:
+SELECT item_source_table, item_source_row_id, power_source_row_id, evidence, confidence
+FROM game_item_power
+WHERE snapshot_id = ?;
+
+selectDistinctItemStatKeys:
+SELECT stat_key, MAX(stat_name) AS stat_name
+FROM game_item_stat
+WHERE snapshot_id = ?
+GROUP BY stat_key
+ORDER BY stat_key COLLATE NOCASE;
+
 selectItems:
 SELECT source_table, source_row_id, name, grade, category
 FROM game_item
@@ -597,7 +730,7 @@ FROM game_rune
 WHERE snapshot_id = ? AND source_table = ? AND source_row_id = ?;
 
 selectSkillByKey:
-SELECT source_table, source_row_id, name, skill_type
+SELECT source_table, source_row_id, name, skill_type, family, weapon_token, family_confidence
 FROM game_skill
 WHERE snapshot_id = ? AND source_table = ? AND source_row_id = ?;
 
@@ -658,7 +791,7 @@ WHERE snapshot_id = ?
 ORDER BY (name IS NULL OR name = '' OR name = source_row_id), name COLLATE NOCASE;
 
 selectSkills:
-SELECT source_table, source_row_id, name, skill_type
+SELECT source_table, source_row_id, name, skill_type, family, weapon_token, family_confidence
 FROM game_skill
 WHERE snapshot_id = ?
 ORDER BY (name IS NULL OR name = '' OR name = source_row_id), name COLLATE NOCASE;
@@ -682,9 +815,15 @@ WHERE snapshot_id = ? AND (IFNULL(name, '') LIKE ? OR source_row_id LIKE ?)
 ORDER BY (name IS NULL OR name = '' OR name = source_row_id), name COLLATE NOCASE;
 
 searchSkills:
-SELECT source_table, source_row_id, name, skill_type
+SELECT source_table, source_row_id, name, skill_type, family, weapon_token, family_confidence
 FROM game_skill
 WHERE snapshot_id = ? AND (IFNULL(name, '') LIKE ? OR source_row_id LIKE ?)
+ORDER BY (name IS NULL OR name = '' OR name = source_row_id), name COLLATE NOCASE;
+
+searchSkillsByFamily:
+SELECT source_table, source_row_id, name, skill_type, family, weapon_token, family_confidence
+FROM game_skill
+WHERE snapshot_id = ? AND family = ? AND (IFNULL(name, '') LIKE ? OR source_row_id LIKE ?)
 ORDER BY (name IS NULL OR name = '' OR name = source_row_id), name COLLATE NOCASE;
 
 searchRecipes:
@@ -802,8 +941,8 @@ WHERE snapshot_id = ? AND source_row_id LIKE ?
 ORDER BY source_row_id;
 
 insertCharacter:
-INSERT OR REPLACE INTO user_character(id, name, level, combat_power, server, notes, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+INSERT OR REPLACE INTO user_character(id, name, level, combat_power, gear_score, strength, dexterity, wisdom, perception, fortitude, class_name, class_source, server, notes, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 selectCharacter:
 SELECT * FROM user_character WHERE id = ?;
@@ -815,21 +954,21 @@ deleteEquipment:
 DELETE FROM user_equipment WHERE character_id = ?;
 
 insertEquipment:
-INSERT INTO user_equipment(character_id, slot, source_table, source_row_id, item_level)
-VALUES (?, ?, ?, ?, ?);
+INSERT INTO user_equipment(character_id, slot, source_table, source_row_id, item_level, name)
+VALUES (?, ?, ?, ?, ?, ?);
 
 selectEquipment:
-SELECT slot, source_table, source_row_id, item_level FROM user_equipment WHERE character_id = ? ORDER BY slot;
+SELECT slot, source_table, source_row_id, item_level, name FROM user_equipment WHERE character_id = ? ORDER BY slot;
 
 deleteWeapons:
 DELETE FROM user_weapon WHERE character_id = ?;
 
 insertWeapon:
-INSERT INTO user_weapon(character_id, slot, source_table, source_row_id, item_level)
-VALUES (?, ?, ?, ?, ?);
+INSERT INTO user_weapon(character_id, slot, source_table, source_row_id, item_level, name)
+VALUES (?, ?, ?, ?, ?, ?);
 
 selectWeapons:
-SELECT slot, source_table, source_row_id, item_level FROM user_weapon WHERE character_id = ? ORDER BY slot;
+SELECT slot, source_table, source_row_id, item_level, name FROM user_weapon WHERE character_id = ? ORDER BY slot;
 
 deleteTraits:
 DELETE FROM user_traits WHERE character_id = ?;
@@ -855,21 +994,41 @@ deleteCharacterSkills:
 DELETE FROM user_skills WHERE character_id = ?;
 
 insertCharacterSkill:
-INSERT INTO user_skills(character_id, source_table, source_row_id, loadout)
-VALUES (?, ?, ?, ?);
+INSERT INTO user_skills(character_id, source_table, source_row_id, loadout, name, skill_level, family)
+VALUES (?, ?, ?, ?, ?, ?, ?);
 
 selectCharacterSkills:
-SELECT source_table, source_row_id, loadout FROM user_skills WHERE character_id = ?;
+SELECT source_table, source_row_id, loadout, name, skill_level, family FROM user_skills WHERE character_id = ?;
+
+deleteWeaponMastery:
+DELETE FROM user_weapon_mastery WHERE character_id = ?;
+
+insertWeaponMastery:
+INSERT INTO user_weapon_mastery(character_id, weapon, level)
+VALUES (?, ?, ?);
+
+selectWeaponMastery:
+SELECT weapon, level FROM user_weapon_mastery WHERE character_id = ?;
+
+deleteBuildLayers:
+DELETE FROM user_build_layer WHERE character_id = ?;
+
+insertBuildLayer:
+INSERT INTO user_build_layer(character_id, layer, slot, source_table, source_row_id, name, level)
+VALUES (?, ?, ?, ?, ?, ?, ?);
+
+selectBuildLayers:
+SELECT layer, slot, source_table, source_row_id, name, level FROM user_build_layer WHERE character_id = ?;
 
 deleteInventory:
 DELETE FROM user_inventory WHERE character_id = ?;
 
 insertInventory:
-INSERT INTO user_inventory(character_id, source_table, source_row_id, quantity)
-VALUES (?, ?, ?, ?);
+INSERT INTO user_inventory(character_id, source_table, source_row_id, quantity, name)
+VALUES (?, ?, ?, ?, ?);
 
 selectInventory:
-SELECT source_table, source_row_id, quantity FROM user_inventory WHERE character_id = ?;
+SELECT source_table, source_row_id, quantity, name FROM user_inventory WHERE character_id = ?;
 
 deleteMaterials:
 DELETE FROM user_materials WHERE character_id = ?;

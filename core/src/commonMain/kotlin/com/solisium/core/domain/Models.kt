@@ -32,6 +32,9 @@ data class CatalogCounts(
     val itemsWithStats: Long = 0,
     val curvePoints: Long = 0,
     val itemCurveLinks: Long = 0,
+    val classes: Long = 0,
+    val combatPowerRows: Long = 0,
+    val itemPowerLinks: Long = 0,
 )
 
 data class GameItem(
@@ -57,6 +60,9 @@ data class GameSkill(
     val sourceRowId: String,
     val name: String?,
     val skillType: String?,
+    val family: String? = null,
+    val weaponToken: String? = null,
+    val familyConfidence: String? = null,
 )
 
 data class GameRecipe(
@@ -184,15 +190,27 @@ data class UserCharacter(
     val name: String,
     val level: Long?,
     val combatPower: Long?,
+    val gearScore: Long?,
     val server: String?,
     val notes: String?,
-)
+    val strength: Long? = null,
+    val dexterity: Long? = null,
+    val wisdom: Long? = null,
+    val perception: Long? = null,
+    val fortitude: Long? = null,
+    val className: String? = null,
+    val classSource: String? = null,
+) {
+    val statPoints: CharacterAttributes.Points
+        get() = CharacterAttributes.Points(strength, dexterity, wisdom, perception, fortitude)
+}
 
 data class UserEquipment(
     val slot: String,
     val sourceTable: String?,
     val sourceRowId: String?,
     val itemLevel: Long?,
+    val name: String? = null,
 )
 
 data class UserWeapon(
@@ -200,6 +218,7 @@ data class UserWeapon(
     val sourceTable: String?,
     val sourceRowId: String?,
     val itemLevel: Long?,
+    val name: String? = null,
 )
 
 data class UserTrait(
@@ -219,12 +238,16 @@ data class UserSkill(
     val sourceTable: String?,
     val sourceRowId: String?,
     val loadout: String?,
+    val name: String? = null,
+    val skillLevel: Long? = null,
+    val family: String? = null,
 )
 
 data class UserStack(
     val sourceTable: String?,
     val sourceRowId: String?,
     val quantity: Long,
+    val name: String? = null,
 )
 
 data class UserCurrency(
@@ -251,6 +274,8 @@ data class CharacterSheet(
     val traits: List<UserTrait>,
     val runes: List<UserRune>,
     val skills: List<UserSkill>,
+    val weaponMastery: List<UserWeaponMastery> = emptyList(),
+    val buildLayers: List<UserBuildLayer> = emptyList(),
     val inventory: List<UserStack>,
     val materials: List<UserStack>,
     val currency: List<UserCurrency>,
@@ -292,9 +317,14 @@ data class ResolvedLoadoutLine(
     val sourceRowId: String?,
     val extra: String?,
     val hit: CatalogHit?,
+    val name: String? = null,
+    val empty: Boolean = false,
+    val stats: List<StatContribution> = emptyList(),
 ) {
     val unresolved: Boolean
-        get() = !sourceTable.isNullOrBlank() && !sourceRowId.isNullOrBlank() && hit == null
+        get() = !empty && hit == null && (
+            !LoadoutKeys.isUnspecified(sourceRowId) || !name.isNullOrBlank()
+        )
 }
 
 data class ResolvedCharacterSheet(
@@ -302,6 +332,75 @@ data class ResolvedCharacterSheet(
     val snapshotId: String?,
     val snapshotBuild: String?,
     val lines: List<ResolvedLoadoutLine>,
+    val weaponClass: WeaponClassMatch? = null,
 ) {
     val unresolvedCount: Int get() = lines.count { it.unresolved }
+}
+
+object LoadoutKeys {
+    fun isUnspecified(value: String?): Boolean {
+        val trimmed = value?.trim().orEmpty()
+        if (trimmed.isEmpty()) return true
+        return trimmed.equals("row-id-from-warehouse", ignoreCase = true) ||
+            trimmed.equals("replace-me", ignoreCase = true) ||
+            trimmed.equals("None", ignoreCase = true)
+    }
+}
+
+/**
+ * The five allocated primary attributes from the in-game character window.
+ *
+ * [Points.allocated] is the typed sum. It is not Combat Power: `TLItemCombatPower`
+ * weights gear, not Strength–Fortitude, and no warehouse aggregator maps these
+ * five numbers onto the CP the client shows.
+ */
+object CharacterAttributes {
+    data class Points(
+        val strength: Long? = null,
+        val dexterity: Long? = null,
+        val wisdom: Long? = null,
+        val perception: Long? = null,
+        val fortitude: Long? = null,
+    ) {
+        private val values = listOf(strength, dexterity, wisdom, perception, fortitude)
+
+        val allocated: Long?
+            get() = if (values.all { it == null }) null else values.sumOf { it ?: 0L }
+    }
+}
+
+object CharacterSlots {
+    val body = listOf("head", "chest", "hands", "legs", "feet", "cloak")
+    val accessories = listOf(
+        "necklace",
+        "earring",
+        "earring2",
+        "ring",
+        "ring2",
+        "bracelet",
+        "belt",
+        "brooch",
+    )
+    val weapons = listOf("main", "offhand")
+
+    fun isWeapon(slot: String): Boolean = slot.lowercase() in weapons
+
+    fun isBody(slot: String): Boolean = slot.lowercase() in body
+
+    fun isAccessory(slot: String): Boolean = slot.lowercase() in accessories
+
+    fun mergeEquipment(rows: List<UserEquipment>): List<UserEquipment> {
+        val bySlot = rows.associateBy { it.slot.lowercase() }
+        val known = body + accessories
+        return known.map { slot ->
+            bySlot[slot] ?: UserEquipment(slot, null, null, null, null)
+        } + rows.filter { it.slot.lowercase() !in known }
+    }
+
+    fun mergeWeapons(rows: List<UserWeapon>): List<UserWeapon> {
+        val bySlot = rows.associateBy { it.slot.lowercase() }
+        return weapons.map { slot ->
+            bySlot[slot] ?: UserWeapon(slot, null, null, null, null)
+        } + rows.filter { it.slot.lowercase() !in weapons }
+    }
 }

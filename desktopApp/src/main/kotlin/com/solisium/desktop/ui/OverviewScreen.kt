@@ -24,6 +24,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import com.solisium.core.domain.CatalogCounts
 import com.solisium.core.domain.DatasetSnapshot
+import com.solisium.core.source.PatchWatchState
 import com.solisium.desktop.AppModel
 import com.solisium.desktop.Load
 import com.solisium.desktop.Overview
@@ -80,6 +81,48 @@ private fun OverviewBody(model: AppModel, overview: Overview) {
                 detail = "The game has been patched since this dataset was extracted. " +
                     "Values may no longer match.",
             )
+            Spacer(Modifier.height(Spacing.lg))
+        }
+        model.patchWatch?.takeIf {
+            it.state != PatchWatchState.CURRENT
+        }?.let { watch ->
+            WarningBanner(
+                watch.reason,
+                label = when (watch.state) {
+                    PatchWatchState.IMPORT_READY -> "warehouse ready"
+                    PatchWatchState.WAITING_FOR_WAREHOUSE -> "waiting on TL-Helper"
+                    else -> "patch watch"
+                },
+                detail = if (watch.canImport) {
+                    "Import will run automatically on the next check, or click Import warehouse."
+                } else {
+                    "Solisium does not unpack game paks. New skill-screen prefixes become typed influences after a warehouse import."
+                },
+            )
+            if (watch.canImport) {
+                Spacer(Modifier.height(Spacing.sm))
+                ActionButton("Import warehouse", { model.importReadyWarehouse() }, primary = true, enabled = !model.importing)
+            }
+            Spacer(Modifier.height(Spacing.lg))
+        }
+        if (model.discoveredInfluences.isNotEmpty()) {
+            Card(Modifier.fillMaxWidth()) {
+                SectionLabel("New build influences")
+                Spacer(Modifier.height(Spacing.sm))
+                Text(
+                    "Prefixes observed in this warehouse that are not one of the hardcoded skills-screen families. Presence only; not combat power.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Palette.TextFaint,
+                )
+                Spacer(Modifier.height(Spacing.sm))
+                model.discoveredInfluences.forEach { inf ->
+                    Text(
+                        "${inf.label} · ${inf.namedCount} named" + if (inf.newThisPatch) " · new this patch" else "",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Palette.Text,
+                    )
+                }
+            }
             Spacer(Modifier.height(Spacing.lg))
         }
 
@@ -158,6 +201,9 @@ private fun CountGrid(counts: CatalogCounts) {
         "Materials" to counts.materials,
         "Named stats" to counts.stats,
         "Item curves" to counts.itemCurveLinks,
+        "Classes" to counts.classes,
+        "Item CP rows" to counts.combatPowerRows,
+        "Item CP links" to counts.itemPowerLinks,
     )
     SectionLabel("Catalog")
     Spacer(Modifier.height(Spacing.md))

@@ -1,0 +1,5 @@
+-- Schema version 3 -> 4: character sheet fields the Character screen always shows.
+ALTER TABLE user_character ADD COLUMN gear_score INTEGER;
+ALTER TABLE user_equipment ADD COLUMN name TEXT;
+ALTER TABLE user_weapon ADD COLUMN name TEXT;
+ALTER TABLE user_inventory ADD COLUMN name TEXT;

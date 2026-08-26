@@ -1,6 +1,6 @@
 # Schema
 
-Solisium schema version **3**. SQLDelight migrations live under `core/src/commonMain/sqldelight/com/solisium/core/db/` as `<from-version>.sqm`; `1.sqm` adds `game_item_stat`, `2.sqm` adds `game_stat_curve` and `game_item_curve`. SQLite is the only database.
+Solisium schema version **8**. SQLDelight migrations live under `core/src/commonMain/sqldelight/com/solisium/core/db/` as `<from-version>.sqm`; `1.sqm` adds `game_item_stat`, `2.sqm` adds `game_stat_curve` and `game_item_curve`, `3.sqm` adds `user_character.gear_score` and `name` on equipment, weapons, and inventory, `4.sqm` adds allocated Strength / Dexterity / Wisdom / Perception / Fortitude on `user_character`, `5.sqm` adds character class title columns and `game_class`, `6.sqm` adds `game_combat_power` and `game_item_power`, `7.sqm` adds derived skill-screen families on `game_skill` plus typed `user_weapon_mastery` and `user_build_layer`. SQLite is the only database.
 
 A migration file and the matching `CREATE TABLE` in `Schema.sq` must stay identical, or a long-lived database ends up shaped differently from a fresh one. `MigrationTest` guards this by dropping the migration-created tables from a full database, letting the migrations rebuild them, and comparing the definitions against a freshly created database.
 
@@ -44,7 +44,7 @@ Every game table includes `source_table` + `source_row_id` so a warehouse key su
 | `game_trait` | Trait definitions (`TLItemTraits`, 217 rows); names resolve via `TraitStat` → `TLItemStatAttrConverter` → `TLStatAttrLooks.ItemUIName` |
 | `game_rune` | Rune definitions (`TLRuneInfo`) |
 | `game_rune_synergy` | Rune synergy definitions (`TLRuneSynergy`) |
-| `game_skill` | Skills |
+| `game_skill` | Skills. `family` / `weapon_token` / `family_confidence` are **derived** from row-id prefixes (`WP_`, `WM_`, `Gem_`, `WP_Item_`, `WP_Polymorph`), not a warehouse foreign key. Unknown prefixes stay `other`. |
 | `game_skill_effect` | Status/effect rows (`TLEffectProperty`, `TLAbnormalState_*`); no skill-id join yet |
 | `game_skill_formula` | `TLFormulaParameterNew` rows at `confidence` `extracted`; `expression` lists the distinct `formula_type` values. Nothing computes damage from them. `confidence` is `extracted` / `derived` / `modeled` / `unsupported` |
 | `game_stat` | Named stats (`TLStats`, localized through `TLStatAttrLooks`) |
@@ -57,6 +57,9 @@ Every game table includes `source_table` + `source_row_id` so a warehouse key su
 | `game_dungeon` | Dungeons (empty; `TLAbyssDungeon` and friends exist but are not collected) |
 | `game_boss` | Bosses (empty; `TLFieldBoss` and friends exist but are not collected) |
 | `game_progression` | Progression tracks (empty; `TLGrowthMission` / `TLGrowthResource` not collected) |
+| `game_class` | Weapon-pair class titles from `TLPcClass` when the warehouse has those rows. Community labels never land here. The Build screen lists extracted rows first, then the community table, as selectable class types. |
+| `game_combat_power` | Extracted `TLItemCombatPower` component weights (`base_power`, optional `potential_power`, payload). Not live character CP. Build modeled CP reads these weights; it does not write a formula into this table. |
+| `game_item_power` | Derived item-id → combat-power-row map. Confidence is `derived`. Unresolved A/AA families are omitted. |
 
 `game_*` must not store Lucent balances or other user state.
 
@@ -66,13 +69,15 @@ Independent of snapshot. Bind advice to a snapshot at query time.
 
 | Table | Purpose |
 | --- | --- |
-| `user_character` | Identity, level, optional CP |
-| `user_equipment` | Equipped items by slot |
-| `user_weapon` | Weapon slots / item level |
+| `user_character` | Identity, level, optional combat power, gear score, allocated Strength / Dexterity / Wisdom / Perception / Fortitude, and optional class title (`class_name` + `class_source`: `extracted` / `community` / `manual`) |
+| `user_equipment` | Equipped items by slot, optional in-game `name` |
+| `user_weapon` | Weapon slots / item level, optional in-game `name` |
 | `user_traits` | Selected trait ranks |
 | `user_runes` | Slotted runes |
-| `user_skills` | Skill loadout |
-| `user_inventory` | Bags (manual; no local file source) |
+| `user_skills` | Weapon-skill loadout; optional in-game `name`, `skill_level`, and `family` |
+| `user_weapon_mastery` | Typed mastery levels from the skills screen (167 / 151). Not WM_ catalog nodes. |
+| `user_build_layer` | Sidebar layers: specialization, mastery nodes, material effect, equipment skills, gemstone, guardian, transcendence, skill cores |
+| `user_inventory` | Bags (manual; no local file source), optional in-game `name` |
 | `user_materials` | Material stacks |
 | `user_currency` | Lucent / Sollant (manual) |
 | `user_cooking` | Cooking level (manual) |
@@ -88,9 +93,9 @@ Observed DPS is computed in memory from events (`sum(damage)/duration`). It is n
 
 ## Manual character JSON
 
-Schema id `solisium.manual-character`, `schemaVersion` 1. Top-level `character` holds identity. Arrays `equipment`, `weapons`, `traits`, `runes`, `skills`, `inventory`, `materials`, `currency`, `goals`, `builds` are optional. Equipment and weapons require `slot`. Traits/runes/skills need `source_table` / `source_row_id` (display `name` is not a key). `cooking.level` or `cooking_level` is optional. `trait.slot` is ignored in schema v1.
+Schema id `solisium.manual-character`, `schemaVersion` 1. Top-level `character` holds identity, including optional `combat_power` / `gear_score` copied from the in-game character window, optional `stat_points` (`strength`, `dexterity`, `wisdom`, `perception`, `fortitude`; short keys `str` / `dex` / `int` / `per` / `con` also parse), and optional `class_name` / `class_source` (or `class` as a string or `{name, source}` object). Combat power is stored as typed; it is not derived from those five attributes. Class titles prefer extracted `game_class` rows, then the community weapon-pair table, then a typed override labeled `manual`. Arrays `equipment`, `weapons`, `traits`, `runes`, `skills`, `inventory`, `materials`, `currency`, `goals`, `builds` are optional. Equipment and weapons require `slot` and may use in-game `name` and/or warehouse `source_table` / `source_row_id`. Inventory may use `name` plus `quantity`. Traits/runes/skills still need warehouse keys (display `name` is not a key for those). `cooking.level` or `cooking_level` is optional. `trait.slot` is ignored in schema v1.
 
-Loadout keys are resolved at query time against a `dataset_snapshot`. Missing keys stay unresolved; names are not guessed from similar items.
+Loadout keys and typed names are resolved at query time against a `dataset_snapshot`. Unmatched names stay unresolved. The Character screen always shows combat power, gear score, allocated stat points, class, every weapon/armor/accessory slot, and the bag list; empty JSON fields render as empty slots, not invented gear.
 
 ## What is not in v2
 

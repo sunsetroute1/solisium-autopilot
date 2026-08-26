@@ -1,6 +1,10 @@
 package com.solisium.core.meta
 
 import com.solisium.core.domain.CommunityHit
+import com.solisium.core.domain.CommunityStatLine
+import com.solisium.core.domain.CommunityTraitLine
+import com.solisium.core.domain.DisplayName
+import com.solisium.core.domain.QuestlogItemOverlay
 import com.solisium.core.json.JsonParser
 import com.solisium.core.json.JsonValue
 import com.solisium.core.query.BuildGoal
@@ -82,6 +86,117 @@ object QuestlogParser {
             )
         }
         return hits.distinctBy { TextNorm.fold(it.name) } to null
+    }
+
+    fun classPairs(text: String) = CommunityWeaponClasses.parseFromText(text)
+
+    /** Community item detail from `database.getItem`. Returns null when the slug is missing. */
+    fun itemDetail(json: String): QuestlogItemOverlay? {
+        val root = JsonParser.parse(json)
+        val data = root.child("result")?.child("data") ?: root.child("data") ?: return null
+        if (data.str("status")?.equals("NOT_FOUND", ignoreCase = true) == true) return null
+        val obj = data as? JsonValue.Obj ?: return null
+        val statsRoot = obj.obj("itemStats")
+        return QuestlogItemOverlay(
+            description = obj.str("description")?.let(TextNorm::stripMarkup)?.trim(),
+            requiredLevel = obj.long("requiredLevel"),
+            sellPrice = obj.long("sellPrice"),
+            tradeCategory = obj.str("tradeCategory"),
+            properties = itemProperties(obj),
+            statLines = statLines(statsRoot),
+            traitLines = traitLines(statsRoot),
+            perkSummaries = obj.arr("itemAvailablePerks").mapNotNull { perk ->
+                val perkObj = perk as? JsonValue.Obj ?: return@mapNotNull null
+                val name = perkObj.str("name")?.let(TextNorm::stripMarkup) ?: return@mapNotNull null
+                val passive = perkObj.obj("passive")?.str("text")?.let(TextNorm::stripMarkup)
+                if (passive.isNullOrBlank()) name else "$name — $passive"
+            },
+            dropSources = obj.arr("itemIsContainedInItems").mapNotNull { drop ->
+                (drop as? JsonValue.Obj)?.str("name")?.let(TextNorm::stripMarkup)
+            }.distinct(),
+        )
+    }
+
+    private fun itemProperties(item: JsonValue.Obj): List<String> = buildList {
+        fun flag(label: String, key: String, positive: Boolean = true) {
+            val value = item.bool(key) ?: return
+            if (value == positive) add(label)
+        }
+        flag("Exchangeable", "isExchangeable")
+        flag("Sellable", "isSellable")
+        flag("Storable", "isStorable")
+        flag("Decomposable", "isDecomposable")
+        if (item.bool("isExchangeable") == false) add("Not exchangeable")
+        if (item.bool("isSellable") == false) add("Not sellable")
+    }
+
+    private fun statLines(statsRoot: JsonValue.Obj?): List<CommunityStatLine> {
+        if (statsRoot == null) return emptyList()
+        val lines = mutableListOf<CommunityStatLine>()
+        appendLevelBlock(lines, statsRoot.obj("main"), "Main")
+        appendLevelBlock(lines, statsRoot.obj("extra"), "Extra")
+        return lines
+    }
+
+    private fun appendLevelBlock(out: MutableList<CommunityStatLine>, block: JsonValue.Obj?, group: String) {
+        if (block == null) return
+        val level = maxLevelKey(block) ?: return
+        val payload = block.fields[level] as? JsonValue.Obj ?: return
+        payload.obj("mainhand")?.let { hand ->
+            val statId = hand.str("statId") ?: "mainhand"
+            val min = hand.long("min")
+            val max = hand.long("max")
+            val value = when {
+                min != null && max != null -> "$min – $max"
+                max != null -> max.toString()
+                else -> null
+            }
+            if (value != null) out += CommunityStatLine(group, prettyStatId(statId), value)
+        }
+        payload.obj("extra")?.fields?.forEach { (key, value) ->
+            formatStatValue(key, value)?.let { out += CommunityStatLine(group, prettyStatId(key), it) }
+        }
+        payload.fields.filter { (key, _) -> key !in setOf("mainhand", "extra", "armor", "shield", "offhand") }
+            .forEach { (key, value) ->
+                formatStatValue(key, value)?.let { out += CommunityStatLine(group, prettyStatId(key), it) }
+            }
+    }
+
+    private fun traitLines(statsRoot: JsonValue.Obj?): List<CommunityTraitLine> {
+        if (statsRoot == null) return emptyList()
+        val traits = statsRoot.obj("traits") ?: return emptyList()
+        return traits.fields.mapNotNull { (key, value) ->
+            val tiers = (value as? JsonValue.Arr)?.items?.mapNotNull { (it as? JsonValue.Num)?.value?.toLong() }
+                ?: return@mapNotNull null
+            if (tiers.isEmpty()) return@mapNotNull null
+            CommunityTraitLine(prettyStatId(key), tiers.joinToString(" → "))
+        }
+    }
+
+    private fun maxLevelKey(block: JsonValue.Obj): String? =
+        block.fields.keys.maxByOrNull { it.toIntOrNull() ?: -1 }
+
+    private fun formatStatValue(key: String, value: JsonValue): String? = when (value) {
+        is JsonValue.Num -> value.value.toLong().toString()
+        is JsonValue.Str -> value.value
+        is JsonValue.Obj -> {
+            val min = value.long("min")
+            val max = value.long("max")
+            when {
+                min != null && max != null -> "$min – $max"
+                max != null -> max.toString()
+                else -> null
+            }
+        }
+        else -> null
+    }
+
+    private fun prettyStatId(raw: String): String {
+        val token = DisplayName.prettyEnum(raw)
+        return when {
+            token != null && token != raw && !token.contains('_') -> token
+            else -> raw.replace('_', ' ').replaceFirstChar { it.uppercase() }
+        }
     }
 
     private fun pathLooksLikeGear(path: String): Boolean {

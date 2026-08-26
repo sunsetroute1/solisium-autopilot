@@ -24,12 +24,22 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.solisium.core.domain.CommunityStatLine
+import com.solisium.core.domain.CommunityTraitLine
+import com.solisium.core.domain.DisplayName
+import com.solisium.core.domain.GameItemPower
+import com.solisium.core.domain.GameItemStat
+import com.solisium.core.domain.QuestlogItemOverlay
 import com.solisium.desktop.AppModel
 import com.solisium.desktop.CatalogKind
 import com.solisium.desktop.CatalogRow
@@ -43,8 +53,8 @@ import com.solisium.desktop.theme.Spacing
 fun CatalogScreen(model: AppModel) {
     Column(Modifier.fillMaxSize()) {
         PageHeader(
-            title = "Gear & skills",
-            subtitle = "Search by the name you see in game — Longbow, Explosive Trap, Hit Chance",
+            title = "Gear catalog",
+            subtitle = "Equipment from your warehouse — stats, curves, and Questlog community detail",
             trailing = { SearchField(model) },
         )
         KindChips(model)
@@ -53,7 +63,7 @@ fun CatalogScreen(model: AppModel) {
         Row(Modifier.fillMaxSize()) {
             Box(Modifier.weight(1f).fillMaxHeight()) { ResultList(model) }
             Box(Modifier.width(1.dp).fillMaxHeight().background(Palette.Border))
-            Box(Modifier.width(440.dp).fillMaxHeight()) { DetailPane(model) }
+            Box(Modifier.width(500.dp).fillMaxHeight()) { DetailPane(model) }
         }
     }
 }
@@ -70,7 +80,7 @@ private fun SearchField(model: AppModel) {
         Box(Modifier.weight(1f)) {
             if (model.search.isEmpty()) {
                 Text(
-                    "Search by name",
+                    "Search gear by name",
                     style = MaterialTheme.typography.bodyMedium,
                     color = Palette.TextFaint,
                 )
@@ -129,9 +139,9 @@ private fun ResultList(model: AppModel) {
             val rows = state.value
             if (rows.isEmpty()) {
                 EmptyState(
-                    title = if (model.search.isBlank()) "No named ${model.kind.label.lowercase()} yet" else "No matches",
+                    title = if (model.search.isBlank()) "No ${model.kind.label.lowercase()} yet" else "No matches",
                     detail = if (model.search.isBlank()) {
-                        "This dataset has no localized names for ${model.kind.label.lowercase()}."
+                        "This snapshot has no named ${model.kind.label.lowercase()} matching the gear filter."
                     } else {
                         "Nothing named \"${model.search}\"."
                     },
@@ -144,9 +154,9 @@ private fun ResultList(model: AppModel) {
                 ) {
                     SectionLabel(
                         if (model.browseTotal > rows.size) {
-                            "Showing ${rows.size.toLong().format()} of ${model.browseTotal.toLong().format()} ${model.kind.label.lowercase()}"
+                            "Showing ${formatLong(rows.size.toLong())} of ${formatLong(model.browseTotal.toLong())} ${model.kind.label.lowercase()}"
                         } else {
-                            "${rows.size.toLong().format()} ${model.kind.label.lowercase()}"
+                            "${formatLong(rows.size.toLong())} ${model.kind.label.lowercase()}"
                         },
                     )
                 }
@@ -193,13 +203,13 @@ private fun DetailPane(model: AppModel) {
     val detail = model.detail
     if (detail == null) {
         EmptyState(
-            title = "Pick something on the left",
-            detail = "Stats and upgrade paths show up here.",
+            title = "Pick gear on the left",
+            detail = "Warehouse stats, upgrade curves, and Questlog community detail appear here.",
         )
         return
     }
     when (detail) {
-        is Load.Loading -> LoadingRow("Reading values")
+        is Load.Loading -> LoadingRow("Loading stats")
         is Load.Err -> Column(Modifier.padding(Spacing.lg)) { ErrorState(detail.message) }
         is Load.Ok -> DetailBody(detail.value)
     }
@@ -209,68 +219,215 @@ private fun DetailPane(model: AppModel) {
 private fun DetailBody(detail: RowDetail) {
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(Spacing.lg),
+        verticalArrangement = Arrangement.spacedBy(Spacing.lg),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            RarityPip(detail.row.grade)
-            Spacer(Modifier.width(Spacing.md))
-            Column(Modifier.weight(1f)) {
-                Text(detail.row.name, style = MaterialTheme.typography.headlineSmall, color = Palette.Text)
-                val rarity = prettyEnum(detail.row.grade)
-                val kind = prettyEnum(detail.row.meta)
-                val line = listOfNotNull(rarity, kind).joinToString(" · ")
-                if (line.isNotEmpty()) {
-                    Spacer(Modifier.height(2.dp))
-                    Text(line, style = MaterialTheme.typography.bodySmall, color = Palette.TextMuted)
-                }
-            }
-        }
-
-        Spacer(Modifier.height(Spacing.lg))
-        BaseStats(detail)
-        Spacer(Modifier.height(Spacing.lg))
+        DetailHeader(detail)
+        detail.questlog?.description?.takeIf { it.isNotBlank() }?.let { DescriptionCard(it) }
+        WarehouseStats(detail.stats)
+        detail.combatPower?.let { CombatPowerCard(it) }
         Curves(detail)
-        Spacer(Modifier.height(Spacing.xl))
-        Text(
-            detail.row.sourceRowId,
-            style = MonoStyle,
-            color = Palette.TextFaint,
-        )
-        Spacer(Modifier.height(Spacing.xl))
+        detail.questlog?.let { CommunitySection(it, detail.questlogWarning) }
+        TechnicalFooter(detail)
     }
 }
 
 @Composable
-private fun BaseStats(detail: RowDetail) {
-    Card {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            SectionLabel("Base stats", Modifier.weight(1f))
-            if (detail.stats.isNotEmpty()) {
-                Badge(detail.stats.first().confidence, confidenceColor(detail.stats.first().confidence))
+private fun DetailHeader(detail: RowDetail) {
+    Row(verticalAlignment = Alignment.Top) {
+        RarityPip(detail.row.grade)
+        Spacer(Modifier.width(Spacing.md))
+        Column(Modifier.weight(1f)) {
+            Text(detail.row.name, style = MaterialTheme.typography.headlineSmall, color = Palette.Text)
+            val chips = buildList {
+                prettyEnum(detail.row.grade)?.let { add(it) }
+                prettyEnum(detail.row.meta)?.let { add(it) }
+                prettyEnum(detail.category)?.let { add(it) }
+                detail.questlog?.tradeCategory?.let { add(it.replaceFirstChar { c -> c.uppercase() }) }
+                detail.questlog?.requiredLevel?.let { add("Req. level $it") }
+            }
+            if (chips.isNotEmpty()) {
+                Spacer(Modifier.height(4.dp))
+                Text(chips.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = Palette.TextMuted)
             }
         }
+    }
+}
+
+@Composable
+private fun DescriptionCard(description: String) {
+    Card {
+        SectionLabel("Description")
+        Spacer(Modifier.height(Spacing.sm))
+        Text(
+            description.replace("\r\n", "\n"),
+            style = MaterialTheme.typography.bodyMedium,
+            color = Palette.Text,
+        )
+    }
+}
+
+@Composable
+private fun WarehouseStats(stats: List<GameItemStat>) {
+    Card {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            SectionLabel("Warehouse stats", Modifier.weight(1f))
+            Badge("extracted", Palette.Extracted)
+        }
         Spacer(Modifier.height(Spacing.md))
-        if (detail.stats.isEmpty()) {
+        if (stats.isEmpty()) {
             Text(
-                "No stat values are linked to this row. Most non-equipment rows have none.",
+                "No stat values are linked to this row in your warehouse import.",
                 style = MaterialTheme.typography.bodySmall,
                 color = Palette.TextFaint,
             )
             return@Card
         }
-        val labels = statLabels(detail.stats.map { it.statKey to it.statName }.distinct())
-        detail.stats.forEach { stat ->
-            KeyValueRow(
-                key = labels[stat.statKey] ?: stat.statKey,
-                value = stat.rawValue.format(),
-                keyWidth = 190.dp,
+        val labels = statLabels(stats.map { it.statKey to it.statName }.distinct())
+        stats.groupBy { it.scope }.forEach { (scope, rows) ->
+            Text(
+                formatStatScope(scope),
+                style = MaterialTheme.typography.titleSmall,
+                color = Palette.TextMuted,
             )
+            Spacer(Modifier.height(Spacing.xs))
+            rows.forEach { stat ->
+                KeyValueRow(
+                    key = labels[stat.statKey] ?: stat.statKey,
+                    value = formatLong(stat.rawValue),
+                    keyWidth = 200.dp,
+                )
+            }
+            Spacer(Modifier.height(Spacing.sm))
         }
-        Spacer(Modifier.height(Spacing.sm))
         Text(
             "Raw client integers at +0. Display scaling is unverified.",
             style = MaterialTheme.typography.bodySmall,
             color = Palette.TextFaint,
         )
+    }
+}
+
+@Composable
+private fun CombatPowerCard(power: GameItemPower) {
+    Card {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            SectionLabel("Combat power link", Modifier.weight(1f))
+            Badge(power.confidence, confidenceColor(power.confidence))
+        }
+        Spacer(Modifier.height(Spacing.sm))
+        KeyValueRow("Base power", formatLong(power.basePower), keyWidth = 160.dp)
+        power.potentialPower?.let {
+            KeyValueRow("Potential power", formatLong(it), keyWidth = 160.dp)
+        }
+        if (power.evidence.isNotBlank()) {
+            Spacer(Modifier.height(Spacing.xs))
+            Text(power.evidence, style = MaterialTheme.typography.bodySmall, color = Palette.TextFaint)
+        }
+    }
+}
+
+@Composable
+private fun CommunitySection(overlay: QuestlogItemOverlay, warning: String?) {
+    Card {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            SectionLabel("Questlog community", Modifier.weight(1f))
+            Badge("community", Palette.Unverified)
+        }
+        if (warning != null) {
+            Spacer(Modifier.height(Spacing.sm))
+            Text(warning, style = MaterialTheme.typography.bodySmall, color = Palette.Unverified)
+        }
+        if (overlay.properties.isNotEmpty()) {
+            Spacer(Modifier.height(Spacing.sm))
+            Text(
+                overlay.properties.joinToString(" · "),
+                style = MaterialTheme.typography.bodySmall,
+                color = Palette.TextMuted,
+            )
+        }
+        if (overlay.statLines.isNotEmpty()) {
+            Spacer(Modifier.height(Spacing.md))
+            CommunityStatBlock(overlay.statLines)
+        }
+        if (overlay.traitLines.isNotEmpty()) {
+            Spacer(Modifier.height(Spacing.md))
+            CommunityTraitBlock(overlay.traitLines)
+        }
+        if (overlay.perkSummaries.isNotEmpty()) {
+            Spacer(Modifier.height(Spacing.md))
+            Text("Available perks", style = MaterialTheme.typography.titleSmall, color = Palette.Text)
+            Spacer(Modifier.height(Spacing.xs))
+            overlay.perkSummaries.take(6).forEach { perk ->
+                Text("• $perk", style = MaterialTheme.typography.bodySmall, color = Palette.TextMuted)
+                Spacer(Modifier.height(4.dp))
+            }
+            if (overlay.perkSummaries.size > 6) {
+                Text(
+                    "+ ${overlay.perkSummaries.size - 6} more",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Palette.TextFaint,
+                )
+            }
+        }
+        if (overlay.dropSources.isNotEmpty()) {
+            Spacer(Modifier.height(Spacing.md))
+            Text("Found in", style = MaterialTheme.typography.titleSmall, color = Palette.Text)
+            Spacer(Modifier.height(Spacing.xs))
+            Text(
+                overlay.dropSources.joinToString("\n"),
+                style = MaterialTheme.typography.bodySmall,
+                color = Palette.TextMuted,
+            )
+        }
+        Spacer(Modifier.height(Spacing.sm))
+        Text(
+            "Community site values. Not extracted from your game client.",
+            style = MaterialTheme.typography.bodySmall,
+            color = Palette.TextFaint,
+        )
+    }
+}
+
+@Composable
+private fun CommunityStatBlock(lines: List<CommunityStatLine>) {
+    Text("Stats at max item level", style = MaterialTheme.typography.titleSmall, color = Palette.Text)
+    Spacer(Modifier.height(Spacing.xs))
+    lines.groupBy { it.group }.forEach { (group, rows) ->
+        Text(group, style = MaterialTheme.typography.labelMedium, color = Palette.TextMuted)
+        rows.forEach { line ->
+            KeyValueRow(key = line.label, value = line.value, keyWidth = 200.dp)
+        }
+        Spacer(Modifier.height(Spacing.xs))
+    }
+}
+
+@Composable
+private fun CommunityTraitBlock(traits: List<CommunityTraitLine>) {
+    Text("Trait tiers", style = MaterialTheme.typography.titleSmall, color = Palette.Text)
+    Spacer(Modifier.height(Spacing.xs))
+    traits.forEach { trait ->
+        KeyValueRow(key = trait.label, value = trait.tiers, keyWidth = 200.dp)
+    }
+}
+
+@Composable
+private fun TechnicalFooter(detail: RowDetail) {
+    var expanded by remember { mutableStateOf(false) }
+    Column {
+        Text(
+            if (expanded) "Hide technical id" else "Show technical id",
+            style = MaterialTheme.typography.bodySmall,
+            color = Palette.Accent,
+            modifier = Modifier.clickable { expanded = !expanded },
+        )
+        if (expanded) {
+            Spacer(Modifier.height(Spacing.xs))
+            Text(
+                "${detail.row.sourceTable} · ${detail.row.sourceRowId}",
+                style = MonoStyle,
+                color = Palette.TextFaint,
+            )
+        }
     }
 }
 
@@ -284,7 +441,7 @@ private fun Curves(detail: RowDetail) {
             KeyValueRow(
                 key = if (curve.curveKind == "enchant") "Enchant curve" else "Item level curve",
                 value = curve.curveId + (curve.maxLevel?.let { " (max +$it)" } ?: ""),
-                keyWidth = 130.dp,
+                keyWidth = 140.dp,
                 mono = true,
             )
         }

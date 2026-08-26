@@ -8,12 +8,14 @@ import com.solisium.core.domain.CharacterSheet
 import com.solisium.core.domain.CombatSessionSummary
 import com.solisium.core.domain.ResolvedCharacterSheet
 import com.solisium.core.domain.ResolvedLoadoutLine
+import com.solisium.core.domain.UserCharacter
 import com.solisium.core.query.BuildMismatch
 import com.solisium.core.query.CatalogQuery
 import com.solisium.core.secret.AesKey
 import com.solisium.core.secret.ScanReport
 import com.solisium.core.secret.SecretScanner
 import com.solisium.core.secret.SecretStore
+import com.solisium.core.source.CharacterLocator
 import com.solisium.core.source.CombatLogDataSource
 import com.solisium.core.source.CombatLogPaths
 import com.solisium.core.source.ImportReceipt
@@ -49,6 +51,7 @@ private fun dispatch(args: Array<String>) {
         "logs" -> runLogs()
         "probe" -> runProbe()
         "detect-install" -> runDetect()
+        "patch-check" -> runPatchCheck(args.drop(1))
         "keys" -> runKeys(args.drop(1))
         else -> {
             System.err.println("unknown command: $command")
@@ -67,12 +70,12 @@ private fun printHelp() {
         solisium probe
         solisium import --source tl-helper [--path <warehouse.sqlite>] [--activate false]
         solisium import --source combat-log [--path <CombatLog.txt|dir>]
-        solisium import --source manual --path <character.json>
+        solisium import --source manual [--path <character.json>]
         solisium query snapshots|counts|items|weapons|armor|accessories|traits|runes|synergies|skills|effects|formulas|recipes|materials|stats [--name <text>] [--snapshot <id-or-alias>]
         solisium query item-stats --row <item-row-id> [--snapshot <id-or-alias>]
         solisium query item-curves --row <item-row-id> [--snapshot <id-or-alias>]
         solisium query lookup --table <source_table> --row <source_row_id> [--snapshot <id-or-alias>]
-        solisium query advise [--goal ranged|melee|magic|tank|support] [--character <id>] [--meta] [--slug <questlog-slug>]
+        solisium query advise [--goal ranged|melee|magic|tank|support] [--class <Gladiator>] [--character <id>] [--meta] [--slug <questlog-slug>] [--desired-cp <n>] [--desired-gs <n>] [--axes hit,evasion,endurance] [--stat <key>]
         solisium query characters
         solisium query character --id <character-id> [--snapshot <id-or-alias>]
         solisium query sessions
@@ -82,6 +85,7 @@ private fun printHelp() {
         solisium parse-log --path <CombatLog.txt>
         solisium logs
         solisium detect-install
+        solisium patch-check [--import]
         solisium keys list
         solisium keys scan [--path <folder>]        find a key already on this machine
         solisium keys add --name <name> [--from <folder>] [--value <hex>]
@@ -111,6 +115,7 @@ private fun runProbe() {
                 "folder not found"
             },
     )
+    println("character ${CharacterLocator().describe()}")
     println("public_repo import=false; Questlog/TLDB overlay is `query advise --meta` / `--slug` or the Build screen")
     val dbFile = dbPath(emptyMap())
     if (!Files.isRegularFile(dbFile)) {
@@ -140,18 +145,30 @@ private fun runImport(args: List<String>) {
         )
         "combat-log" -> importCombatLogs(db, path, flags["character"]).forEach(::printReceipt)
         "manual" -> {
-            val file = Path.of(path ?: error("--path is required"))
-            val receipt = ManualImportDataSource().importInto(
-                db,
-                ImportRequest(
-                    path = file.toString(),
-                    content = Files.readString(file),
-                    activate = activate,
-                    characterId = flags["character"],
-                ),
-            )
-            printReceipt(receipt)
-            warnUnresolvedLoadout(db, receipt.characterId)
+            val locator = CharacterLocator()
+            val files = if (path != null) {
+                listOf(Path.of(path))
+            } else {
+                locator.prepareHome()
+                locator.findImportable()
+            }
+            if (files.isEmpty()) {
+                error("no character json found; pass --path or put a sheet in ${locator.charactersDir()}")
+            }
+            files.forEach { file ->
+                val receipt = ManualImportDataSource().importInto(
+                    db,
+                    ImportRequest(
+                        path = file.toString(),
+                        content = Files.readString(file),
+                        activate = activate,
+                        characterId = flags["character"],
+                    ),
+                )
+                locator.remember(file)
+                printReceipt(receipt)
+                warnUnresolvedLoadout(db, receipt.characterId)
+            }
         }
         "public-repo" -> printReceipt(PublicRepositoryDataSource().importInto(db, ImportRequest(path = path)))
         "installed-game" -> printReceipt(
@@ -211,7 +228,7 @@ private fun runQuery(args: List<String>) {
     val snapshotKinds = setOf(
         "counts", "items", "weapons", "armor", "accessories", "traits", "runes", "synergies",
         "skills", "effects", "formulas", "recipes", "materials", "stats", "item-stats",
-        "item-curves", "lookup", "advise",
+        "item-curves", "lookup", "advise", "classes",
     )
     val snapshot = when {
         snapshotRef != null -> query.snapshotService().resolve(snapshotRef)
@@ -249,7 +266,7 @@ private fun runQuery(args: List<String>) {
                     println("${it.name ?: "-"}\t${it.sourceRowId}")
                 }
                 "skills" -> query.skills(snapshotId, name).forEach {
-                    println("${it.name ?: "-"}\t${it.skillType ?: "-"}\t${it.sourceRowId}")
+                    println("${it.name ?: "-"}\t${it.family ?: it.skillType ?: "-"}\t${it.weaponToken ?: "-"}\t${it.sourceRowId}")
                 }
                 "effects" -> query.effects(snapshotId, name).forEach {
                     println("${it.name ?: "-"}\t${it.sourceTable}\t${it.sourceRowId}")
@@ -270,6 +287,19 @@ private fun runQuery(args: List<String>) {
                     println("${it.sourceRowId}\t${it.expression ?: "-"}\tconfidence=${it.confidence}")
                 }
             }
+        }
+        "classes" -> {
+            val snapshotId = snapshot?.id
+            if (snapshotId != null) {
+                query.classes(snapshotId, name).forEach { row ->
+                    println("extracted\t${row.name ?: "-"}\t${row.weaponA ?: "-"}\t${row.weaponB ?: "-"}\t${row.sourceTable}\t${row.sourceRowId}")
+                }
+            }
+            com.solisium.core.meta.CommunityWeaponClasses.pairs()
+                .filter { name.isNullOrBlank() || it.name.contains(name, ignoreCase = true) }
+                .forEach { pair ->
+                    println("community\t${pair.name}\t${pair.weaponA}\t${pair.weaponB}")
+                }
         }
         "item-stats" -> {
             val snapshotId = snapshot?.id ?: error("no active snapshot; import game data first")
@@ -324,15 +354,46 @@ private fun runQuery(args: List<String>) {
                 val raw = com.solisium.core.meta.CommunityMetaClient().fetchCharacter(slug, community)
                 community = com.solisium.core.meta.CommunityOverlay.bind(raw, query, snapshotId)
             }
-            val advice = com.solisium.core.query.BuildAdvisor(query).advise(
+            val classOption = flags["class"]?.let { name ->
+                query.findBuildClass(snapshotId, name = name)
+                    ?: error("unknown class: $name")
+            }
+            val plan = com.solisium.core.query.DesiredBuildPlanner(query).plan(
                 snapshotId,
                 goal,
                 flags["character"] ?: flags["id"],
                 community,
+                desiredCombatPower = flags["desired-cp"]?.filter { it.isDigit() }?.toLongOrNull(),
+                desiredGearScore = flags["desired-gs"]?.filter { it.isDigit() }?.toLongOrNull(),
+                axes = com.solisium.core.query.StatAxis.fromIds(flags["axes"]),
+                extraKeys = flags["stat"]?.let { setOf(it) }.orEmpty(),
+                classOption = classOption,
             )
+            val advice = plan.advice
             println("goal=${advice.goalId} snapshot=${advice.snapshotId} build=${advice.snapshotBuild ?: "-"}")
+            plan.selectedClass?.let {
+                println("class=${it.name} weapons=${it.weaponsLabel} source=${it.source}")
+            }
             println(advice.scoringNote)
+            plan.combatPowerGap?.let { println("typed_cp_gap=$it current=${plan.currentCombatPower} desired=${plan.desiredCombatPower}") }
+            plan.gearScoreGap?.let { println("typed_gs_gap=$it current=${plan.currentGearScore} desired=${plan.desiredGearScore}") }
+            plan.modeled?.let { modeled ->
+                println("modeled_cp=${modeled.current} potential_cp=${modeled.potential} modeled_gs=${modeled.gearScore} potential_gs=${modeled.potentialGearScore}")
+                println("modeled_breakdown equipment_base=${modeled.equipmentBase} items=${modeled.itemPower} skills=${modeled.skillPower} mastery=${modeled.masteryPower} unresolved=${modeled.unresolvedCount}")
+                modeled.items.forEach { item ->
+                    println("modeled_slot ${item.slot}\t${item.name}\tcurrent=${item.current}\tpotential=${item.potential}\t${item.source}")
+                }
+            }
+            plan.modeledCombatPowerGap?.let { println("modeled_cp_gap=$it") }
+            plan.modeledGearScoreGap?.let { println("modeled_gs_gap=$it") }
             advice.briefing.forEach { println("brief $it") }
+            plan.roadmap.forEach { step ->
+                println("roadmap ${step.kind}\t${step.title}")
+            }
+            plan.limits.forEach { println("limit $it") }
+            plan.influences.forEach { layer ->
+                println("influence ${layer.layer}\tslotted=${layer.slotted}\tresolved=${layer.resolved}\tcatalog=${layer.catalogNamed}\t${layer.label}")
+            }
             advice.slots.forEach { slot ->
                 val you = slot.equipped?.let { "you=${it.name}:${it.score}" } ?: "you=-"
                 val top = slot.recommended.firstOrNull()?.let { "top=${it.name}:${it.score}" } ?: "top=-"
@@ -347,7 +408,7 @@ private fun runQuery(args: List<String>) {
             }
         }
         "characters" -> query.characters().forEach { character ->
-            println("${character.id}\t${character.name}\tlevel=${character.level ?: "-"}\tcp=${character.combatPower ?: "-"}")
+            println("${character.id}\t${character.name}\tlevel=${character.level ?: "-"}\tcp=${character.combatPower ?: "-"}\tgs=${character.gearScore ?: "-"}\tclass=${character.className ?: "-"}\tallocated=${character.statPoints.allocated ?: "-"}")
         }
         "character" -> {
             val id = flags["id"] ?: error("--id is required")
@@ -377,7 +438,8 @@ private fun formatCounts(counts: CatalogCounts): String =
         "effects=${counts.effects} formulas=${counts.formulas} recipes=${counts.recipes} " +
         "materials=${counts.materials} stats=${counts.stats} " +
         "item_stats=${counts.itemStats} items_with_stats=${counts.itemsWithStats} " +
-        "curve_points=${counts.curvePoints} item_curves=${counts.itemCurveLinks}"
+        "curve_points=${counts.curvePoints} item_curves=${counts.itemCurveLinks} classes=${counts.classes} " +
+        "combat_power=${counts.combatPowerRows} item_power=${counts.itemPowerLinks}"
 
 private fun formatSessionLine(session: CombatSessionSummary): String {
     val dps = session.observedDps?.let { String.format("%.1f", it) } ?: "-"
@@ -387,7 +449,11 @@ private fun formatSessionLine(session: CombatSessionSummary): String {
 private fun printResolvedSheet(resolved: ResolvedCharacterSheet) {
     val character = resolved.sheet.character
     println(
-        "id=${character.id} name=${character.name} level=${character.level ?: "-"} cp=${character.combatPower ?: "-"} server=${character.server ?: "-"}",
+        "id=${character.id} name=${character.name} level=${character.level ?: "-"} cp=${character.combatPower ?: "-"} gs=${character.gearScore ?: "-"} ${formatStatPoints(character)} server=${character.server ?: "-"}",
+    )
+    val match = resolved.weaponClass
+    println(
+        "class=${match?.name ?: character.className ?: "-"} source=${match?.source ?: character.classSource ?: "-"} weapons=${match?.weaponsLabel ?: "-"}",
     )
     if (resolved.snapshotId == null) {
         println("catalog=none (import a warehouse snapshot to resolve names)")
@@ -411,18 +477,28 @@ private fun printResolvedSheet(resolved: ResolvedCharacterSheet) {
     }
 }
 
+private fun formatStatPoints(character: UserCharacter): String {
+    return "str=${character.strength ?: "-"} dex=${character.dexterity ?: "-"} " +
+        "wis=${character.wisdom ?: "-"} per=${character.perception ?: "-"} " +
+        "for=${character.fortitude ?: "-"} allocated=${character.statPoints.allocated ?: "-"}"
+}
+
 private fun formatLine(line: ResolvedLoadoutLine): String {
     val hit = line.hit
     val name = when {
         hit != null -> hit.name ?: "-"
-        line.unresolved -> "UNRESOLVED"
-        else -> "-"
+        line.empty -> "EMPTY"
+        line.unresolved -> line.name ?: "UNRESOLVED"
+        else -> line.name ?: "-"
     }
     val parts = mutableListOf(line.kind)
     line.label?.let { parts.add(it) }
     parts.add("name=$name")
     hit?.detail?.let { parts.add("detail=$it") }
     line.extra?.let { parts.add(it) }
+    if (line.stats.isNotEmpty()) {
+        parts.add(line.stats.joinToString(",") { "${it.statKey}=${it.rawValue}" })
+    }
     parts.add("table=${line.sourceTable ?: "-"}")
     parts.add("row=${line.sourceRowId ?: "-"}")
     return parts.joinToString(" ")
@@ -432,14 +508,14 @@ private fun printSheet(sheet: CharacterSheet, includeIdentity: Boolean = true) {
     if (includeIdentity) {
         val character = sheet.character
         println(
-            "id=${character.id} name=${character.name} level=${character.level ?: "-"} cp=${character.combatPower ?: "-"} server=${character.server ?: "-"}",
+            "id=${character.id} name=${character.name} level=${character.level ?: "-"} cp=${character.combatPower ?: "-"} gs=${character.gearScore ?: "-"} ${formatStatPoints(character)} server=${character.server ?: "-"}",
         )
     }
     sheet.equipment.forEach {
-        println("equipment slot=${it.slot} table=${it.sourceTable ?: "-"} row=${it.sourceRowId ?: "-"} ilvl=${it.itemLevel ?: "-"}")
+        println("equipment slot=${it.slot} name=${it.name ?: "-"} table=${it.sourceTable ?: "-"} row=${it.sourceRowId ?: "-"} ilvl=${it.itemLevel ?: "-"}")
     }
     sheet.weapons.forEach {
-        println("weapon slot=${it.slot} table=${it.sourceTable ?: "-"} row=${it.sourceRowId ?: "-"} ilvl=${it.itemLevel ?: "-"}")
+        println("weapon slot=${it.slot} name=${it.name ?: "-"} table=${it.sourceTable ?: "-"} row=${it.sourceRowId ?: "-"} ilvl=${it.itemLevel ?: "-"}")
     }
     sheet.traits.forEach {
         println("trait table=${it.sourceTable ?: "-"} row=${it.sourceRowId ?: "-"} rank=${it.rank ?: "-"}")
@@ -448,10 +524,16 @@ private fun printSheet(sheet: CharacterSheet, includeIdentity: Boolean = true) {
         println("rune slot=${it.slot ?: "-"} table=${it.sourceTable ?: "-"} row=${it.sourceRowId ?: "-"} level=${it.runeLevel ?: "-"}")
     }
     sheet.skills.forEach {
-        println("skill table=${it.sourceTable ?: "-"} row=${it.sourceRowId ?: "-"} loadout=${it.loadout ?: "-"}")
+        println("skill name=${it.name ?: "-"} table=${it.sourceTable ?: "-"} row=${it.sourceRowId ?: "-"} loadout=${it.loadout ?: "-"} level=${it.skillLevel ?: "-"} family=${it.family ?: "-"}")
+    }
+    sheet.weaponMastery.forEach {
+        println("weapon_mastery weapon=${it.weapon} level=${it.level ?: "-"}")
+    }
+    sheet.buildLayers.forEach {
+        println("layer ${it.layer} slot=${it.slot ?: "-"} name=${it.name ?: "-"} table=${it.sourceTable ?: "-"} row=${it.sourceRowId ?: "-"} level=${it.level ?: "-"}")
     }
     sheet.inventory.forEach {
-        println("inventory table=${it.sourceTable ?: "-"} row=${it.sourceRowId ?: "-"} qty=${it.quantity}")
+        println("inventory name=${it.name ?: "-"} table=${it.sourceTable ?: "-"} row=${it.sourceRowId ?: "-"} qty=${it.quantity}")
     }
     sheet.materials.forEach {
         println("material table=${it.sourceTable ?: "-"} row=${it.sourceRowId ?: "-"} qty=${it.quantity}")
@@ -514,6 +596,40 @@ private fun runDetect() {
     val capability = InstalledGameDataSource().probe()
     println("available=${capability.available}")
     println(capability.notes)
+}
+
+private fun runPatchCheck(args: List<String>) {
+    val flags = parseFlags(args)
+    val dbFile = dbPath(flags)
+    val active = if (Files.isRegularFile(dbFile)) {
+        CatalogQuery(JvmDatabase.openOrCreate(dbFile)).snapshotService().active()
+    } else {
+        null
+    }
+    val report = com.solisium.core.source.PatchWatch().inspect(active)
+    println("state=${report.state.name.lowercase()}")
+    println(report.reason)
+    println("installed=${report.installedBuild ?: "-"} catalog=${report.activeBuild ?: "-"}")
+    report.warehouse?.let {
+        println("warehouse ${it.path} build=${it.buildId ?: "-"} hash=${it.sha256 ?: "-"}")
+    }
+    if (active != null) {
+        val db = JvmDatabase.openOrCreate(dbFile)
+        CatalogQuery(db).discoveredInfluences(active.id).forEach { inf ->
+            println("influence ${inf.id}\tnamed=${inf.namedCount}\tnew=${inf.newThisPatch}\t${inf.label}")
+        }
+    }
+    if (flags.containsKey("import") || args.contains("--import")) {
+        if (!report.canImport) {
+            println("import skipped; warehouse is not ready")
+            return
+        }
+        val path = report.warehouse?.path ?: error("no warehouse path")
+        val db = JvmDatabase.openOrCreate(dbFile)
+        val receipt = TLHelperDataSource().importInto(db, ImportRequest(path = path.toString(), activate = true))
+        println("imported source=${receipt.source} records=${receipt.recordsImported} skipped=${receipt.recordsSkipped} snapshot=${receipt.snapshotId ?: "-"}")
+        receipt.warnings.forEach { println("warning: $it") }
+    }
 }
 
 /**

@@ -1,0 +1,6 @@
+-- Schema version 4 -> 5: allocated primary attributes from the character window.
+ALTER TABLE user_character ADD COLUMN strength INTEGER;
+ALTER TABLE user_character ADD COLUMN dexterity INTEGER;
+ALTER TABLE user_character ADD COLUMN wisdom INTEGER;
+ALTER TABLE user_character ADD COLUMN perception INTEGER;
+ALTER TABLE user_character ADD COLUMN fortitude INTEGER;

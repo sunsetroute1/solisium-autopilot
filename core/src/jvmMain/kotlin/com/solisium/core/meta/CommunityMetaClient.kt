@@ -2,6 +2,8 @@ package com.solisium.core.meta
 
 import com.solisium.core.domain.CommunityHit
 import com.solisium.core.domain.CommunitySnapshot
+import com.solisium.core.domain.QuestlogItemOverlay
+import com.solisium.core.domain.WeaponClassPair
 import com.solisium.core.query.BuildGoal
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
@@ -103,6 +105,29 @@ class CommunityMetaClient(
         )
     }
 
+    /** On-demand Questlog item lookup for the gear catalog detail pane. */
+    fun fetchItem(rowId: String): QuestlogItemOverlay? {
+        val trimmed = rowId.trim()
+        if (trimmed.isEmpty()) return null
+        val body = http.get(questlogItemUrl(trimmed))
+        return QuestlogParser.itemDetail(body)
+    }
+
+    fun fetchClasses(): List<WeaponClassPair> {
+        val found = mutableListOf<WeaponClassPair>()
+        val urls = listOf(
+            "https://questlog.gg/throne-and-liberty/en/db/search?q=Gladiator",
+            "https://arzyelbuilds.com/throne-and-liberty-weapons/",
+        )
+        for (url in urls) {
+            runCatching {
+                found += QuestlogParser.classPairs(http.get(url))
+            }
+        }
+        CommunityWeaponClasses.merge(found)
+        return CommunityWeaponClasses.pairs()
+    }
+
     companion object {
         fun slugFromInput(raw: String): String {
             val trimmed = raw.trim()
@@ -132,6 +157,11 @@ class CommunityMetaClient(
         fun questlogCharacterUrl(slug: String): String {
             val input = """{"slug":${jsonString(slug)}}"""
             return "https://questlog.gg/throne-and-liberty/api/trpc/characterBuilder.getCharacter?input=${enc(input)}"
+        }
+
+        fun questlogItemUrl(rowId: String): String {
+            val input = """{"id":${jsonString(rowId)},"language":"en"}"""
+            return "https://questlog.gg/throne-and-liberty/api/trpc/database.getItem?input=${enc(input)}"
         }
 
         private fun enc(value: String): String =

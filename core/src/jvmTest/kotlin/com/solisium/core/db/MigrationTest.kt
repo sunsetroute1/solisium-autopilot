@@ -21,10 +21,15 @@ class MigrationTest {
     fun openingAPreMigrationDatabaseAppliesEveryMigration() {
         val dir = Files.createTempDirectory("solisium-migration")
         val file = dir.resolve("solisium.db")
-        val migrated = listOf("game_item_stat", "game_stat_curve", "game_item_curve")
+        val migrated = listOf(
+            "game_item_stat", "game_stat_curve", "game_item_curve", "game_class",
+            "game_combat_power", "game_item_power",
+            "user_weapon_mastery", "user_build_layer",
+        )
         JvmDatabase.openOrCreate(file)
         jdbc(file) { statement ->
             migrated.forEach { statement.execute("DROP TABLE $it") }
+            revertCharacterSheetAlter(statement)
             statement.execute("PRAGMA user_version = 0")
         }
         migrated.forEach { assertFalse(hasTable(file, it), "$it should be gone before migrating") }
@@ -32,6 +37,16 @@ class MigrationTest {
         JvmDatabase.openOrCreate(file)
 
         migrated.forEach { assertTrue(hasTable(file, it), "$it should be restored by migration") }
+        assertTrue(hasColumn(file, "user_character", "gear_score"))
+        assertTrue(hasColumn(file, "user_character", "strength"))
+        assertTrue(hasColumn(file, "user_character", "fortitude"))
+        assertTrue(hasColumn(file, "user_character", "class_name"))
+        assertTrue(hasColumn(file, "user_character", "class_source"))
+        assertTrue(hasTable(file, "game_class"))
+        assertTrue(hasColumn(file, "user_equipment", "name"))
+        assertTrue(hasColumn(file, "user_inventory", "name"))
+        assertTrue(hasColumn(file, "game_skill", "family"))
+        assertTrue(hasColumn(file, "user_skills", "name"))
         jdbc(file) { statement ->
             statement.executeQuery("PRAGMA user_version").use { rs ->
                 rs.next()
@@ -52,12 +67,17 @@ class MigrationTest {
         val dir = Files.createTempDirectory("solisium-schema-parity")
         val fresh = dir.resolve("fresh.db")
         val rebuilt = dir.resolve("rebuilt.db")
-        val migrated = listOf("game_item_stat", "game_stat_curve", "game_item_curve")
+        val migrated = listOf(
+            "game_item_stat", "game_stat_curve", "game_item_curve", "game_class",
+            "game_combat_power", "game_item_power",
+            "user_weapon_mastery", "user_build_layer",
+        )
 
         JvmDatabase.openOrCreate(fresh)
         JvmDatabase.openOrCreate(rebuilt)
         jdbc(rebuilt) { statement ->
             migrated.forEach { statement.execute("DROP TABLE $it") }
+            revertCharacterSheetAlter(statement)
             statement.execute("PRAGMA user_version = 0")
         }
         JvmDatabase.openOrCreate(rebuilt)
@@ -95,6 +115,50 @@ class MigrationTest {
         assertTrue(hasTable(file, "game_stat_curve"))
         Files.deleteIfExists(file)
         Files.deleteIfExists(dir)
+    }
+
+    /**
+     * `3.sqm`, `4.sqm`, and `5.sqm` include ALTER TABLE. A freshly created
+     * database already has those columns, so replaying every migration requires
+     * dropping them first. `5.sqm` also creates `game_class`. `6.sqm` creates
+     * the combat-power tables. `7.sqm` adds skill families and typed mastery
+     * / build-layer tables; those columns must be dropped before replaying.
+     */
+    private fun revertCharacterSheetAlter(statement: java.sql.Statement) {
+        statement.execute("DROP TABLE IF EXISTS user_build_layer")
+        statement.execute("DROP TABLE IF EXISTS user_weapon_mastery")
+        statement.execute("DROP TABLE IF EXISTS game_item_power")
+        statement.execute("DROP TABLE IF EXISTS game_combat_power")
+        statement.execute("DROP TABLE IF EXISTS game_class")
+        statement.execute("ALTER TABLE game_skill DROP COLUMN family")
+        statement.execute("ALTER TABLE game_skill DROP COLUMN weapon_token")
+        statement.execute("ALTER TABLE game_skill DROP COLUMN family_confidence")
+        statement.execute("ALTER TABLE user_skills DROP COLUMN name")
+        statement.execute("ALTER TABLE user_skills DROP COLUMN skill_level")
+        statement.execute("ALTER TABLE user_skills DROP COLUMN family")
+        statement.execute("ALTER TABLE user_character DROP COLUMN class_name")
+        statement.execute("ALTER TABLE user_character DROP COLUMN class_source")
+        statement.execute("ALTER TABLE user_character DROP COLUMN gear_score")
+        statement.execute("ALTER TABLE user_character DROP COLUMN strength")
+        statement.execute("ALTER TABLE user_character DROP COLUMN dexterity")
+        statement.execute("ALTER TABLE user_character DROP COLUMN wisdom")
+        statement.execute("ALTER TABLE user_character DROP COLUMN perception")
+        statement.execute("ALTER TABLE user_character DROP COLUMN fortitude")
+        statement.execute("ALTER TABLE user_equipment DROP COLUMN name")
+        statement.execute("ALTER TABLE user_weapon DROP COLUMN name")
+        statement.execute("ALTER TABLE user_inventory DROP COLUMN name")
+    }
+
+    private fun hasColumn(file: java.nio.file.Path, table: String, column: String): Boolean {
+        var found = false
+        jdbc(file) { statement ->
+            statement.executeQuery("PRAGMA table_info($table)").use { rs ->
+                while (rs.next()) {
+                    if (rs.getString("name") == column) found = true
+                }
+            }
+        }
+        return found
     }
 
     private fun hasTable(file: java.nio.file.Path, name: String): Boolean {

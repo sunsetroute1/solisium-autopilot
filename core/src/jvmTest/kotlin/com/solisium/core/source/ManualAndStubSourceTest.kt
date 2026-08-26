@@ -19,6 +19,7 @@ class ManualAndStubSourceTest {
         assertEquals("Fixture Hero", sheet.character.name)
         assertEquals(60L, sheet.character.level)
         assertEquals(7128L, sheet.character.combatPower)
+        assertEquals(6400L, sheet.character.gearScore)
         assertEquals("head", sheet.equipment.single().slot)
         assertEquals(9L, sheet.equipment.single().itemLevel)
         assertEquals("main", sheet.weapons.single().slot)

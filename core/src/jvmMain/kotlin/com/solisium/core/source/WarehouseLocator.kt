@@ -22,15 +22,32 @@ class WarehouseLocator(
             }
         }
     },
+    private val fileMeta: (Path) -> Pair<Long, Long> = { path ->
+        Files.getLastModifiedTime(path).toMillis() to Files.size(path)
+    },
 ) {
     fun find(): Path? {
         env("SOLISIUM_TL_WAREHOUSE")?.takeIf { it.isNotBlank() }?.let { explicit ->
             val path = Path.of(explicit)
             if (isFile(path)) return path
         }
+        return list().maxByOrNull { it.lastModifiedMillis }?.path
+    }
+
+    fun findForBuild(buildId: String): WarehouseRef? =
+        list().filter { it.buildId == buildId }.maxByOrNull { it.lastModifiedMillis }
+
+    fun list(): List<WarehouseRef> {
+        val out = LinkedHashMap<String, WarehouseRef>()
+        env("SOLISIUM_TL_WAREHOUSE")?.takeIf { it.isNotBlank() }?.let { explicit ->
+            val path = Path.of(explicit)
+            if (isFile(path)) out[path.toAbsolutePath().toString()] = toRef(path)
+        }
         val root = env("TL_DATA_ROOT")?.takeIf { it.isNotBlank() } ?: "D:\\TL_Data"
-        val candidates = listSqlite(Path.of(root, "warehouse"))
-        return candidates.maxByOrNull { Files.getLastModifiedTime(it).toMillis() }
+        listSqlite(Path.of(root, "warehouse")).forEach { path ->
+            if (isFile(path)) out[path.toAbsolutePath().toString()] = toRef(path)
+        }
+        return out.values.toList()
     }
 
     fun describe(): String {
@@ -39,6 +56,23 @@ class WarehouseLocator(
             "warehouse found at $found"
         } else {
             "no warehouse at SOLISIUM_TL_WAREHOUSE or %TL_DATA_ROOT%\\warehouse\\tl-*.sqlite (default D:\\TL_Data\\warehouse)"
+        }
+    }
+
+    private fun toRef(path: Path): WarehouseRef {
+        val meta = runCatching { fileMeta(path) }.getOrDefault(0L to 0L)
+        return WarehouseRef(
+            path = path,
+            buildId = parseBuildId(path.fileName.toString()),
+            lastModifiedMillis = meta.first,
+            sizeBytes = meta.second,
+        )
+    }
+
+    companion object {
+        fun parseBuildId(fileName: String): String? {
+            val match = Regex("""tl-(\d+)\.sqlite""", RegexOption.IGNORE_CASE).find(fileName)
+            return match?.groupValues?.get(1)
         }
     }
 }

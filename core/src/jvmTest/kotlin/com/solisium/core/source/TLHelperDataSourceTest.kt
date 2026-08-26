@@ -106,6 +106,8 @@ class TLHelperDataSourceTest {
             assertEquals("Fixture Stew", recipe.name)
 
             assertEquals("ESkillCategory::kFo", query.skills(snapshotId).single().skillType)
+            assertEquals("other", query.skills(snapshotId).single().family)
+            assertEquals("extracted", query.skills(snapshotId).single().familyConfidence)
             assertEquals("fixture_effect", query.effects(snapshotId).single().sourceRowId)
             assertNull(query.effects(snapshotId).single().name)
             assertEquals("Fixture Skill", query.skills(snapshotId).single().name)
@@ -161,6 +163,82 @@ class TLHelperDataSourceTest {
             assertEquals(0, query.items(snapshotId, nameContains = "Spear").size)
             assertNull(TLHelperDataSource.peekJsonString("{not json", "grade"))
             assertEquals("Epic", TLHelperDataSource.peekJsonString("""{"grade":"Epic","other":1}""", "grade"))
+        } finally {
+            Files.deleteIfExists(warehouse)
+        }
+    }
+
+    @Test
+    fun mapsPcClassRowsAndResolvesGladiatorFromWeapons() {
+        val warehouse = WarehouseFixtures.withPcClass(WarehouseFixtures.writeMiniWarehouse())
+        try {
+            val db = JvmDatabase.inMemory()
+            TLHelperDataSource().importInto(db, ImportRequest(path = warehouse.toString(), activate = true))
+            val query = CatalogQuery(db)
+            val snapshotId = query.activeSnapshotId()!!
+            assertEquals(1, query.classes(snapshotId).size)
+            val row = query.classes(snapshotId).single()
+            assertEquals("Gladiator", row.name)
+            assertEquals("kSpear", row.weaponA)
+            assertEquals("kSword2h", row.weaponB)
+            val match = query.suggestClass(snapshotId, "Fixture Greatsword", "Fixture Spear")
+            assertEquals("Gladiator", match.name)
+            assertEquals("extracted", match.source)
+            val communityOnly = query.suggestClass(snapshotId, "Fixture Longbow", "Fixture Greatsword")
+            assertEquals("Ranger", communityOnly.name)
+            assertEquals("community", communityOnly.source)
+            val option = query.findBuildClass(snapshotId, name = "Gladiator")
+            assertEquals("extracted", option?.source)
+            assertTrue(query.buildClassOptions(snapshotId).any { it.name == "Scout" && it.source == "community" })
+        } finally {
+            Files.deleteIfExists(warehouse)
+        }
+    }
+
+    @Test
+    fun mapsCombatPowerRowsAndDerivesItemLinks() {
+        val warehouse = WarehouseFixtures.withCombatPower(WarehouseFixtures.writeMiniWarehouse())
+        try {
+            val db = JvmDatabase.inMemory()
+            val receipt = TLHelperDataSource().importInto(
+                db,
+                ImportRequest(path = warehouse.toString(), activate = true),
+            )
+            assertTrue(receipt.warnings.any { it.contains("derived; not live character CP") })
+            val query = CatalogQuery(db)
+            val snapshotId = query.activeSnapshotId()!!
+            assertEquals(2, query.counts(snapshotId).combatPowerRows)
+            val power = query.itemPowerByRow(snapshotId)
+            assertEquals(64L, power["bow_aa_t2_fixture"]?.basePower)
+            assertEquals("item-id-tier", power["bow_aa_t2_fixture"]?.evidence)
+            assertEquals("derived", power["bow_aa_t2_fixture"]?.confidence)
+            assertEquals(80L, power["sword_aaa_unambiguous"]?.basePower)
+            assertEquals("source-unambiguous-grade", power["sword_aaa_unambiguous"]?.evidence)
+            assertTrue("sword_a_t1_fixture" !in power)
+            assertTrue("fixture_bow" !in power)
+        } finally {
+            Files.deleteIfExists(warehouse)
+        }
+    }
+
+    @Test
+    fun mapsSkillFamiliesFromRowIdPrefixes() {
+        val warehouse = WarehouseFixtures.withSkillFamilies(WarehouseFixtures.writeMiniWarehouse())
+        try {
+            val db = JvmDatabase.inMemory()
+            TLHelperDataSource().importInto(db, ImportRequest(path = warehouse.toString(), activate = true))
+            val query = CatalogQuery(db)
+            val snapshotId = query.activeSnapshotId()!!
+            val byId = query.skills(snapshotId).associateBy { it.sourceRowId }
+            assertEquals("weapon_skill", byId["WP_SW2_Slam"]?.family)
+            assertEquals("kSword2h", byId["WP_SW2_Slam"]?.weaponToken)
+            assertEquals("mastery", byId["WM_GT_Unstoppable"]?.family)
+            assertEquals("kGauntlet", byId["WM_GT_Unstoppable"]?.weaponToken)
+            assertEquals("equipment_skill", byId["WP_Item_core"]?.family)
+            assertEquals("gemstone", byId["Gem_Attack_01"]?.family)
+            assertEquals("other", byId["fixture_skill"]?.family)
+            val hits = query.suggestBuildLayer(snapshotId, "Talus", "skill_core")
+            assertTrue(hits.any { it.name?.contains("Skill Core") == true })
         } finally {
             Files.deleteIfExists(warehouse)
         }

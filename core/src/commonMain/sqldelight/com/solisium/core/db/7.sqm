@@ -1,0 +1,28 @@
+-- Schema version 7 -> 8: skill-screen families plus typed mastery / sidebar layers.
+ALTER TABLE game_skill ADD COLUMN family TEXT;
+ALTER TABLE game_skill ADD COLUMN weapon_token TEXT;
+ALTER TABLE game_skill ADD COLUMN family_confidence TEXT;
+
+ALTER TABLE user_skills ADD COLUMN name TEXT;
+ALTER TABLE user_skills ADD COLUMN skill_level INTEGER;
+ALTER TABLE user_skills ADD COLUMN family TEXT;
+
+CREATE TABLE user_weapon_mastery (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  character_id TEXT NOT NULL,
+  weapon TEXT NOT NULL,
+  level INTEGER,
+  FOREIGN KEY(character_id) REFERENCES user_character(id)
+);
+
+CREATE TABLE user_build_layer (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  character_id TEXT NOT NULL,
+  layer TEXT NOT NULL,
+  slot TEXT,
+  source_table TEXT,
+  source_row_id TEXT,
+  name TEXT,
+  level INTEGER,
+  FOREIGN KEY(character_id) REFERENCES user_character(id)
+);

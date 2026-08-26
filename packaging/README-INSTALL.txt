@@ -73,3 +73,10 @@ Where your data lives
     %LOCALAPPDATA%\Solisium\                   local keys, if you add any
 
 Neither is touched by install or uninstall.
+
+What's in this build
+--------------------
+- Build screen with goal picker, T&L class types, and Questlog-style modeled CP/GS
+- Gear catalog with warehouse stats, curves, and optional Questlog community detail
+- Character sheet editor with full loadout, mastery, and build layers
+- Combat screen with Import newest / Choose file / Choose folder for official logs

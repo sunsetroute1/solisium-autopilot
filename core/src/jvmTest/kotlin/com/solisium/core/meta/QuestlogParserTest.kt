@@ -3,6 +3,7 @@ package com.solisium.core.meta
 import com.solisium.core.query.BuildGoal
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class QuestlogParserTest {
@@ -38,6 +39,35 @@ class QuestlogParserTest {
         val (hits, warning) = QuestlogParser.characterHits(json, "missing-hero")
         assertTrue(hits.isEmpty())
         assertTrue(warning!!.contains("missing-hero"))
+    }
+
+    @Test
+    fun itemDetailParsesMainStatsAndTraits() {
+        val json = """
+            {"result":{"data":{
+              "id":"bow_aa_t2_raid_001",
+              "description":"A purple string is drawn from the depths.",
+              "requiredLevel":1,
+              "sellPrice":0,
+              "tradeCategory":"bow",
+              "isExchangeable":false,
+              "isSellable":false,
+              "isStorable":true,
+              "itemStats":{
+                "main":{"75":{"mainhand":{"min":88,"max":352,"statId":"attack_power_main_hand"},"extra":{"attack_speed_main_hand":776}}},
+                "extra":{"75":{"dex":17}},
+                "traits":{"all_accuracy":[200,400,600,800]}
+              },
+              "itemAvailablePerks":[{"name":"Skill Core: Deadly Grave","passive":{"text":"Creates an area."}}],
+              "itemIsContainedInItems":[{"name":"Calanthia Weapon Selection Chest"}]
+            }}}
+        """.trimIndent()
+        val detail = QuestlogParser.itemDetail(json)!!
+        assertEquals("A purple string is drawn from the depths.", detail.description)
+        assertTrue(detail.statLines.any { it.label == "Attack power main hand" && it.value == "88 – 352" })
+        assertTrue(detail.traitLines.any { it.label == "All accuracy" && it.tiers.contains("200") })
+        assertEquals(listOf("Skill Core: Deadly Grave — Creates an area."), detail.perkSummaries)
+        assertEquals(listOf("Calanthia Weapon Selection Chest"), detail.dropSources)
     }
 
     @Test
@@ -151,5 +181,12 @@ class TextNormTest {
     fun likelySameIgnoresMarkupAndCase() {
         assertTrue(TextNorm.likelySame("Sparring Longbow", "sparring  longbow"))
         assertTrue(TextNorm.likelySame("Longbow of Undead Skewering", "of Undead Skewering"))
+    }
+
+    @Test
+    fun nearMatchAcceptsAOneLetterSlipOnCalanthia() {
+        assertTrue(TextNorm.nearMatch("Calenthia", "Calanthia"))
+        assertTrue(TextNorm.nearMatch("Calenthia's Visage", "Calanthia's Visage"))
+        assertFalse(TextNorm.nearMatch("Calenthia", "Longbow"))
     }
 }
