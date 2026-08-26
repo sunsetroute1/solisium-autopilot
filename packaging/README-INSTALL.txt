@@ -8,6 +8,11 @@ There are two downloads. Either one works; pick whichever you prefer. Both
 already contain a Java runtime, so Java does not need to be installed, and both
 install per-user, so neither needs administrator rights.
 
+Both installers also ship a starter dataset (sample catalog, character, and
+combat log). On first launch the app copies that into your profile so every
+screen works immediately. Import your own TL-Helper warehouse from Data when
+you want live game data instead of the demo set.
+
 Install (installer zip)
 -----------------------
 1. Extract the zip.

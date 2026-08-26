@@ -3,6 +3,7 @@ package com.solisium.desktop
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.solisium.core.bootstrap.StarterBootstrap
 import com.solisium.core.db.JvmDatabase
 import com.solisium.core.db.SolisiumDatabase
 import com.solisium.core.domain.BuildAdvice
@@ -318,6 +319,7 @@ class AppModel(private val scope: CoroutineScope) {
         }
 
     init {
+        StarterBootstrap.seedIfNeeded(databasePath())
         refreshOverview()
         loadRows()
         offerFoundKey()

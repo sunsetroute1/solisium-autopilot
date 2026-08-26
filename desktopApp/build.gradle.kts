@@ -1,3 +1,4 @@
+import org.gradle.jvm.tasks.Jar
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 
 plugins {
@@ -46,6 +47,7 @@ compose.desktop {
                 val icon = rootProject.file("desktopApp/icon/solisium.ico")
                 if (icon.isFile) iconFile.set(icon)
             }
+            appResourcesRootDir.set(layout.projectDirectory.dir("appResources"))
         }
     }
 }
@@ -157,6 +159,27 @@ tasks.matching { it.name == "createDistributable" }
     .configureEach { dependsOn(verifyNoSecretsInSource) }
 tasks.matching { it.name == "packageMsi" || it.name == "packageDistributionForCurrentOS" }
     .configureEach { dependsOn(verifyNoSecretsInDistribution) }
+
+val starterOutputDir = layout.projectDirectory.dir("appResources/windows/starter")
+
+val buildStarterPack by tasks.registering(JavaExec::class) {
+    group = "distribution"
+    description = "Builds the bundled starter database and warehouse for first-run."
+    val core = project(":core")
+    dependsOn(core.tasks.named("jvmJar"))
+    classpath(
+        core.tasks.named<Jar>("jvmJar").flatMap { it.archiveFile },
+        core.configurations.named("jvmRuntimeClasspath"),
+    )
+    mainClass.set("com.solisium.core.bootstrap.StarterPackBuilderMainKt")
+    args(starterOutputDir.asFile.absolutePath)
+    doFirst {
+        starterOutputDir.asFile.mkdirs()
+    }
+}
+
+tasks.matching { it.name == "createDistributable" }.configureEach { dependsOn(buildStarterPack) }
+tasks.matching { it.name == "run" }.configureEach { dependsOn(buildStarterPack) }
 
 /**
  * The MSI, zipped for handing over. Both this and the portable build below bundle a

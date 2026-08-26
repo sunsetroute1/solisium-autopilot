@@ -1,5 +1,7 @@
 package com.solisium.core.source
 
+import com.solisium.core.bootstrap.InstallResources
+import com.solisium.core.bootstrap.StarterWarehouse
 import java.nio.file.Files
 import java.nio.file.Path
 
@@ -47,6 +49,9 @@ class WarehouseLocator(
         listSqlite(Path.of(root, "warehouse")).forEach { path ->
             if (isFile(path)) out[path.toAbsolutePath().toString()] = toRef(path)
         }
+        InstallResources.starter("tl-starter.sqlite")?.let { bundled ->
+            if (isFile(bundled)) out[bundled.toAbsolutePath().toString()] = toRef(bundled)
+        }
         return out.values.toList()
     }
 
@@ -61,9 +66,12 @@ class WarehouseLocator(
 
     private fun toRef(path: Path): WarehouseRef {
         val meta = runCatching { fileMeta(path) }.getOrDefault(0L to 0L)
+        val fileName = path.fileName.toString()
+        val buildId = parseBuildId(fileName)
+            ?: if (fileName.equals("tl-starter.sqlite", ignoreCase = true)) StarterWarehouse.BUILD_ID else null
         return WarehouseRef(
             path = path,
-            buildId = parseBuildId(path.fileName.toString()),
+            buildId = buildId,
             lastModifiedMillis = meta.first,
             sizeBytes = meta.second,
         )

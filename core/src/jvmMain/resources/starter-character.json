@@ -1,0 +1,55 @@
+{
+  "schema": "solisium.manual-character",
+  "schemaVersion": 1,
+  "character": {
+    "id": "starter",
+    "name": "Starter Ranger",
+    "level": 60,
+    "combat_power": 12500,
+    "gear_score": 890,
+    "stat_points": {
+      "strength": 120,
+      "dexterity": 180,
+      "wisdom": 40,
+      "perception": 90,
+      "fortitude": 70
+    },
+    "class_name": "Ranger",
+    "class_source": "starter-pack",
+    "server": "Starter"
+  },
+  "weapons": [
+    { "slot": "main", "name": "Fixture Longbow", "item_level": 75 },
+    { "slot": "offhand", "name": "", "item_level": null }
+  ],
+  "equipment": [
+    { "slot": "head", "name": "Calanthia's Visage", "item_level": 75 },
+    { "slot": "chest", "name": "", "item_level": null },
+    { "slot": "hands", "name": "", "item_level": null },
+    { "slot": "legs", "name": "", "item_level": null },
+    { "slot": "feet", "name": "", "item_level": null },
+    { "slot": "cloak", "name": "", "item_level": null },
+    { "slot": "necklace", "name": "", "item_level": null },
+    { "slot": "earring", "name": "", "item_level": null },
+    { "slot": "earring2", "name": "", "item_level": null },
+    { "slot": "ring", "name": "", "item_level": null },
+    { "slot": "ring2", "name": "", "item_level": null },
+    { "slot": "bracelet", "name": "", "item_level": null },
+    { "slot": "belt", "name": "", "item_level": null },
+    { "slot": "brooch", "name": "", "item_level": null }
+  ],
+  "traits": [],
+  "runes": [],
+  "skills": [
+    { "name": "Fixture Skill", "skill_level": 12, "loadout": "bow" }
+  ],
+  "weapon_mastery": [
+    { "weapon": "Bow", "level": 260 }
+  ],
+  "build_layers": [],
+  "inventory": [],
+  "materials": [],
+  "currency": [],
+  "goals": [],
+  "builds": []
+}

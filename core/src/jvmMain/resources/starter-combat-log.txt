@@ -1,0 +1,5 @@
+CombatLogVersion,4
+2026-07-11T01:31:17.139,DamageDone,ExampleSkill,1,100,0,0,kNormalHit,FixtureCaster,Practice Dummy
+2026-07-11T01:31:17.200,DamageDone,ExampleSkill,1,228,0,1,kNormalHit,FixtureCaster,Practice Dummy
+2026-07-11T01:31:18.000,DamageDone,ExampleSkill,1,150,1,0,kMaxDamageByCriticalDecision,FixtureCaster,Practice Dummy
+2026-07-11T01:31:18.500,UnknownFutureType,ExampleSkill,1,0,0,0,kNormalHit,FixtureCaster,Practice Dummy

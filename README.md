@@ -48,8 +48,11 @@ Writes two zips to `desktopApp/build/distributions/`:
 | `...-windows-x64-portable.zip` | The app plus `install.cmd`, which copies it to `%LOCALAPPDATA%\Programs` and makes shortcuts. Uninstall with `.\Install-Solisium.ps1 -Uninstall`. |
 
 Both bundle a Java runtime, so a target machine needs no JDK, and both install
-per-user, so neither needs administrator rights. The Gradle plugin fetches the WiX
-toolset it needs for the MSI, so there is nothing to install first.
+per-user, so neither needs administrator rights. A starter catalog, demo
+character, and sample combat log are included; first launch seeds
+`~/.solisium/solisium.sqlite` automatically. Import a TL-Helper warehouse from
+Data when you want your live game build instead. The Gradle plugin fetches the
+WiX toolset it needs for the MSI, so there is nothing to install first.
 
 Packaging depends on a secret scan of the sources and of the built application image,
 and fails if a key or credential file is found in either. Test fixtures that need
