@@ -18,9 +18,19 @@ class CombatLogDataSource : DataSource {
     override fun importInto(db: SolisiumDatabase, request: ImportRequest): ImportReceipt {
         val text = request.content
             ?: throw IllegalArgumentException("combat log content is required (CLI should read the file)")
+        val hash = sha256Hex(text)
+        val existing = db.schemaQueries.selectCombatSessionByHash(hash).executeAsOneOrNull()
+        if (existing != null) {
+            return ImportReceipt(
+                source = id,
+                sessionId = existing,
+                recordsImported = 0,
+                recordsSkipped = 1,
+                warnings = listOf("already imported from ${request.path ?: "this file"}"),
+            )
+        }
         val parsed = CombatLogParser.parse(text)
         val sessionId = randomUuid()
-        val hash = sha256Hex(text)
         val started = parsed.events.firstOrNull { !it.timestamp.isNullOrBlank() }?.timestamp
         val ended = parsed.events.lastOrNull { !it.timestamp.isNullOrBlank() }?.timestamp
         db.schemaQueries.insertCombatSession(

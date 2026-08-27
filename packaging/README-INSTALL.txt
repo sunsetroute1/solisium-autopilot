@@ -16,7 +16,7 @@ you want live game data instead of the demo set.
 Install (installer zip)
 -----------------------
 1. Extract the zip.
-2. Run "Solisium Autopilot-0.1.0.msi" and follow the prompts.
+2. Run "Solisium Autopilot-0.1.1.msi" and follow the prompts.
 
 Uninstall through Settings > Apps > Installed apps, like any other program.
 
@@ -79,9 +79,18 @@ Where your data lives
 
 Neither is touched by install or uninstall.
 
-What's in this build
---------------------
+What's in this build (0.1.1)
+----------------------------
 - Build screen with goal picker, T&L class types, and Questlog-style modeled CP/GS
 - Gear catalog with warehouse stats, curves, and optional Questlog community detail
 - Character sheet editor with full loadout, mastery, and build layers
-- Combat screen with Import newest / Choose file / Choose folder for official logs
+- Combat analyzer: import all T&L logs from disk, portfolio DPS trends, per-skill
+  crit/heavy rates, session compare, and build cross-check vs your skill bar
+- Drops screen with farm-time estimates from observed drop rates
+- In-app combat logging setup guide (Ring Menu / Record Combat Log)
+
+T&L combat logs save to:
+
+    %LOCALAPPDATA%\TL\Saved\CombatLogs
+
+Use Combat > Import all after a fight ends. Duplicate files are skipped automatically.

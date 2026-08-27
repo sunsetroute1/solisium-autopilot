@@ -104,20 +104,22 @@ private fun ImportPanel(model: AppModel) {
         )
         Divider(Modifier.padding(vertical = Spacing.md))
 
-        val logs = model.detectedLogFolder
+        val logDiscovery = model.combatLogDiscovery
         ImportRow(
             title = "Combat log",
-            detail = logs?.toString() ?: "No CombatLogs folder found; enable logging in game settings",
-            detected = logs != null,
+            detail = logDiscovery.primaryFolder?.toString() ?: logDiscovery.hint(),
+            detected = logDiscovery.status == com.solisium.core.source.CombatLogFolderStatus.FOUND_WITH_LOGS,
             busy = model.importing,
-            primaryLabel = "Import newest",
-            onPrimary = logs?.let { { model.importCombatLogs(null) } },
+            primaryLabel = "Import all",
+            onPrimary = if (logDiscovery.logFiles.isNotEmpty()) {
+                { model.importCombatLogs(null) }
+            } else null,
             onChoose = {
-                FilePickers.pickFile("Select a combat log", ".txt", logs)
+                FilePickers.pickFile("Select a combat log", ".txt", model.detectedLogFolder)
                     ?.let { model.importCombatLogs(it) }
             },
             onChooseFolder = {
-                FilePickers.pickDirectory("Select a combat log folder", logs)
+                FilePickers.pickDirectory("Select a combat log folder", model.detectedLogFolder)
                     ?.let { model.importCombatLogs(it) }
             },
         )

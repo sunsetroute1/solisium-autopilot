@@ -28,6 +28,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.solisium.core.domain.DisplayName
 import com.solisium.core.domain.DropLabels
+import com.solisium.core.domain.FarmEstimate
+import com.solisium.core.domain.FarmEstimator
 import com.solisium.core.domain.GameItem
 import com.solisium.core.domain.MonsterProfile
 import androidx.compose.material3.LinearProgressIndicator
@@ -292,7 +294,7 @@ private fun DropItemDetail(model: AppModel) {
     }
     when (val offline = model.dropItemSources) {
         is Load.Ok -> if (offline.value.isNotEmpty()) {
-            OfflineItemDropBody(offline.value)
+            OfflineItemDropBody(offline.value, model.observedCombatDps())
             return
         }
         is Load.Loading -> {
@@ -366,13 +368,17 @@ private fun DropMonsterDetail(model: AppModel) {
 }
 
 @Composable
-private fun OfflineItemDropBody(sources: List<ItemDropSource>) {
+private fun OfflineItemDropBody(sources: List<ItemDropSource>, observedDps: Double?) {
     Spacer(Modifier.height(Spacing.lg))
     Text(
         "Best farming sources (offline)",
         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
         color = Palette.Text,
     )
+    FarmEstimator.estimate(sources, observedDps)?.let { estimate ->
+        Spacer(Modifier.height(Spacing.sm))
+        FarmEstimateCard(estimate, observedDps)
+    }
     DropLabels.rateContextNote(sources)?.let { note ->
         Spacer(Modifier.height(Spacing.xs))
         Text(note, style = MaterialTheme.typography.bodySmall, color = Palette.Unverified)
@@ -380,6 +386,34 @@ private fun OfflineItemDropBody(sources: List<ItemDropSource>) {
     Spacer(Modifier.height(Spacing.sm))
     ItemDropSourceTable(sources, nameColumn = "Monster / source", showLocation = true)
     OfflineDisclaimer()
+}
+
+@Composable
+private fun FarmEstimateCard(estimate: FarmEstimate, observedDps: Double?) {
+    Card(Modifier.fillMaxWidth()) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            SectionLabel("Farm estimate")
+            Spacer(Modifier.weight(1f))
+            Badge(
+                if (estimate.confidence == "extracted") "client rate" else "Questlog",
+                if (estimate.confidence == "extracted") Palette.Extracted else Palette.Unverified,
+                caps = false,
+            )
+        }
+        Spacer(Modifier.height(Spacing.sm))
+        Text(estimate.note, style = MaterialTheme.typography.bodyMedium, color = Palette.Text)
+        Spacer(Modifier.height(Spacing.xs))
+        Text(
+            buildString {
+                append("Best source: ${estimate.sourceName}")
+                if (observedDps == null) {
+                    append(" · import combat logs on the Combat tab for time estimates")
+                }
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = Palette.TextFaint,
+        )
+    }
 }
 
 @Composable

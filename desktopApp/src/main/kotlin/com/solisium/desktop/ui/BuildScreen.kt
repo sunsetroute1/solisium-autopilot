@@ -657,6 +657,11 @@ private fun AdviceBody(model: AppModel, plan: DesiredBuildPlan) {
     Spacer(Modifier.height(Spacing.lg))
     CommunityPanel(model.community)
 
+    if (advice.combatInsights.isNotEmpty()) {
+        Spacer(Modifier.height(Spacing.lg))
+        CombatInsightsPanel(advice.combatInsights)
+    }
+
     if (advice.skillShares.isNotEmpty()) {
         Spacer(Modifier.height(Spacing.lg))
         Card(Modifier.fillMaxWidth()) {

@@ -290,6 +290,20 @@ data class CombatSkillTotal(
     val skillId: String?,
     val observedDamageSum: Long,
     val hits: Long,
+    val critHits: Long = 0,
+    val heavyHits: Long = 0,
+    val damageShare: Double = 0.0,
+) {
+    val critRate: Double? get() = if (hits > 0) critHits.toDouble() / hits else null
+    val heavyRate: Double? get() = if (hits > 0) heavyHits.toDouble() / hits else null
+    val avgHit: Long? get() = if (hits > 0) observedDamageSum / hits else null
+}
+
+data class CombatTargetTotal(
+    val targetName: String,
+    val observedDamageSum: Long,
+    val hits: Long,
+    val damageShare: Double = 0.0,
 )
 
 data class CombatSessionSummary(
@@ -301,6 +315,47 @@ data class CombatSessionSummary(
     val endedAt: String?,
     val observedDps: Double?,
     val skillTotals: List<CombatSkillTotal> = emptyList(),
+    val damageDoneHits: Long = 0,
+    val primaryTarget: String? = null,
+    val targets: List<CombatTargetTotal> = emptyList(),
+    val critRate: Double? = null,
+    val heavyRate: Double? = null,
+    val durationSeconds: Double? = null,
+    val sourcePath: String? = null,
+)
+
+/** Aggregate view across all imported sessions — observed only, no modeled DPS. */
+data class CombatPortfolio(
+    val sessionCount: Int,
+    val totalDamage: Long,
+    val avgDps: Double?,
+    val bestDps: Double?,
+    val bestSessionId: String?,
+    val overallCritRate: Double?,
+    val overallHeavyRate: Double?,
+    val topSkillName: String?,
+    val topSkillShare: Double?,
+    val dpsTrend: CombatTrend,
+    val insights: List<String> = emptyList(),
+)
+
+enum class CombatTrend { Up, Down, Flat, Unknown }
+
+data class CombatSessionCompare(
+    val baselineLabel: String,
+    val currentLabel: String,
+    val dpsDelta: Double?,
+    val dpsDeltaPct: Double?,
+    val damageDelta: Long,
+    val skillShareShifts: List<CombatSkillShareShift>,
+    val headline: String,
+)
+
+data class CombatSkillShareShift(
+    val skillName: String,
+    val baselineShare: Double,
+    val currentShare: Double,
+    val deltaPp: Double,
 )
 
 data class CatalogHit(

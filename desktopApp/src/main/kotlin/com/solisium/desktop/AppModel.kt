@@ -53,6 +53,8 @@ import com.solisium.core.secret.SecretStore
 import com.solisium.core.source.CharacterLocator
 import com.solisium.core.source.CharacterSheetJson
 import com.solisium.core.source.CombatLogDataSource
+import com.solisium.core.source.CombatLogDiscovery
+import com.solisium.core.source.CombatLogFolderStatus
 import com.solisium.core.source.CombatLogPaths
 import com.solisium.core.source.GearCatalogFilter
 import com.solisium.core.source.ImportReceipt
@@ -389,7 +391,15 @@ class AppModel(private val scope: CoroutineScope) {
 
     /** Suggested defaults for the import buttons; null when nothing was detected. */
     val detectedWarehouse: Path? by lazy(LazyThreadSafetyMode.NONE) { runCatching { WarehouseLocator().find() }.getOrNull() }
-    val detectedLogFolder: Path? by lazy(LazyThreadSafetyMode.NONE) { runCatching { CombatLogPaths.detect() }.getOrNull() }
+    var combatLogDiscovery by mutableStateOf(CombatLogPaths.discover())
+        private set
+
+    /** Expected CombatLogs folder (shown even before first log is written). */
+    val detectedLogFolder: Path? get() = combatLogDiscovery.primaryFolder ?: combatLogDiscovery.savedRoot
+
+    fun refreshCombatLogDiscovery() {
+        combatLogDiscovery = CombatLogPaths.discover()
+    }
 
     var detectedCharacterFiles by mutableStateOf<List<Path>>(emptyList())
         private set
@@ -427,7 +437,11 @@ class AppModel(private val scope: CoroutineScope) {
             Screen.Catalog -> if (rows is Load.Loading) loadRows()
             Screen.Drops -> loadDropBrowse()
             Screen.Character -> loadCharacters()
-            Screen.Combat -> loadCombat()
+            Screen.Combat -> {
+                refreshCombatLogDiscovery()
+                loadCombat()
+                refreshAdvice()
+            }
             Screen.Data -> {
                 loadSnapshots()
                 loadStoredKeys()
@@ -1118,6 +1132,9 @@ class AppModel(private val scope: CoroutineScope) {
             lastImport = outcome
             importing = false
             importProgress = null
+            if (label == "Combat logs") {
+                refreshCombatLogDiscovery()
+            }
             if (label == "Game data" && outcome.error == null) {
                 warehouseSetup = null
                 markWarehouseSetupComplete()
@@ -1463,6 +1480,12 @@ class AppModel(private val scope: CoroutineScope) {
                 )
             }
         }
+    }
+
+    /** Mean observed DPS across imported combat sessions (for farm time hints). */
+    fun observedCombatDps(): Double? {
+        val sessions = (combat as? Load.Ok)?.value.orEmpty()
+        return sessions.mapNotNull { it.observedDps }.average().takeIf { !it.isNaN() && it > 0 }
     }
 
     private fun loadCombat() {

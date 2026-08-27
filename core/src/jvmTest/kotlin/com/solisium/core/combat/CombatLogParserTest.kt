@@ -51,12 +51,29 @@ class CombatLogParserTest {
         val summary = com.solisium.core.query.CatalogQuery(db).combatSummary(sessionId)!!
         assertEquals(4L, summary.eventCount)
         assertEquals(478L, summary.observedDamageSum)
+        assertEquals(3L, summary.damageDoneHits)
         assertEquals("4", summary.logVersion)
         assertTrue(summary.observedDps != null && summary.observedDps!! > 0.0)
         val skill = summary.skillTotals.single()
         assertEquals("ExampleSkill", skill.skillName)
         assertEquals("1", skill.skillId)
         assertEquals(478L, skill.observedDamageSum)
-        assertEquals(4L, skill.hits)
+        assertEquals(3L, skill.hits)
+        assertEquals(1L, skill.critHits)
+        assertEquals(1L, skill.heavyHits)
+    }
+
+    @Test
+    fun reimportSkipsDuplicateHash() {
+        val text = javaClass.getResource("/combat-log-v4-fixture.txt")!!.readText()
+        val db = JvmDatabase.inMemory()
+        val source = CombatLogDataSource()
+        val first = source.importInto(db, ImportRequest(content = text, path = "fixture.txt"))
+        val second = source.importInto(db, ImportRequest(content = text, path = "fixture.txt"))
+        assertEquals(4, first.recordsImported)
+        assertEquals(0, second.recordsImported)
+        assertEquals(1, second.recordsSkipped)
+        assertEquals(first.sessionId, second.sessionId)
+        assertEquals(1, db.schemaQueries.selectCombatSessions().executeAsList().size)
     }
 }

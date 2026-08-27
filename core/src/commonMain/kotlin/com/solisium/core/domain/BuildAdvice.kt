@@ -78,6 +78,7 @@ data class BuildAdvice(
     val slots: List<SlotAdvice>,
     val axes: List<AxisScore>,
     val skillShares: List<SkillShare>,
+    val combatInsights: List<com.solisium.core.query.CombatInsight> = emptyList(),
     val community: CommunitySnapshot?,
     val briefing: List<String>,
     val characterName: String?,

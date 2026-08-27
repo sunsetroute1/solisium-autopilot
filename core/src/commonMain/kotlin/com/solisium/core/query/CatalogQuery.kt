@@ -7,8 +7,10 @@ import com.solisium.core.domain.CatalogHit
 import com.solisium.core.domain.CatalogItemDetail
 import com.solisium.core.domain.CharacterSheet
 import com.solisium.core.domain.CharacterSlots
+import com.solisium.core.domain.CombatPortfolio
 import com.solisium.core.domain.CombatSessionSummary
 import com.solisium.core.domain.CombatSkillTotal
+import com.solisium.core.domain.CombatTargetTotal
 import com.solisium.core.domain.DisplayName
 import com.solisium.core.domain.GameAccessory
 import com.solisium.core.domain.GameArmor
@@ -1029,15 +1031,36 @@ class CatalogQuery(private val db: SolisiumDatabase) {
     fun combatSummary(sessionId: String): CombatSessionSummary? {
         val session = db.schemaQueries.selectCombatSession(sessionId).executeAsOneOrNull() ?: return null
         val events = db.schemaQueries.countCombatEvents(sessionId).executeAsOne()
-        val damage = db.schemaQueries.sumCombatDamage(sessionId).executeAsOne()
-        val skillTotals = db.schemaQueries.selectCombatSkillTotals(sessionId).executeAsList().map {
+        val damage = db.schemaQueries.sumCombatDamageDone(sessionId).executeAsOne()
+        val damageDoneHits = db.schemaQueries.countCombatEventsDamageDone(sessionId).executeAsOne()
+        val skillRows = db.schemaQueries.selectCombatSkillStats(sessionId).executeAsList()
+        val skillTotals = skillRows.map {
             CombatSkillTotal(
                 skillName = it.skill_name,
                 skillId = it.skill_id,
                 observedDamageSum = it.damage,
                 hits = it.hits,
+                critHits = it.crit_hits,
+                heavyHits = it.heavy_hits,
             )
+        }.let { rows ->
+            val total = rows.sumOf { it.observedDamageSum }.coerceAtLeast(1L)
+            rows.map { it.copy(damageShare = it.observedDamageSum.toDouble() / total) }
         }
+        val targetRows = db.schemaQueries.selectCombatTargets(sessionId).executeAsList()
+        val targets = targetRows.map {
+            CombatTargetTotal(
+                targetName = it.target ?: "unknown",
+                observedDamageSum = it.damage,
+                hits = it.hits,
+            )
+        }.let { rows ->
+            val total = rows.sumOf { it.observedDamageSum }.coerceAtLeast(1L)
+            rows.map { it.copy(damageShare = it.observedDamageSum.toDouble() / total) }
+        }
+        val totalCrits = skillTotals.sumOf { it.critHits }
+        val totalHeavy = skillTotals.sumOf { it.heavyHits }
+        val duration = durationSeconds(session.started_at, session.ended_at)
         return CombatSessionSummary(
             sessionId = sessionId,
             eventCount = events,
@@ -1047,8 +1070,20 @@ class CatalogQuery(private val db: SolisiumDatabase) {
             endedAt = session.ended_at,
             observedDps = observedDps(session.started_at, session.ended_at, damage),
             skillTotals = skillTotals,
+            damageDoneHits = damageDoneHits,
+            primaryTarget = targets.firstOrNull()?.targetName,
+            targets = targets,
+            critRate = if (damageDoneHits > 0) totalCrits.toDouble() / damageDoneHits else null,
+            heavyRate = if (damageDoneHits > 0) totalHeavy.toDouble() / damageDoneHits else null,
+            durationSeconds = duration,
+            sourcePath = session.source_path,
         )
     }
+
+    fun combatSessionIdForHash(hash: String): String? =
+        db.schemaQueries.selectCombatSessionByHash(hash).executeAsOneOrNull()
+
+    fun combatPortfolio(): CombatPortfolio = CombatAnalyzer.portfolio(combatSessions())
 
     /**
      * `_` is kept because row ids such as `Common_Struggle_Duration` are mostly underscores;
@@ -1081,11 +1116,15 @@ class CatalogQuery(private val db: SolisiumDatabase) {
 
     companion object {
         internal fun observedDps(startedAt: String?, endedAt: String?, damage: Long): Double? {
-            val start = parseEpochMillis(startedAt) ?: return null
-            val end = parseEpochMillis(endedAt) ?: return null
-            val seconds = (end - start) / 1000.0
+            val seconds = durationSeconds(startedAt, endedAt) ?: return null
             if (seconds <= 0.0 || !seconds.isFinite()) return null
             return damage / seconds
+        }
+
+        internal fun durationSeconds(startedAt: String?, endedAt: String?): Double? {
+            val start = parseEpochMillis(startedAt) ?: return null
+            val end = parseEpochMillis(endedAt) ?: return null
+            return (end - start) / 1000.0
         }
 
         private fun parseEpochMillis(value: String?): Long? {

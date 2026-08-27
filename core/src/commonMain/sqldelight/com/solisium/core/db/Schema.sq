@@ -1261,9 +1261,42 @@ SELECT COUNT(*) FROM combat_event WHERE session_id = ?;
 sumCombatDamage:
 SELECT CAST(COALESCE(SUM(damage), 0) AS INTEGER) FROM combat_event WHERE session_id = ?;
 
+sumCombatDamageDone:
+SELECT CAST(COALESCE(SUM(damage), 0) AS INTEGER) FROM combat_event
+WHERE session_id = ? AND log_type = 'DamageDone';
+
+countCombatEventsDamageDone:
+SELECT COUNT(*) FROM combat_event WHERE session_id = ? AND log_type = 'DamageDone';
+
 selectCombatSkillTotals:
 SELECT skill_name, skill_id, CAST(COALESCE(SUM(damage), 0) AS INTEGER) AS damage, COUNT(*) AS hits
 FROM combat_event
 WHERE session_id = ?
 GROUP BY skill_name, skill_id
 ORDER BY damage DESC;
+
+selectCombatSkillStats:
+SELECT
+  skill_name,
+  skill_id,
+  CAST(COALESCE(SUM(damage), 0) AS INTEGER) AS damage,
+  COUNT(*) AS hits,
+  CAST(COALESCE(SUM(CASE WHEN critical = 1 THEN 1 ELSE 0 END), 0) AS INTEGER) AS crit_hits,
+  CAST(COALESCE(SUM(CASE WHEN heavy = 1 THEN 1 ELSE 0 END), 0) AS INTEGER) AS heavy_hits
+FROM combat_event
+WHERE session_id = ? AND log_type = 'DamageDone' AND COALESCE(damage, 0) > 0
+GROUP BY skill_name, skill_id
+ORDER BY damage DESC;
+
+selectCombatTargets:
+SELECT
+  target,
+  CAST(COALESCE(SUM(damage), 0) AS INTEGER) AS damage,
+  COUNT(*) AS hits
+FROM combat_event
+WHERE session_id = ? AND log_type = 'DamageDone' AND target IS NOT NULL AND TRIM(target) != ''
+GROUP BY target
+ORDER BY damage DESC;
+
+selectCombatSessionByHash:
+SELECT id FROM user_combat_session WHERE source_hash = ? LIMIT 1;

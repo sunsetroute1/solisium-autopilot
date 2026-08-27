@@ -16,6 +16,7 @@ import com.solisium.core.domain.SkillShare
 import com.solisium.core.domain.SlotAdvice
 import com.solisium.core.domain.StatContribution
 import com.solisium.core.domain.StatKeyLabel
+import com.solisium.core.query.CombatBuildFeedback
 import com.solisium.core.meta.MetaBriefing
 import com.solisium.core.meta.TextNorm
 import com.solisium.core.source.EquipCategory
@@ -104,6 +105,7 @@ class BuildAdvisor(private val query: CatalogQuery) {
 
         val axes = axisScores(keys, stats, sheet, rankedBySlot)
         val shares = skillShares(snapshotId, community)
+        val insights = CombatBuildFeedback.analyze(shares, sheet?.sheet?.skills.orEmpty())
         val advice = BuildAdvice(
             snapshotId = snapshotId,
             snapshotBuild = snapshot?.gameBuild,
@@ -113,6 +115,7 @@ class BuildAdvisor(private val query: CatalogQuery) {
             slots = slots,
             axes = axes,
             skillShares = shares,
+            combatInsights = insights,
             community = community,
             briefing = emptyList(),
             characterName = sheet?.sheet?.character?.name,
