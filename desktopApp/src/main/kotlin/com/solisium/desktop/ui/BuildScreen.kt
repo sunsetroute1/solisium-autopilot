@@ -773,13 +773,16 @@ private fun GearRow(tag: String, gear: RankedGear, max: Long, color: androidx.co
     Column(Modifier.fillMaxWidth().padding(top = Spacing.sm)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(tag, style = MaterialTheme.typography.bodySmall, color = Palette.TextFaint, modifier = Modifier.width(44.dp))
-            Bold(gear.name, color)
+            ItemNameWithRarity(
+                name = gear.name,
+                grade = gear.grade,
+                modifier = Modifier.weight(1f, fill = false),
+                pipHeight = 22.dp,
+                maxLines = 1,
+            )
             Spacer(Modifier.width(Spacing.sm))
             Text(gear.kind, style = MaterialTheme.typography.bodySmall, color = Palette.TextFaint)
-            DisplayName.prettyEnum(gear.grade)?.let { grade ->
-                Spacer(Modifier.width(Spacing.sm))
-                Badge(grade, Palette.TextMuted, caps = false)
-            }
+            RarityBadge(gear.grade)
             Spacer(Modifier.weight(1f))
             Text(gear.score.format(), style = MonoStyle, color = color)
             gear.itemPower?.let { power ->
@@ -846,8 +849,13 @@ private fun CommunityPanel(state: Load<CommunitySnapshot>?) {
                     SectionLabel("Questlog items")
                     Spacer(Modifier.height(Spacing.xs))
                     snap.items.take(12).forEach { hit ->
-                        Row(Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
-                            Text(hit.name, style = MaterialTheme.typography.bodyMedium, color = Palette.Text, modifier = Modifier.weight(1f))
+                        Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                            ItemNameWithRarity(
+                                name = hit.name,
+                                grade = detailGradeToken(hit.detail),
+                                modifier = Modifier.weight(1f),
+                                maxLines = 1,
+                            )
                             hit.catalogName?.let { Badge("in warehouse", Palette.Extracted, caps = false) }
                         }
                     }

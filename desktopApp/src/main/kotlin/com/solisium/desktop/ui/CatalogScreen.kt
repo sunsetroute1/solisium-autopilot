@@ -160,7 +160,10 @@ private fun ResultList(model: AppModel) {
                         },
                     )
                 }
-                LazyColumn(Modifier.fillMaxSize().padding(horizontal = Spacing.lg)) {
+                LazyListWithScrollbar(
+                    Modifier.fillMaxSize(),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = Spacing.lg),
+                ) {
                     items(rows, key = { it.sourceTable + "|" + it.sourceRowId }) { row ->
                         ResultRow(row, model.selected == row) { model.select(row) }
                     }
@@ -172,9 +175,14 @@ private fun ResultList(model: AppModel) {
 
 @Composable
 private fun ResultRow(row: CatalogRow, selected: Boolean, onClick: () -> Unit) {
-    HoverRow(selected = selected, onClick = onClick) {
+    val grade = displayGrade(row.sourceRowId, row.grade)
+    HoverRow(
+        selected = selected,
+        onClick = onClick,
+        modifier = Modifier.rarityRowTint(grade, row.sourceRowId),
+    ) {
         Spacer(Modifier.width(Spacing.sm))
-        RarityPip(row.grade)
+        RarityPip(grade, sourceRowId = row.sourceRowId)
         Spacer(Modifier.width(Spacing.md))
         Column(Modifier.weight(1f).padding(vertical = 8.dp)) {
             Text(
@@ -182,11 +190,11 @@ private fun ResultRow(row: CatalogRow, selected: Boolean, onClick: () -> Unit) {
                 style = MaterialTheme.typography.bodyMedium.copy(
                     fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
                 ),
-                color = rarityColor(row.grade),
+                color = rarityColor(grade),
                 maxLines = 1,
             )
             val type = prettyEnum(row.meta)
-            val rarity = prettyEnum(row.grade)
+            val rarity = prettyEnum(grade)
             val subtitle = listOfNotNull(rarity, type).joinToString(" · ")
             if (subtitle.isNotEmpty()) {
                 Text(subtitle, style = MaterialTheme.typography.bodySmall, color = Palette.TextFaint, maxLines = 1)
@@ -217,33 +225,36 @@ private fun DetailPane(model: AppModel) {
 
 @Composable
 private fun DetailBody(detail: RowDetail) {
-    Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(Spacing.lg),
-        verticalArrangement = Arrangement.spacedBy(Spacing.lg),
-    ) {
-        DetailHeader(detail)
-        detail.questlog?.description?.takeIf { it.isNotBlank() }?.let { DescriptionCard(it) }
-        WarehouseStats(detail.stats)
-        detail.combatPower?.let { CombatPowerCard(it) }
-        Curves(detail)
-        detail.questlog?.let { CommunitySection(it, detail.questlogWarning) }
-        TechnicalFooter(detail)
+    ColumnWithScrollbar(Modifier.fillMaxSize()) {
+        Column(
+            Modifier.padding(Spacing.lg),
+            verticalArrangement = Arrangement.spacedBy(Spacing.lg),
+        ) {
+            DetailHeader(detail)
+            detail.questlog?.description?.takeIf { it.isNotBlank() }?.let { DescriptionCard(it) }
+            WarehouseStats(detail.stats)
+            detail.combatPower?.let { CombatPowerCard(it) }
+            Curves(detail)
+            detail.questlog?.let { CommunitySection(it, detail.questlogWarning) }
+            TechnicalFooter(detail)
+        }
     }
 }
 
 @Composable
 private fun DetailHeader(detail: RowDetail) {
+    val grade = displayGrade(detail.row.sourceRowId, detail.row.grade ?: detail.questlog?.grade)
     Row(verticalAlignment = Alignment.Top) {
-        RarityPip(detail.row.grade)
+        RarityPip(grade, sourceRowId = detail.row.sourceRowId)
         Spacer(Modifier.width(Spacing.md))
         Column(Modifier.weight(1f)) {
             Text(
                 detail.row.name,
                 style = MaterialTheme.typography.headlineSmall,
-                color = rarityColor(detail.row.grade),
+                color = rarityColor(grade),
             )
             val chips = buildList {
-                prettyEnum(detail.row.grade)?.let { add(it) }
+                prettyEnum(grade)?.let { add(it) }
                 prettyEnum(detail.row.meta)?.let { add(it) }
                 prettyEnum(detail.category)?.let { add(it) }
                 detail.questlog?.tradeCategory?.let { add(it.replaceFirstChar { c -> c.uppercase() }) }

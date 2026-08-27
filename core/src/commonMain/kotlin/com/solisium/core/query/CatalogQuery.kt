@@ -85,15 +85,25 @@ class CatalogQuery(private val db: SolisiumDatabase) {
     private fun gradesForSnapshot(snapshotId: String): Map<String, String> {
         if (gradeCacheSnapshot != snapshotId) {
             gradeCache = db.schemaQueries.selectAllItemGrades(snapshotId, snapshotId)
-                .executeAsList().associate { it.source_row_id to it.grade }
+                .executeAsList()
+                .groupBy { it.source_row_id }
+                .mapValues { (_, rows) -> ItemGradeHints.pickBestGrade(rows.map { it.grade }) }
+                .filterValues { !it.isNullOrBlank() }
+                .mapValues { it.value!! }
             gradeCacheSnapshot = snapshotId
         }
         return gradeCache
     }
 
     fun resolveItemGrade(snapshotId: String, sourceRowId: String): String? =
-        gradesForSnapshot(snapshotId)[sourceRowId]?.takeIf { it.isNotBlank() }
+        db.schemaQueries.selectBestItemGrade(snapshotId, sourceRowId, snapshotId, sourceRowId)
+            .executeAsOneOrNull()
+            ?: gradesForSnapshot(snapshotId)[sourceRowId]
             ?: ItemGradeHints.inferFromRowId(sourceRowId)
+
+    private fun resolvedGrade(snapshotId: String, sourceRowId: String, grade: String?): String? =
+        ItemGradeHints.resolve(grade, sourceRowId)
+            ?: resolveItemGrade(snapshotId, sourceRowId)
 
     private fun enrichDropSources(snapshotId: String, sources: List<ItemDropSource>): List<ItemDropSource> {
         val grades = gradesForSnapshot(snapshotId)
@@ -278,7 +288,7 @@ class CatalogQuery(private val db: SolisiumDatabase) {
     fun dropSearchItems(snapshotId: String, term: String?, limit: Int = 200): List<GameItem> {
         fun toItem(sourceTable: String, sourceRowId: String, name: String?, grade: String?, category: String?): GameItem {
             val display = DisplayName.of(name, sourceRowId) ?: name?.trim()?.takeIf { it.isNotEmpty() } ?: sourceRowId
-            return GameItem(snapshotId, sourceTable, sourceRowId, display, grade, category)
+            return GameItem(snapshotId, sourceTable, sourceRowId, display, resolvedGrade(snapshotId, sourceRowId, grade), category)
         }
         val mapped = if (term.isNullOrBlank()) {
             db.schemaQueries.selectDropBrowseItems(snapshotId, limit.toLong()).executeAsList().map {
@@ -334,10 +344,10 @@ class CatalogQuery(private val db: SolisiumDatabase) {
             sourceTable = sourceTable,
             sourceRowId = sourceRowId,
             name = item?.name ?: hit?.name,
-            grade = item?.grade ?: when (hit?.kind) {
+            grade = resolvedGrade(snapshotId, sourceRowId, item?.grade ?: when (hit?.kind) {
                 "item", "rune" -> hit.detail
                 else -> null
-            },
+            }),
             meta = meta,
             category = item?.category,
             warehouseStats = itemStats(snapshotId, sourceRowId),
