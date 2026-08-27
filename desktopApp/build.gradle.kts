@@ -181,6 +181,8 @@ val buildStarterPack by tasks.registering(JavaExec::class) {
 tasks.matching { it.name == "createDistributable" }.configureEach { dependsOn(buildStarterPack) }
 tasks.matching { it.name == "run" }.configureEach { dependsOn(buildStarterPack) }
 
+val releaseDir = rootProject.layout.projectDirectory.dir("releases")
+
 /**
  * The MSI, zipped for handing over. Both this and the portable build below bundle a
  * Java runtime, so neither needs a JDK on the target machine.
@@ -190,7 +192,7 @@ val packageInstallerZip by tasks.registering(Zip::class) {
     description = "Zips the MSI installer."
     dependsOn("packageMsi")
     archiveFileName.set("Solisium-Autopilot-$appVersion-windows-x64-installer.zip")
-    destinationDirectory.set(layout.buildDirectory.dir("distributions"))
+    destinationDirectory.set(releaseDir)
     from(layout.buildDirectory.dir("compose/binaries/main/msi")) {
         include("*.msi")
     }
@@ -209,7 +211,7 @@ val packagePortableZip by tasks.registering(Zip::class) {
     description = "Zips the self-contained application image with its per-user installer script."
     dependsOn(verifyNoSecretsInDistribution)
     archiveFileName.set("Solisium-Autopilot-$appVersion-windows-x64-portable.zip")
-    destinationDirectory.set(layout.buildDirectory.dir("distributions"))
+    destinationDirectory.set(releaseDir)
     // This directory already contains a folder named after the app, so copying its
     // contents puts "Solisium Autopilot/" at the zip root, which is the layout the
     // installer script expects.
