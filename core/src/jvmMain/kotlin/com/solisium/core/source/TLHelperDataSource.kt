@@ -7,6 +7,9 @@ import com.solisium.core.json.JsonParseException
 import com.solisium.core.json.JsonParser
 import com.solisium.core.json.JsonValue
 import com.solisium.core.platform.randomUuid
+import com.solisium.core.talkingwall.TalkingWallImporter
+import com.solisium.core.talkingwall.TalkingWallMapper
+import com.solisium.core.talkingwall.TalkingWallResources
 import java.nio.file.Files
 import java.nio.file.Path
 import java.security.MessageDigest
@@ -185,6 +188,20 @@ class TLHelperDataSource(
                             "in the warehouse. Questlog sync fills community rates until then.",
                     )
                 }
+                reportProgress(request, "Talking Wall statements", 0, 1)
+                val wallSummary = TalkingWallImporter.supplementCommunity(
+                    db,
+                    snapshotId,
+                    TalkingWallResources.communityJson(),
+                )
+                if (wallSummary.communityAdded > 0) {
+                    warnings.add(
+                        "${wallSummary.communityAdded} Talking Wall answer(s) added from bundled community key.",
+                    )
+                }
+                if (wallSummary.total == 0) {
+                    warnings.add("No Talking Wall statements found; bundled answer key will fill on next import.")
+                }
             }
             return ImportReceipt(
                 source = id,
@@ -204,6 +221,12 @@ class TLHelperDataSource(
         nameIndex: Map<String, String>,
     ): Boolean {
         val json = parseJson(row.rawJson)
+        if (TalkingWallMapper.considers(row.tableName)) {
+            TalkingWallMapper.parseWarehouseRow(row.tableName, row.rowId, row.name, json)?.let { parsed ->
+                TalkingWallImporter.insertWarehouse(db, snapshotId, row.tableName, row.rowId, parsed)
+                return true
+            }
+        }
         when (row.tableName) {
             "TLRuneSynergy" -> {
                 db.schemaQueries.insertGameRuneSynergy(

@@ -25,7 +25,7 @@ class MigrationTest {
             "game_item_stat", "game_stat_curve", "game_item_curve", "game_class",
             "game_combat_power", "game_item_power",
             "user_weapon_mastery", "user_build_layer",
-            "game_boss", "game_item_drop",
+            "game_boss", "game_item_drop", "game_talking_wall_statement",
         )
         JvmDatabase.openOrCreate(file)
         jdbc(file) { statement ->
@@ -72,7 +72,7 @@ class MigrationTest {
             "game_item_stat", "game_stat_curve", "game_item_curve", "game_class",
             "game_combat_power", "game_item_power",
             "user_weapon_mastery", "user_build_layer",
-            "game_boss", "game_item_drop",
+            "game_boss", "game_item_drop", "game_talking_wall_statement",
         )
 
         JvmDatabase.openOrCreate(fresh)

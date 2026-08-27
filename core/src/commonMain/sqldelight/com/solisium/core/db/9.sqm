@@ -1,0 +1,17 @@
+-- Schema version 9 -> 10: Talking Wall true/false statements from warehouse + community key.
+CREATE TABLE game_talking_wall_statement (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  snapshot_id TEXT NOT NULL,
+  source_table TEXT NOT NULL,
+  source_row_id TEXT NOT NULL,
+  statement_key TEXT NOT NULL,
+  statement TEXT NOT NULL,
+  answer_true INTEGER NOT NULL,
+  category TEXT,
+  notes TEXT,
+  source_kind TEXT NOT NULL,
+  FOREIGN KEY(snapshot_id) REFERENCES dataset_snapshot(id),
+  UNIQUE(snapshot_id, statement_key)
+);
+
+CREATE INDEX game_talking_wall_snapshot ON game_talking_wall_statement(snapshot_id);

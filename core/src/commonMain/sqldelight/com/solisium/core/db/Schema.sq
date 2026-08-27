@@ -289,6 +289,23 @@ CREATE TABLE game_progression (
   UNIQUE(snapshot_id, source_table, source_row_id)
 );
 
+CREATE TABLE game_talking_wall_statement (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  snapshot_id TEXT NOT NULL,
+  source_table TEXT NOT NULL,
+  source_row_id TEXT NOT NULL,
+  statement_key TEXT NOT NULL,
+  statement TEXT NOT NULL,
+  answer_true INTEGER NOT NULL,
+  category TEXT,
+  notes TEXT,
+  source_kind TEXT NOT NULL,
+  FOREIGN KEY(snapshot_id) REFERENCES dataset_snapshot(id),
+  UNIQUE(snapshot_id, statement_key)
+);
+
+CREATE INDEX game_talking_wall_snapshot ON game_talking_wall_statement(snapshot_id);
+
 CREATE TABLE game_class (
   id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
   snapshot_id TEXT NOT NULL,
@@ -594,6 +611,46 @@ VALUES (?, ?, ?, ?);
 
 countMonsters:
 SELECT COUNT(*) FROM game_boss WHERE snapshot_id = ?;
+
+insertGameTalkingWallStatement:
+INSERT OR IGNORE INTO game_talking_wall_statement(
+  snapshot_id, source_table, source_row_id, statement_key, statement, answer_true, category, notes, source_kind
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+replaceGameTalkingWallStatement:
+INSERT OR REPLACE INTO game_talking_wall_statement(
+  snapshot_id, source_table, source_row_id, statement_key, statement, answer_true, category, notes, source_kind
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+countTalkingWallStatements:
+SELECT COUNT(*) FROM game_talking_wall_statement WHERE snapshot_id = ?;
+
+countTalkingWallBySourceKind:
+SELECT COUNT(*) FROM game_talking_wall_statement WHERE snapshot_id = ? AND source_kind = ?;
+
+searchTalkingWallStatements:
+SELECT source_table, source_row_id, statement, answer_true, category, notes, source_kind
+FROM game_talking_wall_statement
+WHERE snapshot_id = ?
+  AND lower(statement) LIKE lower(?)
+  AND (? = '' OR category = ?)
+ORDER BY category COLLATE NOCASE, statement COLLATE NOCASE
+LIMIT ?;
+
+countTalkingWallStatementKey:
+SELECT COUNT(*) FROM game_talking_wall_statement WHERE snapshot_id = ? AND statement_key = ?;
+
+selectTalkingWallCategories:
+SELECT category, COUNT(*) AS statement_count
+FROM game_talking_wall_statement
+WHERE snapshot_id = ?
+GROUP BY category
+ORDER BY statement_count DESC, category COLLATE NOCASE;
+
+selectTalkingWallStatementByKey:
+SELECT source_table, source_row_id, statement, answer_true, category, notes, source_kind
+FROM game_talking_wall_statement
+WHERE snapshot_id = ? AND source_table = ? AND source_row_id = ?;
 
 countSyncedMonsters:
 SELECT COUNT(*) FROM game_boss WHERE snapshot_id = ? AND synced_at IS NOT NULL;

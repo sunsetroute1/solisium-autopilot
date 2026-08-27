@@ -52,6 +52,12 @@ object Palette {
     /** Provenance: shape or scale not yet confirmed against the game. */
     val Unverified = Color(0xFFD9915A)
 
+    /** In-game Talking Wall: blue = true statement. */
+    val WallTrue = Color(0xFF4DA3FF)
+
+    /** In-game Talking Wall: red = false statement. */
+    val WallFalse = Color(0xFFE04B4B)
+
     val Danger = Color(0xFFE0685F)
 }
 

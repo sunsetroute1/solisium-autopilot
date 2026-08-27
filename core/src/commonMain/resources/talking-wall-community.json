@@ -1,0 +1,2093 @@
+{
+  "source": "community",
+  "sourceLabel": "Community answer key (Google Doc + Scaryel categories, Aug 2026)",
+  "version": 2,
+  "statements": [
+    {
+      "id": "community_0001",
+      "statement": "The Snow Fiends are demons that appear in the Scar of Sacrifice.",
+      "answerTrue": true,
+      "category": "nix",
+      "notes": null
+    },
+    {
+      "id": "community_0002",
+      "statement": "The Frozen Nightlands of Nix are home to packs of werewolves.",
+      "answerTrue": true,
+      "category": "nix",
+      "notes": null
+    },
+    {
+      "id": "community_0003",
+      "statement": "Vulcanus is a variant created by combining a Snowfield Gorilla and an Acid Beetle.",
+      "answerTrue": true,
+      "category": "nix",
+      "notes": null
+    },
+    {
+      "id": "community_0004",
+      "statement": "There is no Arkeum Legion in Nix.",
+      "answerTrue": true,
+      "category": "nix",
+      "notes": null
+    },
+    {
+      "id": "community_0005",
+      "statement": "In the aftermath of the ancient war between the elves and the giants, a rift to Diabolica opened in Nix.",
+      "answerTrue": true,
+      "category": "nix",
+      "notes": null
+    },
+    {
+      "id": "community_0006",
+      "statement": "Kaffe is on section 8 and lives at home with mommy.",
+      "answerTrue": true,
+      "category": "community",
+      "notes": null
+    },
+    {
+      "id": "community_0007",
+      "statement": "The coldest place in Nix is Shemir's Tower.",
+      "answerTrue": true,
+      "category": "nix",
+      "notes": null
+    },
+    {
+      "id": "community_0008",
+      "statement": "Nix has a special method of travel called the Auroral Path.",
+      "answerTrue": true,
+      "category": "nix",
+      "notes": null
+    },
+    {
+      "id": "community_0009",
+      "statement": "Rae is a cult leader now.",
+      "answerTrue": true,
+      "category": "trivia",
+      "notes": null
+    },
+    {
+      "id": "community_0010",
+      "statement": "The Frost Crone in the Scar of Sacrifice was originally a wizard dispatched to Nix for a greater cause.",
+      "answerTrue": true,
+      "category": "nix",
+      "notes": null
+    },
+    {
+      "id": "community_0011",
+      "statement": "Masarax wears a red mask.",
+      "answerTrue": true,
+      "category": "trivia",
+      "notes": null
+    },
+    {
+      "id": "community_0012",
+      "statement": "Kaylle Noctus is the only younger brother of Cerise Noctus, the Border Zone Vigilante Leader.",
+      "answerTrue": true,
+      "category": "nix",
+      "notes": null
+    },
+    {
+      "id": "community_0013",
+      "statement": "Kaylle Noctus is at the Border Zone.",
+      "answerTrue": true,
+      "category": "nix",
+      "notes": null
+    },
+    {
+      "id": "community_0014",
+      "statement": "Tumgir was the Brave Giant who created mechanical soldiers and the Ember Giant during the ancient tribal war.",
+      "answerTrue": true,
+      "category": "nix",
+      "notes": null
+    },
+    {
+      "id": "community_0015",
+      "statement": "Cerise Noctus is the Nix Border Zone Vigilante Leader.",
+      "answerTrue": true,
+      "category": "nix",
+      "notes": null
+    },
+    {
+      "id": "community_0016",
+      "statement": "The Blacksword Company Captain is in the Entropic Tundra of Nix.",
+      "answerTrue": true,
+      "category": "nix",
+      "notes": null
+    },
+    {
+      "id": "community_0017",
+      "statement": "The Blacksword Company Captain is looking for capable underlings.",
+      "answerTrue": true,
+      "category": "nix",
+      "notes": null
+    },
+    {
+      "id": "community_0018",
+      "statement": "The Border Zone of Nix can endure the bitter cold thanks to the manastone at its center.",
+      "answerTrue": true,
+      "category": "nix",
+      "notes": null
+    },
+    {
+      "id": "community_0019",
+      "statement": "The Auroral Path is called that because the stars appear to flow like a river.",
+      "answerTrue": true,
+      "category": "nix",
+      "notes": null
+    },
+    {
+      "id": "community_0020",
+      "statement": "Sylaveth was sealed by Einar, the Creator God.",
+      "answerTrue": true,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0021",
+      "statement": "The Star Fragments of Sylaveth were originally one.",
+      "answerTrue": true,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0022",
+      "statement": "The tribes that fought against the giants in the ancient tribal war were humans, orcs, elves, and goblins.",
+      "answerTrue": true,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0023",
+      "statement": "The war between elves and humans began when humans pursued forbidden magic.",
+      "answerTrue": true,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0024",
+      "statement": "Archwizard Sion Tegeroth ended the elf-human war.",
+      "answerTrue": true,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0025",
+      "statement": "Deluzhnoa used the heart of Quietis to defeat the enemy, but was consumed by its power.",
+      "answerTrue": true,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0026",
+      "statement": "Hale Verpheus is the first Archwizard of Venelux.",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0027",
+      "statement": "After the Temple of Light was destroyed, it came to be known as the Temple of Deluzhnoa.",
+      "answerTrue": true,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0028",
+      "statement": "Kazar's Arkeum Legion invaded Whisp Island to obtain Star Fragments.",
+      "answerTrue": true,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0029",
+      "statement": "Hursky is a cutie.",
+      "answerTrue": true,
+      "category": "trivia",
+      "notes": null
+    },
+    {
+      "id": "community_0030",
+      "statement": "The heart of Quietis was originally kept by the elves in the Temple of Light.",
+      "answerTrue": true,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0031",
+      "statement": "The element of water resonates with Deluzhnoa.",
+      "answerTrue": true,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0032",
+      "statement": "Ruffello's bracelets originally belonged to comrades who fell in battle ten years ago.",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0033",
+      "statement": "Kazar sent Calanthia and the orc legion to invade Whisp Island in pursuit of Star Fragments.",
+      "answerTrue": true,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0034",
+      "statement": "The elves once gifted language and magic to humans.",
+      "answerTrue": true,
+      "category": "trivia",
+      "notes": null
+    },
+    {
+      "id": "community_0035",
+      "statement": "An Abyssal Meteor rose from the Talandre seabed.",
+      "answerTrue": true,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0036",
+      "statement": "The Great Sage Tree, the world tree of the elves, is dying because of the red fog.",
+      "answerTrue": true,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0037",
+      "statement": "The Guardians' Tomb holds the relics of the seven wizards who sealed Deluzhnoa.",
+      "answerTrue": true,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0038",
+      "statement": "Yann Junath took in orphans who bore Star Fragments on Whisp Island.",
+      "answerTrue": true,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0039",
+      "statement": "The reason the Arkeum Legion tried to steal the power of the Star Fragment from the children was to use it as a tool of war.",
+      "answerTrue": true,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0040",
+      "statement": "Sea turtles breathe outside of water.",
+      "answerTrue": true,
+      "category": "trivia",
+      "notes": null
+    },
+    {
+      "id": "community_0041",
+      "statement": "Sea turtles are reptiles.",
+      "answerTrue": true,
+      "category": "trivia",
+      "notes": null
+    },
+    {
+      "id": "community_0042",
+      "statement": "The former name of the Shattered Temple in Laslan is the Temple of Light.",
+      "answerTrue": true,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0043",
+      "statement": "Hi Chef!",
+      "answerTrue": true,
+      "category": "trivia",
+      "notes": null
+    },
+    {
+      "id": "community_0044",
+      "statement": "The desert of Stonegard was created by the cursed rain brought down by Skultus.",
+      "answerTrue": true,
+      "category": "regions",
+      "notes": null
+    },
+    {
+      "id": "community_0045",
+      "statement": "The Sanctum of Desire is located in the Manawastes.",
+      "answerTrue": true,
+      "category": "regions",
+      "notes": null
+    },
+    {
+      "id": "community_0046",
+      "statement": "Whisp Island is a sacred island protected by the World Tree Whisperion.",
+      "answerTrue": true,
+      "category": "regions",
+      "notes": null
+    },
+    {
+      "id": "community_0047",
+      "statement": "Talandre is a region famous for the Breezeline.",
+      "answerTrue": true,
+      "category": "regions",
+      "notes": null
+    },
+    {
+      "id": "community_0048",
+      "statement": "There is a passage to the Port from Stonegard Castle.",
+      "answerTrue": false,
+      "category": "regions",
+      "notes": null
+    },
+    {
+      "id": "community_0049",
+      "statement": "Most of the mines in Talandre are currently occupied by the Black Anvil Dwarves.",
+      "answerTrue": true,
+      "category": "regions",
+      "notes": null
+    },
+    {
+      "id": "community_0050",
+      "statement": "The Ruins of Turayne were originally a thriving commercial district.",
+      "answerTrue": true,
+      "category": "regions",
+      "notes": null
+    },
+    {
+      "id": "community_0051",
+      "statement": "The rumors of a little monster in the Swamp of Silence were actually about Giselle, a mutated girl.",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0052",
+      "statement": "The Holy Tree's Sanctuary is the inner world of the Great Sage Tree.",
+      "answerTrue": true,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0053",
+      "statement": "The name of the ship that travels between Kastleton and Vienta Port is the Marind.",
+      "answerTrue": true,
+      "category": "regions",
+      "notes": null
+    },
+    {
+      "id": "community_0054",
+      "statement": "The name of the sundries merchant in Vienta Village is Deborah.",
+      "answerTrue": true,
+      "category": "regions",
+      "notes": null
+    },
+    {
+      "id": "community_0055",
+      "statement": "The Aethersuit is a device used to rapidly descend from the Aetherion to the ground.",
+      "answerTrue": true,
+      "category": "nix",
+      "notes": null
+    },
+    {
+      "id": "community_0056",
+      "statement": "Martinay Casill is Adriana Casill's younger sister.",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0057",
+      "statement": "Dartz is super strong and cool and handsome.",
+      "answerTrue": true,
+      "category": "trivia",
+      "notes": null
+    },
+    {
+      "id": "community_0058",
+      "statement": "The temple built by the lycanthropes of Nix is on the opposite side of the waterfall in the Frozen Nightlands.",
+      "answerTrue": true,
+      "category": "nix",
+      "notes": null
+    },
+    {
+      "id": "community_0059",
+      "statement": "When you cook, you get a great success sometimes.",
+      "answerTrue": true,
+      "category": "trivia",
+      "notes": null
+    },
+    {
+      "id": "community_0060",
+      "statement": "A Guardian's Pledge is an object imbued with a Guardian through a special ceremony.",
+      "answerTrue": true,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0061",
+      "statement": "The red fog originates from Abyssal Meteor fragments and causes mutations in living creatures.",
+      "answerTrue": true,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0062",
+      "statement": "When the red fog is condensed, it becomes red bitumen.",
+      "answerTrue": true,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0063",
+      "statement": "Underlying principles of white magic and dark magic are the same.",
+      "answerTrue": true,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0064",
+      "statement": "A Diston is a magical tool capable of storing magical energy and recording knowledge.",
+      "answerTrue": true,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0065",
+      "statement": "There is a phenomenon called the Abyssal Contract that occurs in places dominated by darkness.",
+      "answerTrue": true,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0066",
+      "statement": "Burning the herb called Crimosa causes an adverse reaction in demons.",
+      "answerTrue": true,
+      "category": "trivia",
+      "notes": null
+    },
+    {
+      "id": "community_0067",
+      "statement": "Lunar-0 has been storing information and prophecies from books in Venelux.",
+      "answerTrue": true,
+      "category": "regions",
+      "notes": null
+    },
+    {
+      "id": "community_0068",
+      "statement": "Lunar-0 has Janice's deductive abilities programmed in as a magic schema.",
+      "answerTrue": true,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0069",
+      "statement": "The Star-Born can be mentally connected to one another.",
+      "answerTrue": true,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0070",
+      "statement": "When the connection among the Star-Born grows stronger, even spacetime displacement can occur.",
+      "answerTrue": true,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0071",
+      "statement": "Spirits arise from extreme elemental imbalances.",
+      "answerTrue": true,
+      "category": "trivia",
+      "notes": null
+    },
+    {
+      "id": "community_0072",
+      "statement": "When Deluzhnoa's power erupts, Quietis's Demesne can completely freeze over.",
+      "answerTrue": true,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0073",
+      "statement": "According to Theodor's research records, Bladewind Flowers are needed to charge the Wind Relic.",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0074",
+      "statement": "Since many bees gather around Bladewind Flowers, you must put on some bee repellent before harvesting them.",
+      "answerTrue": true,
+      "category": "trivia",
+      "notes": null
+    },
+    {
+      "id": "community_0075",
+      "statement": "In the Holy Tree's Sanctuary, it is the Twilight Flame that can burn the tree branches tainted by the red fog.",
+      "answerTrue": true,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0076",
+      "statement": "A branch from the Lifebringer Tree is needed to grow a new tree branch in the Holy Tree's Sanctuary.",
+      "answerTrue": true,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0077",
+      "statement": "One of the key materials for the Queen Bellandir luring device is a sharp armadillo scale.",
+      "answerTrue": true,
+      "category": "regions",
+      "notes": null
+    },
+    {
+      "id": "community_0078",
+      "statement": "The presence of Mitrans means the Land of the Dead is being purified.",
+      "answerTrue": true,
+      "category": "trivia",
+      "notes": null
+    },
+    {
+      "id": "community_0079",
+      "statement": "Queen Bellandir is a giant sandworm in Stonegard.",
+      "answerTrue": true,
+      "category": "regions",
+      "notes": null
+    },
+    {
+      "id": "community_0080",
+      "statement": "The largest basilisk in Stonegard is Chernobog.",
+      "answerTrue": true,
+      "category": "regions",
+      "notes": null
+    },
+    {
+      "id": "community_0081",
+      "statement": "Lycans grow stronger near the moonstone during the Harvest Moon ritual.",
+      "answerTrue": true,
+      "category": "trivia",
+      "notes": null
+    },
+    {
+      "id": "community_0082",
+      "statement": "Each of the two heads of a Two-Headed Ogre has a brain.",
+      "answerTrue": true,
+      "category": "regions",
+      "notes": null
+    },
+    {
+      "id": "community_0083",
+      "statement": "Lacune is the giant ant queen of Stonegard.",
+      "answerTrue": true,
+      "category": "regions",
+      "notes": null
+    },
+    {
+      "id": "community_0084",
+      "statement": "The Ant Nest is home to giant ants such as Soldier Ants, Explosive Ants, and Acid Ants.",
+      "answerTrue": true,
+      "category": "regions",
+      "notes": null
+    },
+    {
+      "id": "community_0085",
+      "statement": "Queen Bellandir was originally nothing more than a small sandworm.",
+      "answerTrue": true,
+      "category": "regions",
+      "notes": null
+    },
+    {
+      "id": "community_0086",
+      "statement": "Queen Bellandir has a tendency to be drawn to strong magical power.",
+      "answerTrue": true,
+      "category": "regions",
+      "notes": null
+    },
+    {
+      "id": "community_0087",
+      "statement": "When Roen was swallowed by Queen Bellandir, she transformed into a violet bird and escaped from within.",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0088",
+      "statement": "Bee venom helps regulate the toxicity within mana.",
+      "answerTrue": true,
+      "category": "regions",
+      "notes": null
+    },
+    {
+      "id": "community_0089",
+      "statement": "A contaminated beetle horn makes a tonic several times stronger than a regular horn.",
+      "answerTrue": true,
+      "category": "regions",
+      "notes": null
+    },
+    {
+      "id": "community_0090",
+      "statement": "A sandworm's venom sac releases a signaling substance when it detects another creature's mana",
+      "answerTrue": true,
+      "category": "regions",
+      "notes": null
+    },
+    {
+      "id": "community_0091",
+      "statement": "The souls of dead elves wander the Forest of the Great Tree.",
+      "answerTrue": true,
+      "category": "trivia",
+      "notes": null
+    },
+    {
+      "id": "community_0092",
+      "statement": "Venelux is the center of magical academia, home to a repository of forbidden texts.",
+      "answerTrue": true,
+      "category": "regions",
+      "notes": null
+    },
+    {
+      "id": "community_0093",
+      "statement": "The Lightbringer Society is a wizard organization that opposes dark magic.",
+      "answerTrue": true,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0094",
+      "statement": "The Akidu orcs are shadow orcs allied with the Arkeum Legion.",
+      "answerTrue": true,
+      "category": "trivia",
+      "notes": null
+    },
+    {
+      "id": "community_0095",
+      "statement": "The Fonos orcs believe they grow stronger through a ritual called the Festival of Fire.",
+      "answerTrue": true,
+      "category": "trivia",
+      "notes": null
+    },
+    {
+      "id": "community_0096",
+      "statement": "The Resistance used Laslan as a stepping stone to grow their power and liberate Stonegard.",
+      "answerTrue": true,
+      "category": "regions",
+      "notes": null
+    },
+    {
+      "id": "community_0097",
+      "statement": "The Arkeum Legion is waging war across all of Solisium to obtain the Star Fragments of Sylaveth.",
+      "answerTrue": true,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0098",
+      "statement": "The Akidu orcs abducted the Fonos orcs and turned them into shadow orcs.",
+      "answerTrue": true,
+      "category": "trivia",
+      "notes": null
+    },
+    {
+      "id": "community_0099",
+      "statement": "The Sandflame Bandits are outlaws of the Monolith Wastelands.",
+      "answerTrue": true,
+      "category": "regions",
+      "notes": null
+    },
+    {
+      "id": "community_0100",
+      "statement": "The plan written on the kidnapping orders left by Arkeum was titled Calanthia's Plan.",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0101",
+      "statement": "Resistance Contract Coins are only given to those who complete contracts.",
+      "answerTrue": true,
+      "category": "trivia",
+      "notes": null
+    },
+    {
+      "id": "community_0102",
+      "statement": "The Oath of the Resistance tablet contains a vow to stand and fight against the enemy.",
+      "answerTrue": true,
+      "category": "trivia",
+      "notes": null
+    },
+    {
+      "id": "community_0103",
+      "statement": "Junobote is the ninth Grand Elder of the Sylavean Order.",
+      "answerTrue": true,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0104",
+      "statement": "Junobote offered one eye to Havres and gained forbidden knowledge.",
+      "answerTrue": true,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0105",
+      "statement": "The sixth Grand Elder of the Sylavean Order is Ahzreil.",
+      "answerTrue": true,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0106",
+      "statement": "Atoshen was promised the cordy wand 3000 years ago.",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0107",
+      "statement": "When Junobote summoned Havres, the resulting mana leak caused a mana frenzy in the Manawastes.",
+      "answerTrue": true,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0108",
+      "statement": "On the day Junobote entered the sanctuary, the evil eye Malakar appeared and destroyed the barrier magic circle.",
+      "answerTrue": true,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0109",
+      "statement": "Nirma gained the power to summon tempests and lightning as a result of the experiment.",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0110",
+      "statement": "If no one is there to receive Nirma's electric sphere, it explodes on the ground and deals lethal damage.",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0111",
+      "statement": "Clay is the son of the legendary Archwizard Janice Cartair.",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0112",
+      "statement": "Lunar-0 is a Diston created by Janice Cartair during her studies at Venelux.",
+      "answerTrue": true,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0113",
+      "statement": "Calanthia follows Reville Lupius because he took her in as a child",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0114",
+      "statement": "Captain DaVinci arrived in Laslan after Reville had banned guilds.",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0115",
+      "statement": "Janice Cartair was the first female chancellor candidate of Venelux.",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0116",
+      "statement": "Lavelle can replicate not only the appearance and voice, but even some of the target's abilities.",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0117",
+      "statement": "Morokai's heart is hanging from his staff.",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0118",
+      "statement": "Rutaine and Sophia lost their parents to Reville Lupius.",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0119",
+      "statement": "Sophia, Rutaine, and Robert were rescued by Captain DaVinci as children.",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0120",
+      "statement": "Lazarus is the eldest son of the Crimson family and was lovers with Norn Bercant.",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0121",
+      "statement": "Captain DaVinci's real name is DaVinci Aron.",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0122",
+      "statement": "DaVinci first defeated the Arkeum alongside Lord Hobs in Kastleton at the southern tip of Laslan.",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0123",
+      "statement": "Clay was once abducted by the Arkeum.",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0124",
+      "statement": "When founding the Order of the Swan, Roen wanted a jet-black crow as the seal.",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0125",
+      "statement": "Roen has a special mark on her right hand.",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0126",
+      "statement": "Iska, whom Clay introduced to you, possesses the power of the Star Fragment.",
+      "answerTrue": true,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0127",
+      "statement": "Iska came to Nix following Clay.",
+      "answerTrue": true,
+      "category": "nix",
+      "notes": null
+    },
+    {
+      "id": "community_0128",
+      "statement": "The name of the Vampire Slayer and Ezekiel's master is Scarla.",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0129",
+      "statement": "Ezekiel hunted vampires to the point of nearly driving them to extinction across the continent.",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0130",
+      "statement": "Leonardas, the person you met in Vienta, was posing as a benevolent doctor.",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0131",
+      "statement": "Doctor Leonardas of Vienta spread a fake plague to secure patients as sacrifices for the Blood Ritual.",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0132",
+      "statement": "Helpie is an Amitoi on Whisp Island.",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0133",
+      "statement": "Helpie's first owner was Diana, the Star-Born girl.",
+      "answerTrue": true,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0134",
+      "statement": "Helpie fell into slumber beneath Whisperion after Diana passed away.",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0135",
+      "statement": "Melvin is Theodor's apprentice and a prodigious wizard recognized even in Venelux.",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0136",
+      "statement": "Theodor was once imprisoned by the Wolpertingers",
+      "answerTrue": true,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0137",
+      "statement": "Theodor tried to repair the Lunar-Bell but ended up making it explode.",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0138",
+      "statement": "Theodor always boasts that he was an Archwizard candidate in Venelux.",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0139",
+      "statement": "Azra studied the red fog and created a bitumen purification device.",
+      "answerTrue": true,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0140",
+      "statement": "The first gift Azra thought of giving Giselle was a camel.",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0141",
+      "statement": "Giselle is a girl whose arm was mutated by the red fog.",
+      "answerTrue": true,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0142",
+      "statement": "Giselle lived with her grandmother, but her grandmother left and never came back.",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0143",
+      "statement": "Giselle loved apricot pie the first time she tried it.",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0144",
+      "statement": "Sophia always worries about Robert but hides her feelings.",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0145",
+      "statement": "Sophia and Rutaine once fell into a spider den as children and were left dangling from spider webs.",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0146",
+      "statement": "Robert calls himself a lone wolf.",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0147",
+      "statement": "Rutaine's Diston name is Lunar-17.",
+      "answerTrue": true,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0148",
+      "statement": "The Terrific Trio were gifted a flag that DaVinci used during his trainee days.",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0149",
+      "statement": "Calanthia used the corpses from northern Laslan to create soldiers for the Arkeum Legion.",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0150",
+      "statement": "Yann Junath was like a father to the children taken in on Whisp Island.",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0151",
+      "statement": "Yann Junath is currently dead.",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0152",
+      "statement": "The demon Risieth's goal was to find and kill Havres.",
+      "answerTrue": true,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0153",
+      "statement": "Havres hid within the body of a young Resistance Soldier named Lukas.",
+      "answerTrue": true,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0154",
+      "statement": "Minezerok is the first lich ever created.",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0155",
+      "statement": "Ahzreil destroyed the Temple of Light during Hale Verpheus's funeral.",
+      "answerTrue": true,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0156",
+      "statement": "Chamir is a Resistance spy with the codename Canary.",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0157",
+      "statement": "Chamir's signature menu includes Sandworm Larva Pudding and Quillix Duodenum Soup.",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0158",
+      "statement": "Bonia Naru, the daughter of Pakilo Naru, secretly maintained a contract with the Arkeum Legion.",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0159",
+      "statement": "After being abducted, Clay became a red fog test subject and briefly turned into a rampaging weapon.",
+      "answerTrue": true,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0160",
+      "statement": "Janice disguised herself as a dwarf when infiltrating the Black Anvil Forge.",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0161",
+      "statement": "Morrin is a Wolpertinger and the gatekeeper of the Great Sage Tree in Talandre.",
+      "answerTrue": true,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0162",
+      "statement": "Morrin calls humans tall-tingers.",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0163",
+      "statement": "Aramo is a Wolpertinger, a high-ranking elemental spirit that guards the World Tree in the Holy Tree's Sanctuary.",
+      "answerTrue": true,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0164",
+      "statement": "Ramsey Webster, a monk who serves Einar, says that mutant monsters were once human.",
+      "answerTrue": true,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0165",
+      "statement": "Marcia Richill is the captain of the Sandworm Raid Group.",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0166",
+      "statement": "Even after death, Glenn Richill remained as a wandering spirit, worrying about his daughter Marcia.",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0167",
+      "statement": "Porfos actually had a bright and cheerful personality when he was alive.",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0168",
+      "statement": "The demon Blath guards Shaikal of Darkness in the Cursed Wasteland.",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0169",
+      "statement": "Amitoi Solia has experience working at the royal castle.",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0170",
+      "statement": "The Lycan Scouts are guarding a monument stone related to the Moonlight Spell.",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0171",
+      "statement": "Dwarf Henderson composed songs about his past adventures.",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0172",
+      "statement": "The Golem's Heart is a device that holds the powerful force of a Star Fragment.",
+      "answerTrue": true,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0173",
+      "statement": "Henderson's comrade, Sienna Parsons, is a Resistance wizard.",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0174",
+      "statement": "Henderson, Sienna Parsons, and Louie Hayson were comrades who completed many missions and adventures together.",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0175",
+      "statement": "Janice Cartair vanished without a trace on the day of her inauguration as chancellor of Venelux.",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0176",
+      "statement": "Clay knew that his mother, Janice, disappeared because of the Chaos of Mana.",
+      "answerTrue": true,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0177",
+      "statement": "The one who built the Golem Cart of Fortress Aron was the dwarf Bermetz.",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0178",
+      "statement": "Remy was the son of Lazarus Crimson and Norn Bercant.",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0179",
+      "statement": "Hela injected Lazarus's soul into Remy, turning him into a massive vengeful spirit.",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0180",
+      "statement": "When Norn's journal and Lazarus's Guardian's Pledge resonated and emitted light, Remy's curse was lifted.",
+      "answerTrue": true,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0181",
+      "statement": "Lazarus left a letter for Norn suggesting they secretly flee together.",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0182",
+      "statement": "Lazarus and Norn tried to escape on a smuggling ship but ultimately failed.",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0183",
+      "statement": "Berge is the Nightmare Herald of Arkeum who uses the power to petrify the Resistance.",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0184",
+      "statement": "When Kazar appeared through a massive portal at the Shattered Temple, Clay stayed behind alone to stop Kazar.",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0185",
+      "statement": "Zaroth was the commander of the Arkeum Legion in Laslan.",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0186",
+      "statement": "Paola is a wizard researching dimensional circles in Vienta Village.",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0187",
+      "statement": "Gideon is the guard captain of Canina Village.",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0188",
+      "statement": "Benny was once abducted by the Akidu orcs while disguised as an orc.",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0189",
+      "statement": "Baize, who asked for help collecting equipment lithographs, is a member of the Endless Collectors Association.",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0190",
+      "statement": "Watch Captain Ruffello acts immediately when it involves the Arkeum.",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0191",
+      "statement": "Henson is a former watch captain with the nickname One-Eyed Hawk.",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0192",
+      "statement": "Josephine Craft is investigating Queen Bellandir.",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0193",
+      "statement": "Harden from Canina Village once went missing after being lured into the forest by a strange sound?",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0194",
+      "statement": "Ashien has the power to paint images that allow travel through space.",
+      "answerTrue": true,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0195",
+      "statement": "The Arkeum Legion morphs into various animals to infiltrate Laslan.",
+      "answerTrue": true,
+      "category": "regions",
+      "notes": null
+    },
+    {
+      "id": "community_0196",
+      "statement": "Tumgir, who fell in Tumgir's Grave, is the name of a giant golem.",
+      "answerTrue": false,
+      "category": "nix",
+      "notes": null
+    },
+    {
+      "id": "community_0197",
+      "statement": "The reason Nix froze over was because of a dragon's breath.",
+      "answerTrue": false,
+      "category": "nix",
+      "notes": null
+    },
+    {
+      "id": "community_0198",
+      "statement": "Fellinex is a war golem created by Tumgir.",
+      "answerTrue": false,
+      "category": "nix",
+      "notes": null
+    },
+    {
+      "id": "community_0199",
+      "statement": "Only humans live in the Border Zone of Nix.",
+      "answerTrue": false,
+      "category": "nix",
+      "notes": null
+    },
+    {
+      "id": "community_0200",
+      "statement": "Shemir was a dwarf wizard.",
+      "answerTrue": false,
+      "category": "nix",
+      "notes": null
+    },
+    {
+      "id": "community_0201",
+      "statement": "After Shemir's sacrifice, Nix became a land of abundance.",
+      "answerTrue": false,
+      "category": "nix",
+      "notes": null
+    },
+    {
+      "id": "community_0202",
+      "statement": "Flamakan is the god of wind.",
+      "answerTrue": false,
+      "category": "trivia",
+      "notes": null
+    },
+    {
+      "id": "community_0203",
+      "statement": "Einar is the god who governs both creation and destruction.",
+      "answerTrue": false,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0204",
+      "statement": "The Abyssal Meteor is a weapon of war made by the elves.",
+      "answerTrue": false,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0205",
+      "statement": "The Abyssal Meteor was split into three pieces and sealed away.",
+      "answerTrue": false,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0206",
+      "statement": "Theodor graduated top of Venelux Class 293.",
+      "answerTrue": false,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0207",
+      "statement": "The Crimson family was a peaceful farming family.",
+      "answerTrue": false,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0208",
+      "statement": "Reville Lupius is the third Elder of the Sylavean Order.",
+      "answerTrue": false,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0209",
+      "statement": "When Deluzhnoa went berserk, Hale Verpheus immediately returned and sealed her.",
+      "answerTrue": false,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0210",
+      "statement": "Deluzhnoa's seal enforcement ritual requires relics containing the three prime elements.",
+      "answerTrue": false,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0211",
+      "statement": "It was Calanthia who banned the creation of guilds throughout Solisium.",
+      "answerTrue": false,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0212",
+      "statement": "The Abyssal Meteor is a weapon forged by condensing the hopes and joys of the dead.",
+      "answerTrue": false,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0213",
+      "statement": "Mushrooms are plants.",
+      "answerTrue": false,
+      "category": "trivia",
+      "notes": null
+    },
+    {
+      "id": "community_0214",
+      "statement": "Mushrooms make their own nutrients through photosynthesis.",
+      "answerTrue": false,
+      "category": "trivia",
+      "notes": null
+    },
+    {
+      "id": "community_0215",
+      "statement": "Whales are fish.",
+      "answerTrue": false,
+      "category": "trivia",
+      "notes": null
+    },
+    {
+      "id": "community_0216",
+      "statement": "Coral is a plant.",
+      "answerTrue": false,
+      "category": "trivia",
+      "notes": null
+    },
+    {
+      "id": "community_0217",
+      "statement": "A day is exactly 24 hours long.",
+      "answerTrue": false,
+      "category": "trivia",
+      "notes": null
+    },
+    {
+      "id": "community_0218",
+      "statement": "Sound is faster than light.",
+      "answerTrue": false,
+      "category": "trivia",
+      "notes": null
+    },
+    {
+      "id": "community_0219",
+      "statement": "Spiders are insects.",
+      "answerTrue": false,
+      "category": "trivia",
+      "notes": null
+    },
+    {
+      "id": "community_0220",
+      "statement": "Rae is stinky.",
+      "answerTrue": false,
+      "category": "trivia",
+      "notes": null
+    },
+    {
+      "id": "community_0221",
+      "statement": "Tomatoes are fruits, not vegetables.",
+      "answerTrue": false,
+      "category": "trivia",
+      "notes": null
+    },
+    {
+      "id": "community_0222",
+      "statement": "Kastleton is where the Arkeum Legion resides.",
+      "answerTrue": false,
+      "category": "regions",
+      "notes": null
+    },
+    {
+      "id": "community_0223",
+      "statement": "The specialty of Vienta Village is oranges.",
+      "answerTrue": false,
+      "category": "regions",
+      "notes": null
+    },
+    {
+      "id": "community_0224",
+      "statement": "The Golden Hammer dwarves supply minerals to the Black Anvil dwarves.",
+      "answerTrue": false,
+      "category": "regions",
+      "notes": null
+    },
+    {
+      "id": "community_0225",
+      "statement": "There are only five ships in Kastleton Port.",
+      "answerTrue": false,
+      "category": "regions",
+      "notes": null
+    },
+    {
+      "id": "community_0226",
+      "statement": "A small island off the Laslan Coast is home to an enormous flock of sheep.",
+      "answerTrue": false,
+      "category": "regions",
+      "notes": null
+    },
+    {
+      "id": "community_0227",
+      "statement": "There is a crematorium in the Moonlight Desert region.",
+      "answerTrue": false,
+      "category": "regions",
+      "notes": null
+    },
+    {
+      "id": "community_0228",
+      "statement": "Nixian Berries grow in the Entropic Tundra.",
+      "answerTrue": false,
+      "category": "nix",
+      "notes": null
+    },
+    {
+      "id": "community_0229",
+      "statement": "The giants coexisted peacefully after defeating the dragon.",
+      "answerTrue": false,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0230",
+      "statement": "There's an area called the Golem Ruins in front of Stonegard Castle.",
+      "answerTrue": false,
+      "category": "regions",
+      "notes": null
+    },
+    {
+      "id": "community_0231",
+      "statement": "There is a broken statue of Kazar in the center of Kastleton.",
+      "answerTrue": false,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0232",
+      "statement": "The Sanctum of Desire is associated with the element of water.",
+      "answerTrue": false,
+      "category": "regions",
+      "notes": null
+    },
+    {
+      "id": "community_0233",
+      "statement": "The first Diston was named Stone-0.",
+      "answerTrue": false,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0234",
+      "statement": "Crimosa's nickname is the Dragon's Tongue.",
+      "answerTrue": false,
+      "category": "trivia",
+      "notes": null
+    },
+    {
+      "id": "community_0235",
+      "statement": "Queen Bellandir grew to that size naturally.",
+      "answerTrue": false,
+      "category": "regions",
+      "notes": null
+    },
+    {
+      "id": "community_0236",
+      "statement": "Backshotz name is still Backshotz.",
+      "answerTrue": false,
+      "category": "community",
+      "notes": null
+    },
+    {
+      "id": "community_0237",
+      "statement": "Adentus was created by Shadowmancers using corpses.",
+      "answerTrue": false,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0238",
+      "statement": "Lacune was transformed by a power other than the Star Fragment of Sylaveth.",
+      "answerTrue": false,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0239",
+      "statement": "Skultus called Lacune the Desert Overlord.",
+      "answerTrue": false,
+      "category": "regions",
+      "notes": null
+    },
+    {
+      "id": "community_0240",
+      "statement": "It was Belluatan who first enlarged the Ant Nest.",
+      "answerTrue": false,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0241",
+      "statement": "The source of Queen Bellandir's power is a Diston.",
+      "answerTrue": false,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0242",
+      "statement": "The Lycan Scout is an orc.",
+      "answerTrue": false,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0243",
+      "statement": "The leader of the Arkeum Legion is Kazar.",
+      "answerTrue": false,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0244",
+      "statement": "The leader of the Allied Resistance Forces, Captain DaVinci, is from the Arkeum Legion.",
+      "answerTrue": false,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0245",
+      "statement": "The Kowazan clan is an orc tribe.",
+      "answerTrue": false,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0246",
+      "statement": "Arthur Talon was a loyal guild leader of the Resistance.",
+      "answerTrue": false,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0247",
+      "statement": "Havres is the Demon of Deceit.",
+      "answerTrue": false,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0248",
+      "statement": "Six Shadowmancers summoned Risieth, and only one of them survived in the end.",
+      "answerTrue": false,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0249",
+      "statement": "The demon who stole Elleia's body is Havres.",
+      "answerTrue": false,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0250",
+      "statement": "HYPHEN can die.",
+      "answerTrue": false,
+      "category": "community",
+      "notes": null
+    },
+    {
+      "id": "community_0251",
+      "statement": "The Grand Elder who brought the cursed rain upon Solisium is Ahzreil.",
+      "answerTrue": false,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0252",
+      "statement": "Junobote summoned Havres in the Sanctum of Desire and then came outside.",
+      "answerTrue": false,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0253",
+      "statement": "There are three barrier magic circles set up in the Sanctum of Desire.",
+      "answerTrue": false,
+      "category": "regions",
+      "notes": null
+    },
+    {
+      "id": "community_0254",
+      "statement": "Nirma was infused with the fire element during a Shadowmancer's experiment.",
+      "answerTrue": false,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0255",
+      "statement": "You can get Lime Powder by gathering Yellow Rock.",
+      "answerTrue": false,
+      "category": "trivia",
+      "notes": null
+    },
+    {
+      "id": "community_0256",
+      "statement": "There are swamps among the Amitoi Expedition areas.",
+      "answerTrue": false,
+      "category": "regions",
+      "notes": null
+    },
+    {
+      "id": "community_0257",
+      "statement": "Clay, Roen, and Gerad Burnell are members of the Order of the Black Swan.",
+      "answerTrue": false,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0258",
+      "statement": "Calanthia is a wizard who uses only healing abilities.",
+      "answerTrue": false,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0259",
+      "statement": "WillowHarper smells funny.",
+      "answerTrue": false,
+      "category": "trivia",
+      "notes": null
+    },
+    {
+      "id": "community_0260",
+      "statement": "Kazar is a living human.",
+      "answerTrue": false,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0261",
+      "statement": "Lavelle is the daughter of a human noble.",
+      "answerTrue": false,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0262",
+      "statement": "Ezekiel was a Vampire from birth.",
+      "answerTrue": false,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0263",
+      "statement": "Tevent is a wraith that awakened in the Shattered Temple.",
+      "answerTrue": false,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0264",
+      "statement": "The one who created the barrier holding back Tevent was the Archwizard Janice.",
+      "answerTrue": false,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0265",
+      "statement": "Jacque Hander is the castellan of Stonegard.",
+      "answerTrue": false,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0266",
+      "statement": "Lazarus died of a hereditary disease that runs in his family.",
+      "answerTrue": false,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0267",
+      "statement": "Captain DaVinci is from the Solisium army.",
+      "answerTrue": false,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0268",
+      "statement": "Benji didn’t yoink 10k lucent",
+      "answerTrue": false,
+      "category": "trivia",
+      "notes": null
+    },
+    {
+      "id": "community_0269",
+      "statement": "Clay gave the graduation speech as the student representative at his Venelux graduation ceremony.",
+      "answerTrue": false,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0270",
+      "statement": "Roen spread pure white wings and flew when escaping from Belphoret.",
+      "answerTrue": false,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0271",
+      "statement": "Baron Leonardas, the vampire who killed Scarla, has lived for a hundred years.",
+      "answerTrue": false,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0272",
+      "statement": "The hideout of Vienta's doctor, Leonardas, was in an underground cave in Talandre.",
+      "answerTrue": false,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0273",
+      "statement": "Melvin always speaks to his master Theodor with extreme politeness and respect.",
+      "answerTrue": false,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0274",
+      "statement": "Azra is an ambitious scholar with a great interest in money and fame.",
+      "answerTrue": false,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0275",
+      "statement": "Giselle and Azra were close from the very beginning.",
+      "answerTrue": false,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0276",
+      "statement": "It was Captain DaVinci, passing nearby, who first discovered the Sophia siblings in the spider den.",
+      "answerTrue": false,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0277",
+      "statement": "Robert lives with Sophia and Rutaine in the same house in Vienta Village.",
+      "answerTrue": false,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0278",
+      "statement": "The Terrific Trio of the Resistance refers to Sophia, Rutaine, and Clay",
+      "answerTrue": false,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0279",
+      "statement": "Yann Junath survived the Kazar invasion unscathed.",
+      "answerTrue": false,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0280",
+      "statement": "Elleia was never possessed by a demon from start to finish.",
+      "answerTrue": false,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0281",
+      "statement": "Risieth and Havres were working together, collecting Star Fragments.",
+      "answerTrue": false,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0282",
+      "statement": "Minezerok collects animal souls to maintain its form.",
+      "answerTrue": false,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0283",
+      "statement": "Chamir is currently disguised as a barber at the Black Anvil Dwarf outpost.",
+      "answerTrue": false,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0284",
+      "statement": "Black Anvil Dwarf Commander Pakilo Naru's favorite food is spicy chicken.",
+      "answerTrue": false,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0285",
+      "statement": "It was Theodor who completed the Purification Potion to save Clay.",
+      "answerTrue": false,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0286",
+      "statement": "Ordinary humans can freely enter the Holy Tree's Sanctuary.",
+      "answerTrue": false,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0287",
+      "statement": "Ramsey Webster's goal is to annihilate the mutant monsters with powerful destruction magic.",
+      "answerTrue": false,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0288",
+      "statement": "Glenn Richill lost both arms to Queen Bellandir.",
+      "answerTrue": false,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0289",
+      "statement": "Ariella can morph into a giant orc.",
+      "answerTrue": false,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0290",
+      "statement": "There were ten shards of the Golem's Heart in total.",
+      "answerTrue": false,
+      "category": "trivia",
+      "notes": null
+    },
+    {
+      "id": "community_0291",
+      "statement": "Remy, having become a wraith of Lazarus, obediently followed Hela's commands.",
+      "answerTrue": false,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0292",
+      "statement": "After the curse was lifted, Remy became an adventurer, wandering the world.",
+      "answerTrue": false,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0293",
+      "statement": "Zarek was a loyal wizard of the Resistance.",
+      "answerTrue": false,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0294",
+      "statement": "Marcia Richill gets along so well with her brother that they have never once fought.",
+      "answerTrue": false,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0295",
+      "statement": "The thing on Emperfang's head is a crown made by orcs.",
+      "answerTrue": false,
+      "category": "characters",
+      "notes": null
+    },
+    {
+      "id": "community_0296",
+      "statement": "The name of the Diston who relays information in front of the Milestone Stele is Lunar Crier.",
+      "answerTrue": false,
+      "category": "cosmology",
+      "notes": null
+    },
+    {
+      "id": "community_0297",
+      "statement": "All Storage Managers are dwarves.",
+      "answerTrue": false,
+      "category": "trivia",
+      "notes": null
+    },
+    {
+      "id": "community_0298",
+      "statement": "There is a pet cat next to Wilson, the Herbalist at Windhill Shores.",
+      "answerTrue": false,
+      "category": "characters",
+      "notes": null
+    }
+  ]
+}

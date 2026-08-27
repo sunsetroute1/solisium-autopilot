@@ -36,7 +36,39 @@ data class CatalogCounts(
     val combatPowerRows: Long = 0,
     val itemPowerLinks: Long = 0,
     val monsters: Long = 0,
+    val talkingWallStatements: Long = 0,
 )
+
+data class TalkingWallStatement(
+    val sourceTable: String,
+    val sourceRowId: String,
+    val statement: String,
+    val answerTrue: Boolean,
+    val category: String?,
+    val notes: String?,
+    val sourceKind: String,
+)
+
+/** Category bucket for Talking Wall true/false statements. */
+data class TalkingWallCategoryCount(
+    val category: String?,
+    val count: Long,
+)
+
+data class TalkingWallCoverage(
+    val total: Long,
+    val warehouse: Long,
+    val community: Long,
+    val categories: List<TalkingWallCategoryCount>,
+)
+
+data class TalkingWallSnapshotDelta(
+    val previousTotal: Long,
+    val currentTotal: Long,
+    val warehouseAdded: Long,
+) {
+    val added: Long get() = (currentTotal - previousTotal).coerceAtLeast(0)
+}
 
 data class GameItem(
     val snapshotId: String,
