@@ -42,6 +42,7 @@ fun AppShell(model: AppModel) {
                 Screen.Drops -> DropsScreen(model)
                 Screen.Character -> CharacterScreen(model)
                 Screen.Combat -> CombatScreen(model)
+                Screen.Wall -> TalkingWallScreen(model)
                 Screen.Data -> DataScreen(model)
             }
         }

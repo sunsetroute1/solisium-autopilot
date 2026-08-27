@@ -9,6 +9,12 @@ import com.solisium.core.domain.CharacterSheet
 import com.solisium.core.domain.CharacterSlots
 import com.solisium.core.domain.CombatPortfolio
 import com.solisium.core.domain.CombatSessionSummary
+import com.solisium.core.domain.TalkingWallCategoryCount
+import com.solisium.core.domain.TalkingWallCoverage
+import com.solisium.core.domain.TalkingWallSnapshotDelta
+import com.solisium.core.domain.TalkingWallStatement
+import com.solisium.core.talkingwall.TalkingWallImportSummary
+import com.solisium.core.talkingwall.TalkingWallImporter
 import com.solisium.core.domain.CombatSkillTotal
 import com.solisium.core.domain.CombatTargetTotal
 import com.solisium.core.domain.DisplayName
@@ -139,6 +145,7 @@ class CatalogQuery(private val db: SolisiumDatabase) {
         combatPowerRows = db.schemaQueries.countCombatPower(snapshotId).executeAsOne(),
         itemPowerLinks = db.schemaQueries.countItemPower(snapshotId).executeAsOne(),
         monsters = db.schemaQueries.countMonsters(snapshotId).executeAsOne(),
+        talkingWallStatements = db.schemaQueries.countTalkingWallStatements(snapshotId).executeAsOne(),
     )
 
     fun monsters(snapshotId: String, term: String?, limit: Int = 400): List<MonsterProfile> {
@@ -1084,6 +1091,49 @@ class CatalogQuery(private val db: SolisiumDatabase) {
         db.schemaQueries.selectCombatSessionByHash(hash).executeAsOneOrNull()
 
     fun combatPortfolio(): CombatPortfolio = CombatAnalyzer.portfolio(combatSessions())
+
+    fun talkingWallCoverage(snapshotId: String): TalkingWallCoverage {
+        val total = db.schemaQueries.countTalkingWallStatements(snapshotId).executeAsOne()
+        val warehouse = db.schemaQueries.countTalkingWallBySourceKind(snapshotId, "warehouse").executeAsOne()
+        val community = db.schemaQueries.countTalkingWallBySourceKind(snapshotId, "community").executeAsOne()
+        val categories = db.schemaQueries.selectTalkingWallCategories(snapshotId).executeAsList().map {
+            TalkingWallCategoryCount(category = it.category, count = it.statement_count)
+        }
+        return TalkingWallCoverage(total, warehouse, community, categories)
+    }
+
+    fun searchTalkingWall(
+        snapshotId: String,
+        term: String?,
+        category: String?,
+        limit: Int = 400,
+    ): List<TalkingWallStatement> {
+        val pattern = term?.trim()?.takeIf { it.isNotEmpty() }?.let { like(it) } ?: "%"
+        val categoryFilter = category ?: ""
+        return db.schemaQueries.searchTalkingWallStatements(
+            snapshot_id = snapshotId,
+            value_ = pattern,
+            category = categoryFilter,
+            value__ = categoryFilter,
+            value___ = limit.toLong(),
+        ).executeAsList().map {
+            TalkingWallStatement(
+                sourceTable = it.source_table,
+                sourceRowId = it.source_row_id,
+                statement = it.statement,
+                answerTrue = it.answer_true != 0L,
+                category = it.category,
+                notes = it.notes,
+                sourceKind = it.source_kind,
+            )
+        }
+    }
+
+    fun talkingWallDelta(currentSnapshotId: String, previousSnapshotId: String?): TalkingWallSnapshotDelta? =
+        TalkingWallDiscovery.delta(db, currentSnapshotId, previousSnapshotId)
+
+    fun ensureTalkingWallCommunity(snapshotId: String, communityJson: String): TalkingWallImportSummary =
+        TalkingWallImporter.supplementCommunity(db, snapshotId, communityJson)
 
     /**
      * `_` is kept because row ids such as `Common_Struggle_Duration` are mostly underscores;

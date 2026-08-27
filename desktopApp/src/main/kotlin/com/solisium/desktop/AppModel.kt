@@ -24,6 +24,10 @@ import com.solisium.core.domain.GameItem
 import com.solisium.core.domain.DropCacheStats
 import com.solisium.core.domain.ItemDropSource
 import com.solisium.core.domain.MonsterProfile
+import com.solisium.core.domain.TalkingWallCoverage
+import com.solisium.core.domain.TalkingWallSnapshotDelta
+import com.solisium.core.domain.TalkingWallStatement
+import com.solisium.core.talkingwall.TalkingWallResources
 import com.solisium.core.domain.QuestlogItemOverlay
 import com.solisium.core.domain.QuestlogNpcDetail
 import com.solisium.core.meta.DropCacheSync
@@ -91,6 +95,7 @@ enum class Screen(val label: String, val blurb: String) {
     Build("Build", "What kind of build do you want?"),
     Catalog("Gear", "Search by the name you see in game"),
     Drops("Drops", "Monsters, loot tables, farm spots"),
+    Wall("Wall", "Talking Wall true/false answers"),
     Character("Character", "Your loadout"),
     Combat("Combat", "Damage from official logs"),
     Data("Data", "Import and keys"),
@@ -373,6 +378,26 @@ class AppModel(private val scope: CoroutineScope) {
     var dropSyncMessage by mutableStateOf<String?>(null)
         private set
 
+    var wallSearch by mutableStateOf("")
+        private set
+
+    var wallCategory by mutableStateOf<String?>(null)
+        private set
+
+    var wallStatements by mutableStateOf<Load<List<TalkingWallStatement>>>(Load.Loading)
+        private set
+
+    var wallCoverage by mutableStateOf<TalkingWallCoverage?>(null)
+        private set
+
+    var wallDelta by mutableStateOf<TalkingWallSnapshotDelta?>(null)
+        private set
+
+    var selectedWallStatement by mutableStateOf<TalkingWallStatement?>(null)
+        private set
+
+    private var wallSearchJob: Job? = null
+
     var dropFetching by mutableStateOf(false)
         private set
 
@@ -436,6 +461,7 @@ class AppModel(private val scope: CoroutineScope) {
             }
             Screen.Catalog -> if (rows is Load.Loading) loadRows()
             Screen.Drops -> loadDropBrowse()
+            Screen.Wall -> loadTalkingWall()
             Screen.Character -> loadCharacters()
             Screen.Combat -> {
                 refreshCombatLogDiscovery()
@@ -1145,6 +1171,7 @@ class AppModel(private val scope: CoroutineScope) {
             loadSnapshots()
             loadRows()
             loadCombat()
+            loadTalkingWall()
             loadCharacters()
             refreshCharacterDetection()
             val importedId = outcome.receipts.mapNotNull { it.characterId }.lastOrNull()
@@ -1486,6 +1513,64 @@ class AppModel(private val scope: CoroutineScope) {
     fun observedCombatDps(): Double? {
         val sessions = (combat as? Load.Ok)?.value.orEmpty()
         return sessions.mapNotNull { it.observedDps }.average().takeIf { !it.isNaN() && it > 0 }
+    }
+
+    fun onWallSearch(text: String) {
+        wallSearch = text
+        selectedWallStatement = null
+        wallSearchJob?.cancel()
+        wallSearchJob = scope.launch {
+            delay(200)
+            loadTalkingWall()
+        }
+    }
+
+    fun onWallCategory(category: String?) {
+        wallCategory = category
+        loadTalkingWall()
+    }
+
+    fun selectWallStatement(row: TalkingWallStatement) {
+        selectedWallStatement = row
+    }
+
+    private fun loadTalkingWall() {
+        scope.launch {
+            wallStatements = Load.Loading
+            val loaded = read { q, snapshotId ->
+                q.ensureTalkingWallCommunity(snapshotId, TalkingWallResources.communityJson())
+                val snapshots = q.snapshots()
+                val previousId = snapshots.drop(1).firstOrNull()?.id
+                Triple(
+                    q.talkingWallCoverage(snapshotId),
+                    q.talkingWallDelta(snapshotId, previousId),
+                    q.searchTalkingWall(
+                        snapshotId,
+                        wallSearch.takeIf { it.isNotBlank() },
+                        wallCategory,
+                    ),
+                )
+            }
+            when (loaded) {
+                is Load.Ok -> {
+                    wallCoverage = loaded.value.first
+                    wallDelta = loaded.value.second
+                    wallStatements = Load.Ok(loaded.value.third)
+                    val rows = loaded.value.third
+                    if (selectedWallStatement != null && rows.none {
+                            it.sourceTable == selectedWallStatement!!.sourceTable &&
+                                it.sourceRowId == selectedWallStatement!!.sourceRowId
+                        }
+                    ) {
+                        selectedWallStatement = rows.firstOrNull()
+                    } else if (selectedWallStatement == null) {
+                        selectedWallStatement = rows.firstOrNull()
+                    }
+                }
+                is Load.Err -> wallStatements = loaded
+                Load.Loading -> Unit
+            }
+        }
     }
 
     private fun loadCombat() {

@@ -57,7 +57,7 @@ class TLHelperDataSourceTest {
             assertEquals(27, receipt.recordsImported)
             assertEquals(12, receipt.recordsSkipped)
             assertTrue(receipt.warnings.any { it.contains("did not resolve") })
-            assertTrue(receipt.warnings.any { it.contains("no matching item row") })
+            assertTrue(receipt.warnings.any { it.contains("Talking Wall") })
             assertTrue(receipt.snapshotId != null)
             assertEquals("24118850", db.schemaQueries.selectActiveSnapshot().executeAsOne().game_build)
             assertEquals("0.2.0", db.schemaQueries.selectActiveSnapshot().executeAsOne().decoder_version)
@@ -84,6 +84,7 @@ class TLHelperDataSourceTest {
                     curvePoints = 4,
                     itemCurveLinks = 2,
                     monsters = 1,
+                    talkingWallStatements = 298,
                 ),
                 query.counts(snapshotId),
             )

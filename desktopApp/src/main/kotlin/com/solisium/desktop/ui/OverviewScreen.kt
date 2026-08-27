@@ -71,6 +71,7 @@ private fun OverviewBody(model: AppModel, overview: Overview) {
             ActionButton("What kind of build?", { model.go(com.solisium.desktop.Screen.Build) }, primary = true)
             ActionButton("Browse gear", { model.go(com.solisium.desktop.Screen.Catalog) })
             ActionButton("Farm drops", { model.go(com.solisium.desktop.Screen.Drops) })
+            ActionButton("Talking Wall", { model.go(com.solisium.desktop.Screen.Wall) })
             ActionButton("My character", { model.go(com.solisium.desktop.Screen.Character) })
             ActionButton("Combat logs", { model.go(com.solisium.desktop.Screen.Combat) })
             ActionButton("Import more", { model.go(com.solisium.desktop.Screen.Data) })
@@ -205,6 +206,7 @@ private fun CountGrid(counts: CatalogCounts) {
         "Classes" to counts.classes,
         "Item CP rows" to counts.combatPowerRows,
         "Item CP links" to counts.itemPowerLinks,
+        "Talking Wall" to counts.talkingWallStatements,
     )
     SectionLabel("Catalog")
     Spacer(Modifier.height(Spacing.md))
