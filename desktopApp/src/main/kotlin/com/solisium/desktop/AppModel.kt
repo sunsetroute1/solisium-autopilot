@@ -20,7 +20,14 @@ import com.solisium.core.domain.GameCurvePoint
 import com.solisium.core.domain.GameItemCurve
 import com.solisium.core.domain.GameItemPower
 import com.solisium.core.domain.GameItemStat
+import com.solisium.core.domain.GameItem
+import com.solisium.core.domain.DropCacheStats
+import com.solisium.core.domain.ItemDropSource
+import com.solisium.core.domain.MonsterProfile
 import com.solisium.core.domain.QuestlogItemOverlay
+import com.solisium.core.domain.QuestlogNpcDetail
+import com.solisium.core.meta.DropCacheSync
+import com.solisium.core.meta.DropSyncProgress
 import com.solisium.core.domain.ResolvedCharacterSheet
 import com.solisium.core.domain.StatKeyLabel
 import com.solisium.core.domain.UserCharacter
@@ -31,6 +38,7 @@ import com.solisium.core.meta.CommunityMetaClient
 import com.solisium.core.meta.CommunityOverlay
 import com.solisium.core.meta.CommunityWeaponClasses
 import com.solisium.core.meta.OllamaNarrator
+import com.solisium.core.meta.TextNorm
 import com.solisium.core.query.BuildGoal
 import com.solisium.core.query.BuildMismatch
 import com.solisium.core.query.CatalogQuery
@@ -48,6 +56,7 @@ import com.solisium.core.source.CombatLogDataSource
 import com.solisium.core.source.CombatLogPaths
 import com.solisium.core.source.GearCatalogFilter
 import com.solisium.core.source.ImportReceipt
+import com.solisium.core.source.ImportProgress
 import com.solisium.core.source.ImportRequest
 import com.solisium.core.source.InstalledGameDataSource
 import com.solisium.core.source.ManualImportDataSource
@@ -55,6 +64,7 @@ import com.solisium.core.source.PatchWatch
 import com.solisium.core.source.PatchWatchReport
 import com.solisium.core.source.TLHelperDataSource
 import com.solisium.core.source.WarehouseLocator
+import com.solisium.core.source.WarehouseRef
 import java.nio.file.Files
 import java.nio.file.Path
 import java.time.Instant
@@ -78,10 +88,13 @@ enum class Screen(val label: String, val blurb: String) {
     Overview("Home", "What to do next"),
     Build("Build", "What kind of build do you want?"),
     Catalog("Gear", "Search by the name you see in game"),
+    Drops("Drops", "Monsters, loot tables, farm spots"),
     Character("Character", "Your loadout"),
     Combat("Combat", "Damage from official logs"),
     Data("Data", "Import and keys"),
 }
+
+enum class DropLookupMode { Item, Monster }
 
 /** Outcome of an import, kept so the UI can report exactly what landed. */
 data class ImportOutcome(
@@ -93,6 +106,21 @@ data class ImportOutcome(
     val skipped: Int get() = receipts.sumOf { it.recordsSkipped }
     val warnings: List<String> get() = receipts.flatMap { it.warnings }
 }
+
+/** First-run warehouse setup shown after install when real TL-Helper data is available. */
+data class WarehouseSetupOffer(
+    val warehousePath: Path?,
+    val warehouseBuild: String?,
+    val demoActive: Boolean,
+    val canImport: Boolean,
+    val reason: String?,
+)
+
+/** Shown after warehouse import when offline drop cache needs a Questlog pull. */
+data class DropSyncOffer(
+    val monstersTotal: Long,
+    val dropRows: Long,
+)
 
 /**
  * State of the key finder.
@@ -292,6 +320,60 @@ class AppModel(private val scope: CoroutineScope) {
     var importing by mutableStateOf(false)
         private set
 
+    var importProgress by mutableStateOf<ImportProgress?>(null)
+        private set
+
+    var warehouseSetup by mutableStateOf<WarehouseSetupOffer?>(null)
+        private set
+
+    var dropSyncOffer by mutableStateOf<DropSyncOffer?>(null)
+        private set
+
+    var dropMode by mutableStateOf(DropLookupMode.Item)
+        private set
+
+    var dropSearch by mutableStateOf("")
+        private set
+
+    var dropItems by mutableStateOf<Load<List<GameItem>>>(Load.Loading)
+        private set
+
+    var dropMonsters by mutableStateOf<Load<List<MonsterProfile>>>(Load.Loading)
+        private set
+
+    var selectedDropItem by mutableStateOf<GameItem?>(null)
+        private set
+
+    var selectedDropMonster by mutableStateOf<MonsterProfile?>(null)
+        private set
+
+    var dropItemDetail by mutableStateOf<Load<QuestlogItemOverlay>?>(null)
+        private set
+
+    var dropItemSources by mutableStateOf<Load<List<ItemDropSource>>?>(null)
+        private set
+
+    var dropMonsterSources by mutableStateOf<Load<List<ItemDropSource>>?>(null)
+        private set
+
+    var dropNpcDetail by mutableStateOf<Load<QuestlogNpcDetail>?>(null)
+        private set
+
+    var dropCacheStats by mutableStateOf<DropCacheStats?>(null)
+        private set
+
+    var dropSyncProgress by mutableStateOf<DropSyncProgress?>(null)
+        private set
+
+    var dropSyncRunning by mutableStateOf(false)
+        private set
+
+    var dropSyncMessage by mutableStateOf<String?>(null)
+        private set
+
+    var dropFetching by mutableStateOf(false)
+        private set
+
     var lastImport by mutableStateOf<ImportOutcome?>(null)
         private set
 
@@ -303,6 +385,7 @@ class AppModel(private val scope: CoroutineScope) {
     private var searchJob: Job? = null
     private var detailJob: Job? = null
     private var desiredJob: Job? = null
+    private var dropSearchJob: Job? = null
 
     /** Suggested defaults for the import buttons; null when nothing was detected. */
     val detectedWarehouse: Path? by lazy(LazyThreadSafetyMode.NONE) { runCatching { WarehouseLocator().find() }.getOrNull() }
@@ -342,6 +425,7 @@ class AppModel(private val scope: CoroutineScope) {
                 refreshAdvice()
             }
             Screen.Catalog -> if (rows is Load.Loading) loadRows()
+            Screen.Drops -> loadDropBrowse()
             Screen.Character -> loadCharacters()
             Screen.Combat -> loadCombat()
             Screen.Data -> {
@@ -483,6 +567,175 @@ class AppModel(private val scope: CoroutineScope) {
 
     fun dismissKeyMessage() {
         keys = keys.copy(message = null)
+    }
+
+    fun pickDropMode(mode: DropLookupMode) {
+        if (mode == dropMode) return
+        dropMode = mode
+        loadDropBrowse()
+    }
+
+    fun onDropSearch(text: String) {
+        dropSearch = text
+        dropSearchJob?.cancel()
+        dropSearchJob = scope.launch {
+            delay(180)
+            loadDropBrowse()
+        }
+    }
+
+    /** Warehouse grade for loot rows; falls back to row-id tokens when grade is missing. */
+    fun itemGrade(sourceRowId: String): String? {
+        val q = query ?: return com.solisium.core.domain.ItemGradeHints.inferFromRowId(sourceRowId)
+        val snapshotId = q.activeSnapshotId()
+            ?: return com.solisium.core.domain.ItemGradeHints.inferFromRowId(sourceRowId)
+        return runCatching { q.resolveItemGrade(snapshotId, sourceRowId) }.getOrNull()
+    }
+
+    fun selectDropItem(item: GameItem) {
+        selectedDropItem = item
+        dropItemDetail = null
+        dropItemSources = Load.Loading
+        scope.launch {
+            val offline = read { q, snapshotId ->
+                q.itemDropSources(snapshotId, item.sourceRowId, item.name)
+            }
+            dropItemSources = when (offline) {
+                is Load.Ok -> offline
+                else -> Load.Ok(emptyList())
+            }
+            if (offline is Load.Ok && offline.value.isNotEmpty()) return@launch
+            dropFetching = true
+            dropItemDetail = Load.Loading
+            val loaded = withContext(Dispatchers.IO) {
+                runCatching { resolveItemDropOverlay(item) }
+            }
+            dropFetching = false
+            dropItemDetail = loaded.fold(
+                onSuccess = { overlay ->
+                    if (overlay == null) {
+                        Load.Err("No offline or Questlog data for ${item.name ?: item.sourceRowId}")
+                    } else {
+                        Load.Ok(overlay)
+                    }
+                },
+                onFailure = { Load.Err(it.message ?: "drop lookup failed") },
+            )
+        }
+    }
+
+    fun selectDropMonster(monster: MonsterProfile) {
+        selectedDropMonster = monster
+        dropNpcDetail = null
+        dropMonsterSources = Load.Loading
+        scope.launch {
+            val offline = read { q, snapshotId -> q.monsterDrops(snapshotId, monster.sourceRowId) }
+            dropMonsterSources = when (offline) {
+                is Load.Ok -> offline
+                else -> Load.Ok(emptyList())
+            }
+            if (offline is Load.Ok && offline.value.isNotEmpty()) return@launch
+            dropFetching = true
+            dropNpcDetail = Load.Loading
+            val loaded = withContext(Dispatchers.IO) {
+                runCatching { CommunityMetaClient().fetchNpc(monster.sourceRowId) }
+            }
+            dropFetching = false
+            dropNpcDetail = loaded.fold(
+                onSuccess = { npc ->
+                    if (npc == null) {
+                        Load.Err("No offline or Questlog loot table for ${monster.sourceRowId}")
+                    } else {
+                        Load.Ok(npc)
+                    }
+                },
+                onFailure = { Load.Err(it.message ?: "loot table fetch failed") },
+            )
+        }
+    }
+
+    private fun resolveItemDropOverlay(item: GameItem): QuestlogItemOverlay? {
+        val client = CommunityMetaClient()
+        client.fetchItem(item.sourceRowId)?.let { return it }
+        val name = item.name?.trim().orEmpty()
+        if (name.isEmpty()) return null
+        val hit = client.searchEntities(name, extendSearch = false)
+            .firstOrNull { it.detail?.startsWith("item") == true && TextNorm.likelySame(it.name, name) }
+        val questlogId = hit?.entityId?.takeIf { it.isNotBlank() }
+        return questlogId?.let { client.fetchItem(it) }
+    }
+
+    fun syncDropCache() {
+        if (dropSyncRunning) return
+        dropSyncRunning = true
+        dropSyncMessage = null
+        dropSyncProgress = DropSyncProgress("Starting", 0, 1)
+        scope.launch {
+            try {
+                val db = database ?: error(openError ?: "database unavailable")
+                val ids = dbLock.withLock {
+                    withContext(Dispatchers.IO) {
+                        val q = requireQuery()
+                        val snapshotId = q.activeSnapshotId()
+                            ?: error("No active snapshot. Import a warehouse first.")
+                        snapshotId to q.monsterIds(snapshotId)
+                    }
+                }
+                val (snapshotId, monsterIds) = ids
+                val result = dbLock.withLock {
+                    withContext(Dispatchers.IO) {
+                        DropCacheSync().sync(
+                            db,
+                            snapshotId,
+                            monsterIds,
+                            onProgress = { progress ->
+                                scope.launch(Dispatchers.Main.immediate) { dropSyncProgress = progress }
+                            },
+                        )
+                    }
+                }
+                refreshDropCacheStats()
+                loadDropBrowse()
+                dropSyncMessage = "Synced ${result.monstersSynced} monsters, ${result.dropRows} drop rows."
+                if (result.warnings.isNotEmpty()) {
+                    dropSyncMessage = (dropSyncMessage ?: "") + " " + result.warnings.first()
+                }
+            } catch (t: Throwable) {
+                if (t is kotlinx.coroutines.CancellationException) throw t
+                dropSyncMessage = t.message ?: "Drop sync failed"
+            }
+            dropSyncRunning = false
+            dropSyncProgress = null
+        }
+    }
+
+    private fun refreshDropCacheStats() {
+        scope.launch {
+            dropCacheStats = when (val loaded = read { q, snapshotId -> q.dropCacheStats(snapshotId) }) {
+                is Load.Ok -> loaded.value
+                else -> null
+            }
+        }
+    }
+
+    private fun loadDropBrowse() {
+        refreshDropCacheStats()
+        scope.launch {
+            when (dropMode) {
+                DropLookupMode.Item -> {
+                    dropItems = Load.Loading
+                    dropItems = read { q, snapshotId ->
+                        q.dropSearchItems(snapshotId, dropSearch.takeIf { it.isNotBlank() })
+                    }
+                }
+                DropLookupMode.Monster -> {
+                    dropMonsters = Load.Loading
+                    dropMonsters = read { q, snapshotId ->
+                        q.monsters(snapshotId, dropSearch.takeIf { it.isNotBlank() })
+                    }
+                }
+            }
+        }
     }
 
     fun selectCharacter(id: String) {
@@ -636,8 +889,25 @@ class AppModel(private val scope: CoroutineScope) {
      * Imports run through the same `DataSource` adapters the CLI uses. The UI adds no
      * mapping of its own; it only chooses a file and reports the receipt.
      */
-    fun importWarehouse(path: Path) = runImport("Game data") {
-        listOf(TLHelperDataSource().importInto(it, ImportRequest(path = path.toString(), activate = true)))
+    fun importWarehouse(path: Path) = runImport("Game data", trackProgress = true) { db ->
+        val onProgress: (ImportProgress) -> Unit = { progress ->
+            scope.launch(Dispatchers.Main.immediate) { importProgress = progress }
+        }
+        listOf(
+            TLHelperDataSource().importInto(
+                db,
+                ImportRequest(path = path.toString(), activate = true, onProgress = onProgress),
+            ),
+        )
+    }
+
+    fun importWarehouseNow() {
+        val path = warehouseSetup?.warehousePath
+            ?: patchWatch?.warehouse?.path
+            ?: detectedWarehouse
+            ?: return
+        if (StarterBootstrap.isStarterWarehousePath(path.toString())) return
+        importWarehouse(path)
     }
 
     fun importReadyWarehouse() {
@@ -645,12 +915,49 @@ class AppModel(private val scope: CoroutineScope) {
         importWarehouse(path)
     }
 
+    fun dismissWarehouseSetup() {
+        warehouseSetup = null
+        markWarehouseSetupComplete()
+    }
+
+    fun dismissDropSyncOffer() {
+        dropSyncOffer = null
+    }
+
+    fun acceptDropSyncOffer() {
+        dropSyncOffer = null
+        go(Screen.Drops)
+        syncDropCache()
+    }
+
+    private fun maybeOfferDropSyncAfterImport() {
+        scope.launch {
+            refreshDropCacheStats()
+            val stats = dropCacheStats ?: return@launch
+            if (stats.monstersTotal == 0L || dropSyncRunning) return@launch
+            val hasExtracted = stats.extractedDropRows > 0L
+            val needsCommunitySync = stats.monstersSynced < stats.monstersTotal
+            if (!hasExtracted && (stats.dropRows == 0L || needsCommunitySync)) {
+                dropSyncOffer = DropSyncOffer(
+                    monstersTotal = stats.monstersTotal,
+                    dropRows = stats.dropRows,
+                )
+            }
+        }
+    }
+
+    fun acceptWarehouseSetup() {
+        importWarehouseNow()
+    }
+
     private fun startPatchWatch() {
         scope.launch {
             delay(1_500)
+            checkPatch(autoImport = false)
+            maybeOfferWarehouseSetup()
             while (true) {
-                checkPatch(autoImport = true)
                 delay(patchWatchInterval())
+                checkPatch(autoImport = warehouseSetupComplete())
             }
         }
     }
@@ -678,10 +985,58 @@ class AppModel(private val scope: CoroutineScope) {
         }
         patchWatch = report
         report.pakFingerprint?.let { writePakCache(it) }
-        if (autoImport && report.canImport) {
+        if (autoImport && report.canImport && warehouseSetupComplete()) {
             val path = report.warehouse?.path ?: return
-            importWarehouse(path)
+            if (!StarterBootstrap.isStarterWarehousePath(path.toString())) {
+                importWarehouse(path)
+            }
         }
+    }
+
+    private val warehouseSetupMarker: Path
+        get() = Path.of(System.getProperty("user.home"), ".solisium", "warehouse-setup.complete")
+
+    private fun warehouseSetupComplete(): Boolean =
+        runCatching { Files.exists(warehouseSetupMarker) }.getOrDefault(false)
+
+    private fun markWarehouseSetupComplete() {
+        runCatching {
+            Files.createDirectories(warehouseSetupMarker.parent)
+            Files.writeString(
+                warehouseSetupMarker,
+                "Warehouse setup was completed or skipped. Delete this file to see the first-run prompt again.\n",
+            )
+        }
+    }
+
+    private suspend fun maybeOfferWarehouseSetup() {
+        if (warehouseSetupComplete()) return
+        for (attempt in 0 until 25) {
+            if (overview is Load.Ok) break
+            delay(200)
+        }
+        val snapshot = (overview as? Load.Ok)?.value?.snapshot
+        val demoActive = snapshot?.let { StarterBootstrap.isStarterWarehousePath(it.sourcePath) } == true
+        val realWarehouse = patchWatch?.warehouse?.takeUnless {
+            StarterBootstrap.isStarterWarehousePath(it.path.toString())
+        } ?: detectedWarehouse?.takeUnless {
+            StarterBootstrap.isStarterWarehousePath(it.toString())
+        }?.let { path ->
+            WarehouseRef(path = path, buildId = null, lastModifiedMillis = 0, sizeBytes = 0)
+        }
+        val canImport = patchWatch?.canImport == true && realWarehouse != null
+        val shouldOffer = canImport || (demoActive && realWarehouse != null) || realWarehouse != null
+        if (!shouldOffer) {
+            markWarehouseSetupComplete()
+            return
+        }
+        warehouseSetup = WarehouseSetupOffer(
+            warehousePath = realWarehouse?.path,
+            warehouseBuild = realWarehouse?.buildId ?: patchWatch?.warehouse?.buildId,
+            demoActive = demoActive,
+            canImport = canImport,
+            reason = patchWatch?.reason,
+        )
     }
 
     private fun pakCachePath(): Path =
@@ -740,10 +1095,17 @@ class AppModel(private val scope: CoroutineScope) {
         }
     }
 
-    private fun runImport(label: String, block: (SolisiumDatabase) -> List<ImportReceipt>) {
+    private fun runImport(
+        label: String,
+        trackProgress: Boolean = false,
+        block: (SolisiumDatabase) -> List<ImportReceipt>,
+    ) {
         if (importing) return
         importing = true
         lastImport = null
+        if (trackProgress) {
+            importProgress = ImportProgress("Starting import", 0, 0)
+        }
         scope.launch {
             val outcome = try {
                 val db = database ?: error(openError ?: "database unavailable")
@@ -755,6 +1117,13 @@ class AppModel(private val scope: CoroutineScope) {
             }
             lastImport = outcome
             importing = false
+            importProgress = null
+            if (label == "Game data" && outcome.error == null) {
+                warehouseSetup = null
+                markWarehouseSetupComplete()
+                query?.invalidateGradeCache()
+                maybeOfferDropSyncAfterImport()
+            }
             refreshOverview()
             loadSnapshots()
             loadRows()

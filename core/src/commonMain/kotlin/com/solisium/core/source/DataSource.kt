@@ -15,11 +15,21 @@ data class SourceCapability(
     val notes: String,
 )
 
+data class ImportProgress(
+    val phase: String,
+    val current: Long = 0,
+    val total: Long = 0,
+) {
+    val fraction: Float? =
+        if (total > 0) (current.toFloat() / total.toFloat()).coerceIn(0f, 1f) else null
+}
+
 data class ImportRequest(
     val path: String? = null,
     val content: String? = null,
     val activate: Boolean = true,
     val characterId: String? = null,
+    val onProgress: ((ImportProgress) -> Unit)? = null,
 )
 
 data class ImportReceipt(

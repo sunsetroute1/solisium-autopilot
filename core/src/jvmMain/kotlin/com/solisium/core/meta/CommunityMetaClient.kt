@@ -3,6 +3,8 @@ package com.solisium.core.meta
 import com.solisium.core.domain.CommunityHit
 import com.solisium.core.domain.CommunitySnapshot
 import com.solisium.core.domain.QuestlogItemOverlay
+import com.solisium.core.domain.QuestlogNpcDetail
+import com.solisium.core.domain.QuestlogResourceDetail
 import com.solisium.core.domain.WeaponClassPair
 import com.solisium.core.query.BuildGoal
 import java.net.URLEncoder
@@ -113,6 +115,27 @@ class CommunityMetaClient(
         return QuestlogParser.itemDetail(body)
     }
 
+    fun fetchNpc(npcId: String): QuestlogNpcDetail? {
+        val trimmed = npcId.trim()
+        if (trimmed.isEmpty()) return null
+        val body = http.get(questlogNpcUrl(trimmed))
+        return QuestlogParser.npcDetail(body)
+    }
+
+    fun fetchResource(resourceId: String): QuestlogResourceDetail? {
+        val trimmed = resourceId.trim()
+        if (trimmed.isEmpty()) return null
+        val body = http.get(questlogResourceUrl(trimmed))
+        return QuestlogParser.resourceDetail(body)
+    }
+
+    fun searchEntities(term: String, extendSearch: Boolean = true): List<CommunityHit> {
+        val trimmed = term.trim()
+        if (trimmed.isEmpty()) return emptyList()
+        val body = http.get(questlogSearchUrl(trimmed, extendSearch))
+        return QuestlogParser.searchHits(body)
+    }
+
     fun fetchClasses(): List<WeaponClassPair> {
         val found = mutableListOf<WeaponClassPair>()
         val urls = listOf(
@@ -144,9 +167,20 @@ class CommunityMetaClient(
             return trimmed.trim('/')
         }
 
-        fun questlogSearchUrl(term: String): String {
-            val input = """{"searchTerm":${jsonString(term)},"language":"en","extendSearch":false}"""
+        fun questlogSearchUrl(term: String, extendSearch: Boolean = false): String {
+            val input =
+                """{"searchTerm":${jsonString(term)},"language":"en","extendSearch":$extendSearch}"""
             return "https://questlog.gg/throne-and-liberty/api/trpc/database.searchEntities?input=${enc(input)}"
+        }
+
+        fun questlogNpcUrl(npcId: String): String {
+            val input = """{"id":${jsonString(npcId)},"language":"en"}"""
+            return "https://questlog.gg/throne-and-liberty/api/trpc/database.getNpc?input=${enc(input)}"
+        }
+
+        fun questlogResourceUrl(resourceId: String): String {
+            val input = """{"id":${jsonString(resourceId)},"language":"en"}"""
+            return "https://questlog.gg/throne-and-liberty/api/trpc/database.getResource?input=${enc(input)}"
         }
 
         fun questlogSkillSetsUrl(): String {

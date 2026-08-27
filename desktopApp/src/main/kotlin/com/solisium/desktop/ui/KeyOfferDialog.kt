@@ -33,6 +33,7 @@ import com.solisium.desktop.theme.Spacing
  */
 @Composable
 fun KeyOfferDialog(model: AppModel) {
+    if (model.warehouseSetup != null || model.dropSyncOffer != null) return
     val offer = model.keys.offer ?: return
     Dialog(onDismissRequest = { model.declineFoundKey() }) {
         Column(

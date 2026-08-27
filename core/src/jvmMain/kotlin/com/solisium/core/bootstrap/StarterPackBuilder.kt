@@ -57,6 +57,9 @@ enum class StarterSeedResult {
 }
 
 object StarterBootstrap {
+    fun isStarterWarehousePath(path: String?): Boolean =
+        path?.contains("tl-starter.sqlite", ignoreCase = true) == true
+
     fun seedIfNeeded(userDatabase: Path): StarterSeedResult {
         if (snapshotCount(userDatabase) > 0) return StarterSeedResult.SKIPPED
         val bundledDb = InstallResources.starter("solisium.sqlite")

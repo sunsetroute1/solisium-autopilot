@@ -1,0 +1,47 @@
+-- Schema version 8 -> 9: monster reward profiles + offline drop cache.
+-- IF NOT EXISTS: some v8 databases already have game_boss from warehouse import.
+CREATE TABLE IF NOT EXISTS game_boss (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  snapshot_id TEXT NOT NULL,
+  source_table TEXT NOT NULL,
+  source_row_id TEXT NOT NULL,
+  name TEXT,
+  FOREIGN KEY(snapshot_id) REFERENCES dataset_snapshot(id),
+  UNIQUE(snapshot_id, source_table, source_row_id)
+);
+
+ALTER TABLE game_boss ADD COLUMN subtitle TEXT;
+ALTER TABLE game_boss ADD COLUMN level INTEGER;
+ALTER TABLE game_boss ADD COLUMN category TEXT;
+ALTER TABLE game_boss ADD COLUMN map_id INTEGER;
+ALTER TABLE game_boss ADD COLUMN location_label TEXT;
+ALTER TABLE game_boss ADD COLUMN sync_source TEXT;
+ALTER TABLE game_boss ADD COLUMN synced_at TEXT;
+
+CREATE TABLE game_item_drop (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  snapshot_id TEXT NOT NULL,
+  item_source_table TEXT NOT NULL DEFAULT 'TLItemLooks',
+  item_source_row_id TEXT NOT NULL,
+  item_name TEXT,
+  source_kind TEXT NOT NULL,
+  source_id TEXT NOT NULL,
+  source_name TEXT NOT NULL,
+  source_level INTEGER,
+  source_category TEXT,
+  map_id INTEGER,
+  location_label TEXT,
+  probability REAL,
+  quantity INTEGER,
+  drop_type TEXT,
+  drop_condition TEXT,
+  confidence TEXT NOT NULL,
+  synced_at TEXT,
+  FOREIGN KEY(snapshot_id) REFERENCES dataset_snapshot(id)
+);
+
+CREATE INDEX game_item_drop_item_idx ON game_item_drop(snapshot_id, item_source_row_id);
+CREATE INDEX game_item_drop_source_idx ON game_item_drop(snapshot_id, source_id);
+CREATE UNIQUE INDEX game_item_drop_unique_idx ON game_item_drop(
+  snapshot_id, item_source_row_id, source_kind, source_id, drop_type, drop_condition
+);

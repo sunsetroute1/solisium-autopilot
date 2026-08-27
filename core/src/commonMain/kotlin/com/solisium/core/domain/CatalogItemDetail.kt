@@ -27,7 +27,10 @@ data class QuestlogItemOverlay(
     val statLines: List<CommunityStatLine>,
     val traitLines: List<CommunityTraitLine>,
     val perkSummaries: List<String>,
-    val dropSources: List<String>,
+    val droppedFromNpcs: List<QuestlogDropEntry> = emptyList(),
+    val containerSources: List<QuestlogDropEntry> = emptyList(),
+    /** @deprecated use [containerSources] names; kept for older UI paths */
+    val dropSources: List<String> = containerSources.map { it.name }.distinct(),
 )
 
 data class CommunityStatLine(

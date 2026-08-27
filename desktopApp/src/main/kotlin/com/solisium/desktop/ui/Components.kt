@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -31,6 +32,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.solisium.core.domain.DisplayName
@@ -177,6 +179,28 @@ fun HoverRow(
 }
 
 @Composable
+fun BasicSearchField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    placeholder: String,
+    modifier: Modifier = Modifier,
+) {
+    Box(modifier) {
+        if (value.isEmpty()) {
+            Text(placeholder, style = MaterialTheme.typography.bodyMedium, color = Palette.TextFaint)
+        }
+        BasicTextField(
+            value = value,
+            onValueChange = onValueChange,
+            singleLine = true,
+            textStyle = MaterialTheme.typography.bodyMedium.copy(color = Palette.Text),
+            cursorBrush = SolidColor(Palette.Accent),
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+}
+
+@Composable
 fun LoadingRow(text: String = "Loading") {
     Row(
         Modifier.fillMaxWidth().padding(Spacing.lg),
@@ -260,12 +284,33 @@ fun ActionButton(
 fun rarityColor(grade: String?): Color {
     val token = DisplayName.prettyEnum(grade)?.uppercase() ?: return Palette.BorderStrong
     return when (token) {
-        "AAA", "LEGENDARY" -> Palette.Gold
+        "AAA", "LEGENDARY", "HEROIC", "MYTHIC" -> Palette.Gold
         "AA", "EPIC" -> Palette.Epic
         "A", "RARE" -> Palette.Rare
         "B", "UNCOMMON" -> Palette.Uncommon
         "C", "COMMON" -> Palette.Common
         else -> Palette.BorderStrong
+    }
+}
+
+@Composable
+fun ItemNameWithRarity(
+    name: String,
+    grade: String?,
+    modifier: Modifier = Modifier,
+    style: androidx.compose.ui.text.TextStyle = MaterialTheme.typography.bodyMedium,
+    pipHeight: androidx.compose.ui.unit.Dp = 20.dp,
+    maxLines: Int = Int.MAX_VALUE,
+) {
+    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
+        RarityPip(grade, Modifier.height(pipHeight))
+        Spacer(Modifier.width(Spacing.sm))
+        Text(
+            name,
+            style = style,
+            color = rarityColor(grade),
+            maxLines = maxLines,
+        )
     }
 }
 

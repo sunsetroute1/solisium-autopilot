@@ -240,8 +240,43 @@ CREATE TABLE game_boss (
   source_table TEXT NOT NULL,
   source_row_id TEXT NOT NULL,
   name TEXT,
+  subtitle TEXT,
+  level INTEGER,
+  category TEXT,
+  map_id INTEGER,
+  location_label TEXT,
+  sync_source TEXT,
+  synced_at TEXT,
   FOREIGN KEY(snapshot_id) REFERENCES dataset_snapshot(id),
   UNIQUE(snapshot_id, source_table, source_row_id)
+);
+
+CREATE TABLE game_item_drop (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  snapshot_id TEXT NOT NULL,
+  item_source_table TEXT NOT NULL DEFAULT 'TLItemLooks',
+  item_source_row_id TEXT NOT NULL,
+  item_name TEXT,
+  source_kind TEXT NOT NULL,
+  source_id TEXT NOT NULL,
+  source_name TEXT NOT NULL,
+  source_level INTEGER,
+  source_category TEXT,
+  map_id INTEGER,
+  location_label TEXT,
+  probability REAL,
+  quantity INTEGER,
+  drop_type TEXT,
+  drop_condition TEXT,
+  confidence TEXT NOT NULL,
+  synced_at TEXT,
+  FOREIGN KEY(snapshot_id) REFERENCES dataset_snapshot(id)
+);
+
+CREATE INDEX game_item_drop_item_idx ON game_item_drop(snapshot_id, item_source_row_id);
+CREATE INDEX game_item_drop_source_idx ON game_item_drop(snapshot_id, source_id);
+CREATE UNIQUE INDEX game_item_drop_unique_idx ON game_item_drop(
+  snapshot_id, item_source_row_id, source_kind, source_id, drop_type, drop_condition
 );
 
 CREATE TABLE game_progression (
@@ -553,6 +588,100 @@ insertGameMaterial:
 INSERT INTO game_material(snapshot_id, source_table, source_row_id, name)
 VALUES (?, ?, ?, ?);
 
+insertGameBoss:
+INSERT INTO game_boss(snapshot_id, source_table, source_row_id, name)
+VALUES (?, ?, ?, ?);
+
+countMonsters:
+SELECT COUNT(*) FROM game_boss WHERE snapshot_id = ?;
+
+countSyncedMonsters:
+SELECT COUNT(*) FROM game_boss WHERE snapshot_id = ? AND synced_at IS NOT NULL;
+
+countItemDrops:
+SELECT COUNT(*) FROM game_item_drop WHERE snapshot_id = ?;
+
+maxDropSyncTime:
+SELECT MAX(synced_at) AS last_synced_at FROM game_item_drop WHERE snapshot_id = ?;
+
+clearItemDrops:
+DELETE FROM game_item_drop WHERE snapshot_id = ?;
+
+clearExtractedItemDrops:
+DELETE FROM game_item_drop WHERE snapshot_id = ? AND confidence = 'extracted';
+
+clearCommunityItemDrops:
+DELETE FROM game_item_drop WHERE snapshot_id = ? AND confidence = 'community';
+
+countExtractedItemDrops:
+SELECT COUNT(*) FROM game_item_drop WHERE snapshot_id = ? AND confidence = 'extracted';
+
+insertItemDrop:
+INSERT OR REPLACE INTO game_item_drop(
+  snapshot_id, item_source_table, item_source_row_id, item_name,
+  source_kind, source_id, source_name, source_level, source_category,
+  map_id, location_label, probability, quantity, drop_type, drop_condition,
+  confidence, synced_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+updateGameBossCache:
+UPDATE game_boss
+SET name = ?, subtitle = ?, level = ?, category = ?, map_id = ?, location_label = ?,
+    sync_source = ?, synced_at = ?
+WHERE snapshot_id = ? AND source_table = ? AND source_row_id = ?;
+
+selectMonsters:
+SELECT source_table, source_row_id, name, subtitle, level, category, map_id, location_label, synced_at
+FROM game_boss
+WHERE snapshot_id = ?
+ORDER BY name COLLATE NOCASE, source_row_id
+LIMIT ?;
+
+searchMonsters:
+SELECT source_table, source_row_id, name, subtitle, level, category, map_id, location_label, synced_at
+FROM game_boss
+WHERE snapshot_id = ?
+  AND (
+    lower(COALESCE(name, source_row_id)) LIKE lower(?)
+    OR lower(source_row_id) LIKE lower(?)
+    OR lower(COALESCE(location_label, '')) LIKE lower(?)
+    OR lower(COALESCE(category, '')) LIKE lower(?)
+  )
+ORDER BY name COLLATE NOCASE, source_row_id
+LIMIT ?;
+
+selectItemDropSources:
+SELECT
+  item_source_table, item_source_row_id, item_name,
+  source_kind, source_id, source_name, source_level, source_category,
+  map_id, location_label, probability, quantity, drop_type, drop_condition, confidence
+FROM game_item_drop
+WHERE snapshot_id = ? AND item_source_row_id = ?
+ORDER BY CASE confidence WHEN 'extracted' THEN 0 ELSE 1 END, probability DESC, source_name COLLATE NOCASE;
+
+selectMonsterDrops:
+SELECT
+  item_source_table, item_source_row_id, item_name,
+  source_kind, source_id, source_name, source_level, source_category,
+  map_id, location_label, probability, quantity, drop_type, drop_condition, confidence
+FROM game_item_drop
+WHERE snapshot_id = ? AND source_id = ?
+ORDER BY CASE confidence WHEN 'extracted' THEN 0 ELSE 1 END, probability DESC, item_name COLLATE NOCASE;
+
+searchItemDropSources:
+SELECT
+  item_source_table, item_source_row_id, item_name,
+  source_kind, source_id, source_name, source_level, source_category,
+  map_id, location_label, probability, quantity, drop_type, drop_condition, confidence
+FROM game_item_drop
+WHERE snapshot_id = ?
+  AND (
+    lower(COALESCE(item_name, item_source_row_id)) LIKE lower(?)
+    OR lower(item_source_row_id) LIKE lower(?)
+  )
+ORDER BY probability DESC
+LIMIT ?;
+
 insertGameItemStat:
 INSERT OR REPLACE INTO game_item_stat(
   snapshot_id, source_table, source_row_id, stat_key, stat_name, raw_value, scope, confidence
@@ -713,6 +842,30 @@ SELECT source_table, source_row_id, name, grade, category
 FROM game_item
 WHERE snapshot_id = ?
 ORDER BY (name IS NULL OR name = '' OR name = source_row_id), name COLLATE NOCASE;
+
+selectAllItemGrades:
+SELECT source_row_id, grade FROM game_item
+WHERE snapshot_id = ? AND grade IS NOT NULL AND trim(grade) != ''
+UNION
+SELECT source_row_id, grade FROM game_rune
+WHERE snapshot_id = ? AND grade IS NOT NULL AND trim(grade) != '';
+
+selectDropBrowseItems:
+SELECT source_table, source_row_id, name, grade, category
+FROM game_item
+WHERE snapshot_id = ?
+  AND name IS NOT NULL AND trim(name) != '' AND name != source_row_id
+ORDER BY name COLLATE NOCASE
+LIMIT ?;
+
+selectItemDropSourcesByName:
+SELECT
+  item_source_table, item_source_row_id, item_name,
+  source_kind, source_id, source_name, source_level, source_category,
+  map_id, location_label, probability, quantity, drop_type, drop_condition, confidence
+FROM game_item_drop
+WHERE snapshot_id = ? AND lower(item_name) = lower(?)
+ORDER BY CASE confidence WHEN 'extracted' THEN 0 ELSE 1 END, probability DESC, source_name COLLATE NOCASE;
 
 selectItemByName:
 SELECT source_table, source_row_id, name, grade, category

@@ -58,6 +58,7 @@ class StatLabelsTest {
         assertEquals(com.solisium.desktop.theme.Palette.Epic, rarityColor("EItemGrade::kAA"))
         assertEquals(com.solisium.desktop.theme.Palette.Epic, rarityColor("Epic"))
         assertEquals(com.solisium.desktop.theme.Palette.Gold, rarityColor("kAAA"))
+        assertEquals(com.solisium.desktop.theme.Palette.Gold, rarityColor("Heroic"))
     }
 
     /** Anything that is not an enum token must survive untouched. */

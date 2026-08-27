@@ -35,6 +35,7 @@ data class CatalogCounts(
     val classes: Long = 0,
     val combatPowerRows: Long = 0,
     val itemPowerLinks: Long = 0,
+    val monsters: Long = 0,
 )
 
 data class GameItem(

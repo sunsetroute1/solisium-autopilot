@@ -39,6 +39,7 @@ fun AppShell(model: AppModel) {
                 Screen.Overview -> OverviewScreen(model)
                 Screen.Build -> BuildScreen(model)
                 Screen.Catalog -> CatalogScreen(model)
+                Screen.Drops -> DropsScreen(model)
                 Screen.Character -> CharacterScreen(model)
                 Screen.Combat -> CombatScreen(model)
                 Screen.Data -> DataScreen(model)
@@ -47,6 +48,9 @@ fun AppShell(model: AppModel) {
     }
     // Sits above every screen, because it appears on first run before the user has
     // chosen where to go.
+    // Warehouse setup comes first; the key offer waits until that flow finishes.
+    WarehouseSetupDialog(model)
+    DropSyncOfferDialog(model)
     KeyOfferDialog(model)
 }
 

@@ -4,7 +4,10 @@ import com.solisium.core.domain.CommunityHit
 import com.solisium.core.domain.CommunityStatLine
 import com.solisium.core.domain.CommunityTraitLine
 import com.solisium.core.domain.DisplayName
+import com.solisium.core.domain.QuestlogDropEntry
 import com.solisium.core.domain.QuestlogItemOverlay
+import com.solisium.core.domain.QuestlogNpcDetail
+import com.solisium.core.domain.QuestlogResourceDetail
 import com.solisium.core.json.JsonParser
 import com.solisium.core.json.JsonValue
 import com.solisium.core.query.BuildGoal
@@ -24,6 +27,7 @@ object QuestlogParser {
                 detail = listOfNotNull(dbType, category, obj.str("grade")).joinToString(" · ").ifBlank { null },
                 url = id?.let { "https://questlog.gg/throne-and-liberty/en/db/search?q=${it}" },
                 catalogName = null,
+                entityId = id,
             )
         }
     }
@@ -111,11 +115,61 @@ object QuestlogParser {
                 val passive = perkObj.obj("passive")?.str("text")?.let(TextNorm::stripMarkup)
                 if (passive.isNullOrBlank()) name else "$name — $passive"
             },
-            dropSources = obj.arr("itemIsContainedInItems").mapNotNull { drop ->
-                (drop as? JsonValue.Obj)?.str("name")?.let(TextNorm::stripMarkup)
-            }.distinct(),
+            droppedFromNpcs = dropEntries(obj.arr("itemDroppedFromNpcs")),
+            containerSources = dropEntries(obj.arr("itemIsContainedInItems")),
         )
     }
+
+    fun npcDetail(json: String): QuestlogNpcDetail? {
+        val root = JsonParser.parse(json)
+        val data = root.child("result")?.child("data") ?: root.child("data") ?: return null
+        if (data.str("status")?.equals("NOT_FOUND", ignoreCase = true) == true) return null
+        val obj = data as? JsonValue.Obj ?: return null
+        val name = obj.str("name")?.let(TextNorm::stripMarkup) ?: return null
+        return QuestlogNpcDetail(
+            id = obj.str("id") ?: return null,
+            name = name,
+            subtitle = obj.str("subtitle")?.let(TextNorm::stripMarkup),
+            level = obj.long("level"),
+            category = obj.str("mainCategory"),
+            mapId = obj.long("mapId"),
+            drops = dropEntries(obj.arr("npcDropsItems")),
+        )
+    }
+
+    fun resourceDetail(json: String): QuestlogResourceDetail? {
+        val root = JsonParser.parse(json)
+        val data = root.child("result")?.child("data") ?: root.child("data") ?: return null
+        if (data.str("status")?.equals("NOT_FOUND", ignoreCase = true) == true) return null
+        val obj = data as? JsonValue.Obj ?: return null
+        val name = obj.str("name")?.let(TextNorm::stripMarkup) ?: return null
+        return QuestlogResourceDetail(
+            id = obj.str("id") ?: return null,
+            name = name,
+            level = obj.long("level"),
+            mapId = obj.long("mapId"),
+            drops = dropEntries(obj.arr("resourceDropsItems")),
+        )
+    }
+
+    private fun dropEntries(values: List<JsonValue>): List<QuestlogDropEntry> =
+        values.mapNotNull { entry ->
+            val obj = entry as? JsonValue.Obj ?: return@mapNotNull null
+            val name = obj.str("name")?.let(TextNorm::stripMarkup)?.takeIf { it.isNotBlank() }
+                ?: return@mapNotNull null
+            val id = obj.str("id") ?: return@mapNotNull null
+            QuestlogDropEntry(
+                id = id,
+                name = name,
+                dbType = obj.str("dbType") ?: "unknown",
+                category = obj.str("mainCategory"),
+                level = obj.long("level"),
+                probability = obj.double("probability"),
+                quantity = obj.long("quantity"),
+                dropType = obj.str("dropType"),
+                dropCondition = obj.str("dropCondition"),
+            )
+        }
 
     private fun itemProperties(item: JsonValue.Obj): List<String> = buildList {
         fun flag(label: String, key: String, positive: Boolean = true) {

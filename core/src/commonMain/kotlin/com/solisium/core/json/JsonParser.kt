@@ -21,6 +21,12 @@ sealed class JsonValue {
         else -> null
     }
 
+    fun double(key: String): Double? = when (val value = child(key)) {
+        is Num -> value.value
+        is Str -> value.value.toDoubleOrNull()
+        else -> null
+    }
+
     fun bool(key: String): Boolean? = when (val value = child(key)) {
         is Bool -> value.value
         is Num -> value.value != 0.0

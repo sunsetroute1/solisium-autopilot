@@ -25,6 +25,7 @@ class MigrationTest {
             "game_item_stat", "game_stat_curve", "game_item_curve", "game_class",
             "game_combat_power", "game_item_power",
             "user_weapon_mastery", "user_build_layer",
+            "game_boss", "game_item_drop",
         )
         JvmDatabase.openOrCreate(file)
         jdbc(file) { statement ->
@@ -71,6 +72,7 @@ class MigrationTest {
             "game_item_stat", "game_stat_curve", "game_item_curve", "game_class",
             "game_combat_power", "game_item_power",
             "user_weapon_mastery", "user_build_layer",
+            "game_boss", "game_item_drop",
         )
 
         JvmDatabase.openOrCreate(fresh)
@@ -125,6 +127,8 @@ class MigrationTest {
      * / build-layer tables; those columns must be dropped before replaying.
      */
     private fun revertCharacterSheetAlter(statement: java.sql.Statement) {
+        statement.execute("DROP TABLE IF EXISTS game_item_drop")
+        statement.execute("DROP TABLE IF EXISTS game_boss")
         statement.execute("DROP TABLE IF EXISTS user_build_layer")
         statement.execute("DROP TABLE IF EXISTS user_weapon_mastery")
         statement.execute("DROP TABLE IF EXISTS game_item_power")

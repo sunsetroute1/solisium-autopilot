@@ -54,8 +54,8 @@ class TLHelperDataSourceTest {
             )
 
             assertEquals("tl_helper", receipt.source)
-            assertEquals(24, receipt.recordsImported)
-            assertEquals(11, receipt.recordsSkipped)
+            assertEquals(27, receipt.recordsImported)
+            assertEquals(12, receipt.recordsSkipped)
             assertTrue(receipt.warnings.any { it.contains("did not resolve") })
             assertTrue(receipt.warnings.any { it.contains("no matching item row") })
             assertTrue(receipt.snapshotId != null)
@@ -83,9 +83,14 @@ class TLHelperDataSourceTest {
                     itemsWithStats = 1,
                     curvePoints = 4,
                     itemCurveLinks = 2,
+                    monsters = 1,
                 ),
                 query.counts(snapshotId),
             )
+
+            val talus = query.monsters(snapshotId, term = null).single()
+            assertEquals("Golem Talus", talus.displayName)
+            assertEquals("FD_L03_M_Golem_Talus_001", talus.sourceRowId)
 
             val item = query.items(snapshotId).single { it.name == "Fixture Longbow" && it.sourceTable == "TLItemLooks_Equip" }
             assertEquals("fixture_bow", item.sourceRowId)
@@ -190,6 +195,29 @@ class TLHelperDataSourceTest {
             val option = query.findBuildClass(snapshotId, name = "Gladiator")
             assertEquals("extracted", option?.source)
             assertTrue(query.buildClassOptions(snapshotId).any { it.name == "Scout" && it.source == "community" })
+        } finally {
+            Files.deleteIfExists(warehouse)
+        }
+    }
+
+    @Test
+    fun mapsExtractedMonsterDropsFromLotteryUnit() {
+        val warehouse = WarehouseFixtures.writeMiniWarehouse()
+        try {
+            val db = JvmDatabase.inMemory()
+            TLHelperDataSource().importInto(db, ImportRequest(path = warehouse.toString(), activate = true))
+            val query = CatalogQuery(db)
+            val snapshotId = query.activeSnapshotId()!!
+            val stats = query.dropCacheStats(snapshotId)
+            assertEquals(2L, stats.extractedDropRows)
+            val bowSources = query.itemDropSources(snapshotId, "fixture_bow")
+            assertEquals(
+                0.25,
+                bowSources.single { it.confidence == "extracted" }.probability,
+            )
+            val monsterDrops = query.monsterDrops(snapshotId, "FD_L03_M_Golem_Talus_001")
+            assertEquals(2, monsterDrops.size)
+            assertTrue(monsterDrops.all { it.confidence == "extracted" })
         } finally {
             Files.deleteIfExists(warehouse)
         }

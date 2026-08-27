@@ -1,5 +1,6 @@
 package com.solisium.core.query
 
+import com.solisium.core.db.SelectItemDropSources
 import com.solisium.core.db.SolisiumDatabase
 import com.solisium.core.domain.CatalogCounts
 import com.solisium.core.domain.CatalogHit
@@ -18,6 +19,12 @@ import com.solisium.core.domain.GameItemCurve
 import com.solisium.core.domain.GameItemStat
 import com.solisium.core.domain.GameItemPower
 import com.solisium.core.domain.GameMaterial
+import com.solisium.core.domain.DropCacheStats
+import com.solisium.core.domain.ItemDropSource
+import com.solisium.core.domain.ItemGradeHints
+import com.solisium.core.domain.MonsterProfile
+import com.solisium.core.source.MonsterLocationHints
+import com.solisium.core.source.RewardRowIdParser
 import com.solisium.core.domain.GameRecipe
 import com.solisium.core.domain.GameRune
 import com.solisium.core.domain.GameRuneSynergy
@@ -58,6 +65,39 @@ import com.solisium.core.source.EquipCategory
 
 class CatalogQuery(private val db: SolisiumDatabase) {
     private val snapshots = SnapshotService(db)
+    private var gradeCacheSnapshot: String? = null
+    private var gradeCache: Map<String, String> = emptyMap()
+
+    /** Call after warehouse import so new grades are picked up without restarting. */
+    fun invalidateGradeCache() {
+        gradeCacheSnapshot = null
+        gradeCache = emptyMap()
+    }
+
+    private fun gradesForSnapshot(snapshotId: String): Map<String, String> {
+        if (gradeCacheSnapshot != snapshotId) {
+            gradeCache = db.schemaQueries.selectAllItemGrades(snapshotId, snapshotId)
+                .executeAsList().associate { it.source_row_id to it.grade }
+            gradeCacheSnapshot = snapshotId
+        }
+        return gradeCache
+    }
+
+    fun resolveItemGrade(snapshotId: String, sourceRowId: String): String? =
+        gradesForSnapshot(snapshotId)[sourceRowId]?.takeIf { it.isNotBlank() }
+            ?: ItemGradeHints.inferFromRowId(sourceRowId)
+
+    private fun enrichDropSources(snapshotId: String, sources: List<ItemDropSource>): List<ItemDropSource> {
+        val grades = gradesForSnapshot(snapshotId)
+        return sources.map { src ->
+            val grade = grades[src.itemSourceRowId]?.takeIf { it.isNotBlank() }
+                ?: ItemGradeHints.inferFromRowId(src.itemSourceRowId)
+            src.copy(
+                itemGrade = grade,
+                variantHint = ItemGradeHints.variantLabel(src.itemSourceRowId),
+            )
+        }
+    }
 
     fun activeSnapshotId(): String? = snapshots.active()?.id
 
@@ -96,7 +136,158 @@ class CatalogQuery(private val db: SolisiumDatabase) {
         classes = db.schemaQueries.countClasses(snapshotId).executeAsOne(),
         combatPowerRows = db.schemaQueries.countCombatPower(snapshotId).executeAsOne(),
         itemPowerLinks = db.schemaQueries.countItemPower(snapshotId).executeAsOne(),
+        monsters = db.schemaQueries.countMonsters(snapshotId).executeAsOne(),
     )
+
+    fun monsters(snapshotId: String, term: String?, limit: Int = 400): List<MonsterProfile> {
+        fun mapRow(
+            sourceTable: String,
+            sourceRowId: String,
+            name: String?,
+            subtitle: String?,
+            level: Long?,
+            category: String?,
+            mapId: Long?,
+            locationLabel: String?,
+            syncedAt: String?,
+        ): MonsterProfile {
+            val parsed = RewardRowIdParser.profile(sourceRowId, sourceTable)
+            val display = name?.takeIf { it.isNotBlank() } ?: parsed.displayName
+            val location = locationLabel?.takeIf { it.isNotBlank() }
+                ?: MonsterLocationHints.label(sourceRowId, mapId, category)
+            return parsed.copy(
+                displayName = display,
+                subtitle = subtitle,
+                level = level,
+                category = category,
+                mapId = mapId,
+                locationLabel = location,
+                synced = !syncedAt.isNullOrBlank(),
+            )
+        }
+        return if (term.isNullOrBlank()) {
+            db.schemaQueries.selectMonsters(snapshotId, limit.toLong()).executeAsList().map {
+                mapRow(
+                    it.source_table, it.source_row_id, it.name, it.subtitle, it.level,
+                    it.category, it.map_id, it.location_label, it.synced_at,
+                )
+            }
+        } else {
+            val pattern = like(term.trim())
+            db.schemaQueries.searchMonsters(snapshotId, pattern, pattern, pattern, pattern, limit.toLong())
+                .executeAsList().map {
+                    mapRow(
+                        it.source_table, it.source_row_id, it.name, it.subtitle, it.level,
+                        it.category, it.map_id, it.location_label, it.synced_at,
+                    )
+                }
+        }
+    }
+
+    fun dropCacheStats(snapshotId: String): DropCacheStats = DropCacheStats(
+        monstersTotal = db.schemaQueries.countMonsters(snapshotId).executeAsOne(),
+        monstersSynced = db.schemaQueries.countSyncedMonsters(snapshotId).executeAsOne(),
+        dropRows = db.schemaQueries.countItemDrops(snapshotId).executeAsOne(),
+        extractedDropRows = db.schemaQueries.countExtractedItemDrops(snapshotId).executeAsOne(),
+        lastSyncedAt = db.schemaQueries.maxDropSyncTime(snapshotId).executeAsOne().last_synced_at,
+    )
+
+    fun itemDropSources(snapshotId: String, itemRowId: String, itemName: String? = null): List<ItemDropSource> {
+        fun mapRow(row: SelectItemDropSources) = ItemDropSource(
+            itemSourceTable = row.item_source_table,
+            itemSourceRowId = row.item_source_row_id,
+            itemName = row.item_name,
+            sourceKind = row.source_kind,
+            sourceId = row.source_id,
+            sourceName = row.source_name,
+            sourceLevel = row.source_level,
+            sourceCategory = row.source_category,
+            mapId = row.map_id,
+            locationLabel = row.location_label,
+            probability = row.probability,
+            quantity = row.quantity,
+            dropType = row.drop_type,
+            dropCondition = row.drop_condition,
+            confidence = row.confidence,
+        )
+        val byId = db.schemaQueries.selectItemDropSources(snapshotId, itemRowId).executeAsList()
+        if (byId.isNotEmpty()) return enrichDropSources(snapshotId, byId.map(::mapRow))
+        val name = itemName?.trim().orEmpty()
+        if (name.isEmpty()) return emptyList()
+        return enrichDropSources(
+            snapshotId,
+            db.schemaQueries.selectItemDropSourcesByName(snapshotId, name).executeAsList().map { row ->
+                ItemDropSource(
+                    itemSourceTable = row.item_source_table,
+                    itemSourceRowId = row.item_source_row_id,
+                    itemName = row.item_name,
+                    sourceKind = row.source_kind,
+                    sourceId = row.source_id,
+                    sourceName = row.source_name,
+                    sourceLevel = row.source_level,
+                    sourceCategory = row.source_category,
+                    mapId = row.map_id,
+                    locationLabel = row.location_label,
+                    probability = row.probability,
+                    quantity = row.quantity,
+                    dropType = row.drop_type,
+                    dropCondition = row.drop_condition,
+                    confidence = row.confidence,
+                )
+            },
+        )
+    }
+
+    fun monsterDrops(snapshotId: String, monsterRowId: String): List<ItemDropSource> =
+        enrichDropSources(
+            snapshotId,
+            db.schemaQueries.selectMonsterDrops(snapshotId, monsterRowId).executeAsList().map { row ->
+                ItemDropSource(
+                    itemSourceTable = row.item_source_table,
+                    itemSourceRowId = row.item_source_row_id,
+                    itemName = row.item_name,
+                    sourceKind = row.source_kind,
+                    sourceId = row.source_id,
+                    sourceName = row.source_name,
+                    sourceLevel = row.source_level,
+                    sourceCategory = row.source_category,
+                    mapId = row.map_id,
+                    locationLabel = row.location_label,
+                    probability = row.probability,
+                    quantity = row.quantity,
+                    dropType = row.drop_type,
+                    dropCondition = row.drop_condition,
+                    confidence = row.confidence,
+                )
+            },
+        )
+
+    fun monsterIds(snapshotId: String): List<String> =
+        db.schemaQueries.selectMonsters(snapshotId, 50_000L).executeAsList().map { it.source_row_id }
+
+    /** Named items for drop lookup — includes materials and gear. */
+    fun dropSearchItems(snapshotId: String, term: String?, limit: Int = 200): List<GameItem> {
+        fun toItem(sourceTable: String, sourceRowId: String, name: String?, grade: String?, category: String?): GameItem {
+            val display = DisplayName.of(name, sourceRowId) ?: name?.trim()?.takeIf { it.isNotEmpty() } ?: sourceRowId
+            return GameItem(snapshotId, sourceTable, sourceRowId, display, grade, category)
+        }
+        val mapped = if (term.isNullOrBlank()) {
+            db.schemaQueries.selectDropBrowseItems(snapshotId, limit.toLong()).executeAsList().map {
+                toItem(it.source_table, it.source_row_id, it.name, it.grade, it.category)
+            }
+        } else {
+            val pattern = like(term.trim())
+            val fromCache = db.schemaQueries.searchItemDropSources(snapshotId, pattern, pattern, limit.toLong())
+                .executeAsList().mapNotNull { row ->
+                    toItem(row.item_source_table, row.item_source_row_id, row.item_name, null, null)
+                }
+            val fromWarehouse = namedHits(term) { p ->
+                db.schemaQueries.searchItems(snapshotId, p, p).executeAsList()
+            }.map { toItem(it.source_table, it.source_row_id, it.name, it.grade, it.category) }
+            (fromCache + fromWarehouse).distinctBy { it.sourceRowId }
+        }
+        return mapped.take(limit)
+    }
 
     fun itemCurves(snapshotId: String, itemRowId: String): List<GameItemCurve> =
         db.schemaQueries.selectItemCurves(snapshotId, itemRowId).executeAsList().map {

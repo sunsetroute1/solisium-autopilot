@@ -47,6 +47,7 @@ class TLHelperDataSource(
                 "game_item_curve",
                 "game_class",
                 "game_combat_power",
+                "game_boss",
                 "game_skill",
                 "dataset_snapshot",
             ),
@@ -63,9 +64,11 @@ class TLHelperDataSource(
         }
         val sourceHash = sha256File(warehouse)
 
+        reportProgress(request, "Reading warehouse", 0, 1)
         DriverManager.getConnection("jdbc:sqlite:${warehouse.toAbsolutePath()}").use { connection ->
             assertRecordsTable(connection)
             val rows = loadRecords(connection)
+            reportProgress(request, "Reading warehouse", 1, 1)
             if (rows.isEmpty()) {
                 return ImportReceipt(
                     source = id,
@@ -106,7 +109,11 @@ class TLHelperDataSource(
                     decoder_version = decoders.firstOrNull(),
                     active = if (request.activate) 1L else 0L,
                 )
-                for (row in rows) {
+                val rowTotal = rows.size.toLong()
+                rows.forEachIndexed { index, row ->
+                    if (index == 0 || index == rows.lastIndex || index % 250 == 0) {
+                        reportProgress(request, "Mapping game data", index + 1L, rowTotal)
+                    }
                     if (mapRow(db, snapshotId, row, equipByRowId, nameIndex)) {
                         imported++
                     } else {
@@ -116,6 +123,7 @@ class TLHelperDataSource(
                         }
                     }
                 }
+                reportProgress(request, "Linking materials", 0, 1)
                 val materials = mapMaterials(db, snapshotId, rows, itemsByRowId, nameIndex)
                 imported += materials.first
                 if (materials.second > 0) {
@@ -123,7 +131,9 @@ class TLHelperDataSource(
                         "${materials.second} ingredient reference(s) did not resolve to a known item row; skipped",
                     )
                 }
+                reportProgress(request, "Mapping stat curves", 0, 1)
                 imported += mapStatCurves(db, snapshotId, rows)
+                reportProgress(request, "Mapping item stats", 0, 1)
                 val itemStats = mapItemStats(db, snapshotId, rows, itemsByRowId)
                 imported += itemStats.imported
                 if (itemStats.unlinkedStatRows > 0) {
@@ -136,7 +146,12 @@ class TLHelperDataSource(
                         "${itemStats.unresolvedPointers} item stat pointer(s) had no value row; skipped",
                     )
                 }
+                reportProgress(request, "Linking combat power", 0, 1)
                 val powerLinks = mapItemPowerLinks(db, snapshotId, rows)
+                reportProgress(request, "Mapping monster drops", 0, 1)
+                val extractedDrops = mapExtractedDrops(db, snapshotId, rows, nameIndex)
+                imported += extractedDrops.dropRows
+                reportProgress(request, "Finishing import", 1, 1)
                 imported += powerLinks.mapped
                 if (powerLinks.tablePresent) {
                     warnings.add(
@@ -148,6 +163,26 @@ class TLHelperDataSource(
                     warnings.add(
                         "warehouse tables present but unmapped (candidate build influences, not CP): " +
                             skippedInfluenceTables.sorted().joinToString(),
+                    )
+                }
+                val rewardProfiles = rows.count { it.tableName == "TLRewardNpcFoItem" }
+                val hasLotteryUnits = rows.any { it.tableName == "TLItemLotteryUnit" }
+                if (extractedDrops.dropRows > 0) {
+                    warnings.add(
+                        "${extractedDrops.dropRows} extracted drop row(s) from TLItemLotteryUnit " +
+                            "for ${extractedDrops.profilesMapped} monster profile(s).",
+                    )
+                }
+                if (extractedDrops.unresolvedGroups > 0) {
+                    warnings.add(
+                        "${extractedDrops.unresolvedGroups} lottery group pointer(s) did not resolve to a lottery unit.",
+                    )
+                }
+                if (rewardProfiles > 0 && !hasLotteryUnits) {
+                    warnings.add(
+                        "$rewardProfiles monster reward profile(s) imported; exact drop weights need " +
+                            "TLItemLotteryUnit (and TLItemLotteryPublicGroup when groups differ from unit ids) " +
+                            "in the warehouse. Questlog sync fills community rates until then.",
                     )
                 }
             }
@@ -220,6 +255,15 @@ class TLHelperDataSource(
                     potential_power = json.long("ItemPotentialCombatPower"),
                     payload = row.rawJson,
                     confidence = "extracted",
+                )
+                return true
+            }
+            "TLRewardNpcFoItem" -> {
+                db.schemaQueries.insertGameBoss(
+                    snapshot_id = snapshotId,
+                    source_table = row.tableName,
+                    source_row_id = row.rowId,
+                    name = RewardRowIdParser.prettyName(row.rowId),
                 )
                 return true
             }
@@ -671,6 +715,23 @@ class TLHelperDataSource(
         else -> null
     }
 
+    private fun mapExtractedDrops(
+        db: SolisiumDatabase,
+        snapshotId: String,
+        rows: List<WarehouseRecord>,
+        nameIndex: Map<String, String>,
+    ): ExtractedDropResult {
+        fun toJsonRow(row: WarehouseRecord): WarehouseJsonRow? {
+            val json = row.rawJson ?: return null
+            return WarehouseJsonRow(row.tableName, row.rowId, json)
+        }
+        val rewardRows = rows.filter { it.tableName == "TLRewardNpcFoItem" }.mapNotNull { toJsonRow(it) }
+        val lotteryRows = rows.filter {
+            it.tableName == "TLItemLotteryUnit" || it.tableName == "TLItemLotteryPublicGroup"
+        }.mapNotNull { toJsonRow(it) }
+        return ExtractedDropMapper.mapInto(db, snapshotId, rewardRows, lotteryRows, nameIndex)
+    }
+
     private data class WarehouseRecord(
         val rowId: String,
         val recordType: String,
@@ -686,6 +747,10 @@ class TLHelperDataSource(
      * Localized names keyed by row id. Looks tables win so an equip/config row inherits
      * the inventory name rather than staying blank.
      */
+    private fun reportProgress(request: ImportRequest, phase: String, current: Long, total: Long) {
+        request.onProgress?.invoke(ImportProgress(phase, current, total))
+    }
+
     private fun buildNameIndex(rows: List<WarehouseRecord>): Map<String, String> {
         val preferred = listOf("TLItemLooks_Equip", "TLItemLooks", "TLPassiveSkillLooks", "TLStatAttrLooks")
         val out = LinkedHashMap<String, String>()

@@ -88,7 +88,9 @@ object WarehouseFixtures {
                     ('TLItemMainStatEnchant:2','2','reference','TLItemMainStatEnchant',null,'$build','1.431.22.7761','0.2.0','{"id":"kBow","enchant_level":2,"attack_power_main_hand":10}'),
                     ('TLItemMainStatEnchant:3','3','reference','TLItemMainStatEnchant',null,'$build','1.431.22.7761','0.2.0','{"id":"kBow","enchant_level":3,"attack_power_main_hand":15}'),
                     ('TLItemMainLevelStat:1','1','reference','TLItemMainLevelStat',null,'$build','1.431.22.7761','0.2.0','{"Id":"kNone_Main_Level","item_level":1,"melee_armor":7}'),
-                    ('TLDataHandle:skip_me','skip_me','reference','TLDataHandle','Ignored Handle','$build','1.431.22.7761','0.2.0','{}')
+                    ('TLDataHandle:skip_me','skip_me','reference','TLDataHandle','Ignored Handle','$build','1.431.22.7761','0.2.0','{}'),
+                    ('TLRewardNpcFoItem:fixture_talus','FD_L03_M_Golem_Talus_001','reward','TLRewardNpcFoItem',null,'$build','1.431.22.7761','0.2.0','{"public_lottery_group_id":{"normal_01":"FD_L03_M_Golem_Talus_001"}}'),
+                    ('TLItemLotteryUnit:fixture_talus','FD_L03_M_Golem_Talus_001','reference','TLItemLotteryUnit',null,'$build','1.431.22.7761','0.2.0','{"Name":"FD_L03_M_Golem_Talus_001","ItemLotteryUnitEntry":[{"item":"fixture_bow","prob":2500000},{"item":"fixture_ore","prob":7500000}]}')
                     """.trimIndent(),
                 )
             }

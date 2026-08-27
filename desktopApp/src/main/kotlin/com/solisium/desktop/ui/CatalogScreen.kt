@@ -182,7 +182,7 @@ private fun ResultRow(row: CatalogRow, selected: Boolean, onClick: () -> Unit) {
                 style = MaterialTheme.typography.bodyMedium.copy(
                     fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
                 ),
-                color = Palette.Text,
+                color = rarityColor(row.grade),
                 maxLines = 1,
             )
             val type = prettyEnum(row.meta)
@@ -237,7 +237,11 @@ private fun DetailHeader(detail: RowDetail) {
         RarityPip(detail.row.grade)
         Spacer(Modifier.width(Spacing.md))
         Column(Modifier.weight(1f)) {
-            Text(detail.row.name, style = MaterialTheme.typography.headlineSmall, color = Palette.Text)
+            Text(
+                detail.row.name,
+                style = MaterialTheme.typography.headlineSmall,
+                color = rarityColor(detail.row.grade),
+            )
             val chips = buildList {
                 prettyEnum(detail.row.grade)?.let { add(it) }
                 prettyEnum(detail.row.meta)?.let { add(it) }
@@ -369,15 +373,25 @@ private fun CommunitySection(overlay: QuestlogItemOverlay, warning: String?) {
                 )
             }
         }
-        if (overlay.dropSources.isNotEmpty()) {
+        if (overlay.dropSources.isNotEmpty() || overlay.droppedFromNpcs.isNotEmpty() || overlay.containerSources.isNotEmpty()) {
             Spacer(Modifier.height(Spacing.md))
-            Text("Found in", style = MaterialTheme.typography.titleSmall, color = Palette.Text)
+            Text("Where to get it", style = MaterialTheme.typography.titleSmall, color = Palette.Text)
             Spacer(Modifier.height(Spacing.xs))
-            Text(
-                overlay.dropSources.joinToString("\n"),
-                style = MaterialTheme.typography.bodySmall,
-                color = Palette.TextMuted,
-            )
+            val npcSources = overlay.droppedFromNpcs.sortedByDescending { it.probability ?: 0.0 }
+            if (npcSources.isNotEmpty()) {
+                DropTable(npcSources, sourceLabel = "Monster / boss")
+                Spacer(Modifier.height(Spacing.sm))
+            }
+            val containers = overlay.containerSources
+            if (containers.isNotEmpty()) {
+                DropTable(containers, sourceLabel = "Chest / bundle")
+            } else if (overlay.dropSources.isNotEmpty() && npcSources.isEmpty()) {
+                Text(
+                    overlay.dropSources.joinToString("\n"),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Palette.TextMuted,
+                )
+            }
         }
         Spacer(Modifier.height(Spacing.sm))
         Text(

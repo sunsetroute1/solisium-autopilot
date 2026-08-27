@@ -70,6 +70,7 @@ private fun OverviewBody(model: AppModel, overview: Overview) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
             ActionButton("What kind of build?", { model.go(com.solisium.desktop.Screen.Build) }, primary = true)
             ActionButton("Browse gear", { model.go(com.solisium.desktop.Screen.Catalog) })
+            ActionButton("Farm drops", { model.go(com.solisium.desktop.Screen.Drops) })
             ActionButton("My character", { model.go(com.solisium.desktop.Screen.Character) })
             ActionButton("Combat logs", { model.go(com.solisium.desktop.Screen.Combat) })
             ActionButton("Import more", { model.go(com.solisium.desktop.Screen.Data) })
@@ -94,7 +95,7 @@ private fun OverviewBody(model: AppModel, overview: Overview) {
                     else -> "patch watch"
                 },
                 detail = if (watch.canImport) {
-                    "Import will run automatically on the next check, or click Import warehouse."
+                    "Use Import warehouse below, or it will import automatically after first-run setup."
                 } else {
                     "Solisium does not unpack game paks. New skill-screen prefixes become typed influences after a warehouse import."
                 },

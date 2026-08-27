@@ -17,6 +17,7 @@ class QuestlogParserTest {
         """.trimIndent()
         val hits = QuestlogParser.searchHits(json)
         assertEquals("Sparring Longbow", hits.first().name)
+        assertEquals("bow_c_t1_nomal_001", hits.first().entityId)
         assertEquals("item · weapons · 11", hits.first().detail)
         assertEquals(2, hits.size)
     }
@@ -59,7 +60,8 @@ class QuestlogParserTest {
                 "traits":{"all_accuracy":[200,400,600,800]}
               },
               "itemAvailablePerks":[{"name":"Skill Core: Deadly Grave","passive":{"text":"Creates an area."}}],
-              "itemIsContainedInItems":[{"name":"Calanthia Weapon Selection Chest"}]
+              "itemIsContainedInItems":[{"name":"Calanthia Weapon Selection Chest","id":"chest_1","dbType":"item","probability":1,"quantity":1,"dropType":"selectable","mainCategory":"other"}],
+              "itemDroppedFromNpcs":[{"id":"FD_L03_M_Golem_Talus_001","name":"Talus","dbType":"npc","mainCategory":"boss","level":46,"quantity":1,"dropType":"random","probability":0.0769232,"dropCondition":"normalDrop"}]
             }}}
         """.trimIndent()
         val detail = QuestlogParser.itemDetail(json)!!
@@ -68,6 +70,28 @@ class QuestlogParserTest {
         assertTrue(detail.traitLines.any { it.label == "All accuracy" && it.tiers.contains("200") })
         assertEquals(listOf("Skill Core: Deadly Grave — Creates an area."), detail.perkSummaries)
         assertEquals(listOf("Calanthia Weapon Selection Chest"), detail.dropSources)
+        assertEquals(1, detail.droppedFromNpcs.size)
+        assertEquals("Talus", detail.droppedFromNpcs.first().name)
+        assertEquals("7.69%", detail.droppedFromNpcs.first().probabilityLabel)
+    }
+
+    @Test
+    fun npcDetailParsesLootTable() {
+        val json = """
+            {"result":{"data":{
+              "id":"FD_L03_M_Golem_Talus_001",
+              "name":"Talus",
+              "subtitle":"Eternal Guardian",
+              "level":46,
+              "mainCategory":"boss",
+              "mapId":10070052,
+              "npcDropsItems":[{"id":"staff_aa_t5_boss_001","name":"Talus's Crystalline Staff","dbType":"item","mainCategory":"weapons","quantity":1,"dropType":"random","probability":0.0769232}]
+            }}}
+        """.trimIndent()
+        val npc = QuestlogParser.npcDetail(json)!!
+        assertEquals("Talus", npc.name)
+        assertEquals(1, npc.drops.size)
+        assertEquals("Talus's Crystalline Staff", npc.drops.first().name)
     }
 
     @Test

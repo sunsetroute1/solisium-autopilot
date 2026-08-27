@@ -55,6 +55,7 @@ data class CommunityHit(
     val detail: String?,
     val url: String?,
     val catalogName: String?,
+    val entityId: String? = null,
 )
 
 data class CommunitySnapshot(
