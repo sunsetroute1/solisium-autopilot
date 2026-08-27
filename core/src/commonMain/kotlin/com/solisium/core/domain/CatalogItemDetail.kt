@@ -29,6 +29,8 @@ data class QuestlogItemOverlay(
     val perkSummaries: List<String>,
     val droppedFromNpcs: List<QuestlogDropEntry> = emptyList(),
     val containerSources: List<QuestlogDropEntry> = emptyList(),
+    /** Questlog grade string when present (may be numeric or named). */
+    val grade: String? = null,
     /** @deprecated use [containerSources] names; kept for older UI paths */
     val dropSources: List<String> = containerSources.map { it.name }.distinct(),
 )

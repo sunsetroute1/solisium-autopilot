@@ -1,10 +1,15 @@
 package com.solisium.desktop.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.LocalScrollbarStyle
+import androidx.compose.foundation.ScrollbarStyle
+import androidx.compose.foundation.defaultScrollbarStyle
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.ProvidableCompositionLocal
 import androidx.compose.runtime.staticCompositionLocalOf
@@ -28,9 +33,9 @@ object Palette {
     val Border = Color(0xFF262C36)
     val BorderStrong = Color(0xFF333B47)
 
-    val Text = Color(0xFFE7EAEE)
-    val TextMuted = Color(0xFF97A0AD)
-    val TextFaint = Color(0xFF6B7480)
+    val Text = Color(0xFFF0F2F5)
+    val TextMuted = Color(0xFFB4BEC9)
+    val TextFaint = Color(0xFF8A95A3)
 
     /** Accent is warm to match the game's UI without competing with provenance colours. */
     val Accent = Color(0xFFE3B15C)
@@ -80,64 +85,106 @@ private val AppTypography = Typography(
     displaySmall = androidx.compose.ui.text.TextStyle(
         fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.SemiBold,
-        fontSize = 28.sp,
+        fontSize = 30.sp,
+        lineHeight = 36.sp,
         letterSpacing = (-0.5).sp,
+    ),
+    displayMedium = androidx.compose.ui.text.TextStyle(
+        fontFamily = FontFamily.SansSerif,
+        fontWeight = FontWeight.Bold,
+        fontSize = 48.sp,
+        lineHeight = 52.sp,
     ),
     headlineSmall = androidx.compose.ui.text.TextStyle(
         fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.SemiBold,
-        fontSize = 20.sp,
+        fontSize = 22.sp,
+        lineHeight = 28.sp,
         letterSpacing = (-0.2).sp,
+    ),
+    titleLarge = androidx.compose.ui.text.TextStyle(
+        fontFamily = FontFamily.SansSerif,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 18.sp,
+        lineHeight = 24.sp,
     ),
     titleMedium = androidx.compose.ui.text.TextStyle(
         fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.Medium,
+        fontSize = 16.sp,
+        lineHeight = 22.sp,
+    ),
+    bodyLarge = androidx.compose.ui.text.TextStyle(
+        fontFamily = FontFamily.SansSerif,
+        fontWeight = FontWeight.Normal,
         fontSize = 15.sp,
+        lineHeight = 22.sp,
     ),
     bodyMedium = androidx.compose.ui.text.TextStyle(
         fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.Normal,
-        fontSize = 13.5.sp,
-        lineHeight = 20.sp,
+        fontSize = 14.sp,
+        lineHeight = 21.sp,
     ),
     bodySmall = androidx.compose.ui.text.TextStyle(
         fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.Normal,
+        fontSize = 13.sp,
+        lineHeight = 19.sp,
+    ),
+    labelMedium = androidx.compose.ui.text.TextStyle(
+        fontFamily = FontFamily.SansSerif,
+        fontWeight = FontWeight.Medium,
         fontSize = 12.sp,
-        lineHeight = 17.sp,
+        lineHeight = 16.sp,
+        letterSpacing = 0.4.sp,
     ),
     labelSmall = androidx.compose.ui.text.TextStyle(
         fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.Medium,
-        fontSize = 10.5.sp,
-        letterSpacing = 0.6.sp,
+        fontSize = 11.sp,
+        lineHeight = 15.sp,
+        letterSpacing = 0.5.sp,
     ),
 )
 
 /** Monospace is used wherever a raw client value or row id is shown verbatim. */
 val MonoStyle = androidx.compose.ui.text.TextStyle(
     fontFamily = FontFamily.Monospace,
-    fontSize = 12.sp,
+    fontSize = 13.sp,
+    lineHeight = 18.sp,
+)
+
+/** Light thumb on near-black surfaces — default Compose scrollbars use black alpha and disappear. */
+fun appScrollbarStyle(): ScrollbarStyle = defaultScrollbarStyle().copy(
+    minimalHeight = 32.dp,
+    thickness = 9.dp,
+    shape = RoundedCornerShape(5.dp),
+    hoverDurationMillis = 160,
+    unhoverColor = Color(0xFF8A95A3),
+    hoverColor = Color(0xFFD0D7E0),
 )
 
 @Composable
 fun SolisiumTheme(content: @Composable () -> Unit) {
     @Suppress("UNUSED_EXPRESSION")
     isSystemInDarkTheme()
-    MaterialTheme(
-        colorScheme = darkColorScheme(
-            primary = Palette.Accent,
-            onPrimary = Palette.Base,
-            background = Palette.Base,
-            onBackground = Palette.Text,
-            surface = Palette.Surface,
-            onSurface = Palette.Text,
-            surfaceVariant = Palette.SurfaceHigh,
-            onSurfaceVariant = Palette.TextMuted,
-            outline = Palette.Border,
-            error = Palette.Danger,
-        ),
-        typography = AppTypography,
-        content = content,
-    )
+    CompositionLocalProvider(LocalScrollbarStyle provides appScrollbarStyle()) {
+        MaterialTheme(
+            colorScheme = darkColorScheme(
+                primary = Palette.Accent,
+                onPrimary = Palette.Base,
+                background = Palette.Base,
+                onBackground = Palette.Text,
+                surface = Palette.Surface,
+                onSurface = Palette.Text,
+                surfaceVariant = Palette.SurfaceHigh,
+                onSurfaceVariant = Palette.TextMuted,
+                outline = Palette.Border,
+                error = Palette.Danger,
+            ),
+            typography = AppTypography,
+            content = content,
+        )
+    }
 }

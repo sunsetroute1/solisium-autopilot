@@ -106,6 +106,7 @@ object QuestlogParser {
             requiredLevel = obj.long("requiredLevel"),
             sellPrice = obj.long("sellPrice"),
             tradeCategory = obj.str("tradeCategory"),
+            grade = obj.str("grade"),
             properties = itemProperties(obj),
             statLines = statLines(statsRoot),
             traitLines = traitLines(statsRoot),

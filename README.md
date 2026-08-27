@@ -47,7 +47,7 @@ Writes two zips to [`releases/`](releases/):
 | `...-windows-x64-installer.zip` | An MSI. Installs per-user, uninstalls through Settings. |
 | `...-windows-x64-portable.zip` | The app plus `install.cmd`, which copies it to `%LOCALAPPDATA%\Programs` and makes shortcuts. Uninstall with `.\Install-Solisium.ps1 -Uninstall`. |
 
-Current build: **0.1.1** — download from [releases/](releases/) without building locally.
+Current build: **0.1.2** — download from [releases/](releases/) without building locally.
 
 Both bundle a Java runtime, so a target machine needs no JDK, and both install
 per-user, so neither needs administrator rights. A starter catalog, demo

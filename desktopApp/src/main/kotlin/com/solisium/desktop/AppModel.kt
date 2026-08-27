@@ -625,11 +625,14 @@ class AppModel(private val scope: CoroutineScope) {
     }
 
     /** Warehouse grade for loot rows; falls back to row-id tokens when grade is missing. */
-    fun itemGrade(sourceRowId: String): String? {
-        val q = query ?: return com.solisium.core.domain.ItemGradeHints.inferFromRowId(sourceRowId)
+    fun itemGrade(sourceRowId: String, explicit: String? = null): String? {
+        val q = query ?: return com.solisium.core.domain.ItemGradeHints.resolve(explicit, sourceRowId)
         val snapshotId = q.activeSnapshotId()
-            ?: return com.solisium.core.domain.ItemGradeHints.inferFromRowId(sourceRowId)
-        return runCatching { q.resolveItemGrade(snapshotId, sourceRowId) }.getOrNull()
+            ?: return com.solisium.core.domain.ItemGradeHints.resolve(explicit, sourceRowId)
+        return runCatching {
+            com.solisium.core.domain.ItemGradeHints.resolve(explicit, sourceRowId)
+                ?: q.resolveItemGrade(snapshotId, sourceRowId)
+        }.getOrNull()
     }
 
     fun selectDropItem(item: GameItem) {
@@ -1459,7 +1462,9 @@ class AppModel(private val scope: CoroutineScope) {
                     }
                     detail = Load.Ok(
                         RowDetail(
-                            row = row,
+                            row = row.copy(
+                                grade = base.grade ?: row.grade,
+                            ),
                             stats = base.warehouseStats,
                             curves = base.curves,
                             curvePoints = base.curvePoints,
@@ -1633,6 +1638,8 @@ class AppModel(private val scope: CoroutineScope) {
                 named = display != null,
             )
         }
+        fun gradeFor(id: String, explicit: String? = null): String? =
+            explicit?.takeIf { it.isNotBlank() } ?: q.resolveItemGrade(snapshotId, id)
         return when (target) {
             CatalogKind.Items -> q.items(snapshotId, term).mapNotNull { item ->
                 if (!GearCatalogFilter.isGearListRow(
@@ -1649,24 +1656,48 @@ class AppModel(private val scope: CoroutineScope) {
                     item.sourceTable,
                     item.sourceRowId,
                     DisplayName.prettyEnum(item.category),
-                    item.grade,
+                    gradeFor(item.sourceRowId, item.grade),
                     looksOnly = true,
                 )
             }
             CatalogKind.Weapons -> q.weapons(snapshotId, term).mapNotNull {
-                emit(it.name, it.sourceTable, it.sourceRowId, DisplayName.prettyEnum(it.weaponType))
+                emit(
+                    it.name,
+                    it.sourceTable,
+                    it.sourceRowId,
+                    DisplayName.prettyEnum(it.weaponType),
+                    gradeFor(it.sourceRowId),
+                )
             }
             CatalogKind.Armor -> q.armor(snapshotId, term).mapNotNull {
-                emit(it.name, it.sourceTable, it.sourceRowId, DisplayName.prettyEnum(it.slot))
+                emit(
+                    it.name,
+                    it.sourceTable,
+                    it.sourceRowId,
+                    DisplayName.prettyEnum(it.slot),
+                    gradeFor(it.sourceRowId),
+                )
             }
             CatalogKind.Accessories -> q.accessories(snapshotId, term).mapNotNull {
-                emit(it.name, it.sourceTable, it.sourceRowId, DisplayName.prettyEnum(it.slot))
+                emit(
+                    it.name,
+                    it.sourceTable,
+                    it.sourceRowId,
+                    DisplayName.prettyEnum(it.slot),
+                    gradeFor(it.sourceRowId),
+                )
             }
             CatalogKind.Traits -> q.traits(snapshotId, term).mapNotNull {
                 emit(it.name, it.sourceTable, it.sourceRowId, null)
             }
             CatalogKind.Runes -> q.runes(snapshotId, term).mapNotNull {
-                emit(it.name, it.sourceTable, it.sourceRowId, DisplayName.prettyEnum(it.grade))
+                emit(
+                    it.name,
+                    it.sourceTable,
+                    it.sourceRowId,
+                    null,
+                    gradeFor(it.sourceRowId, it.grade),
+                )
             }
             CatalogKind.Skills -> q.skills(snapshotId, term).mapNotNull {
                 emit(it.name, it.sourceTable, it.sourceRowId, DisplayName.prettyEnum(it.skillType))

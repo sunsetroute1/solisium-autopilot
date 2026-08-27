@@ -888,7 +888,7 @@ private fun LabeledValue(
     ) {
         Text(label, style = MaterialTheme.typography.labelSmall, color = Palette.TextFaint)
         Spacer(Modifier.height(4.dp))
-        Box(Modifier.fillMaxWidth().height(28.dp), contentAlignment = Alignment.CenterStart) {
+        Box(Modifier.fillMaxWidth().height(32.dp), contentAlignment = Alignment.CenterStart) {
             Text(value, style = MaterialTheme.typography.bodyMedium, color = Palette.Text)
         }
     }
@@ -998,13 +998,15 @@ private fun SuggestField(
 private fun SuggestionRow(hit: CatalogHit, onPick: () -> Unit) {
     HoverRow(selected = false, onClick = onPick, modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)) {
         Column(Modifier.weight(1f).padding(horizontal = Spacing.sm, vertical = Spacing.xs)) {
-            Text(
-                hit.name ?: hit.sourceRowId,
-                style = MaterialTheme.typography.bodyMedium,
-                color = Palette.Text,
+            ItemNameWithRarity(
+                name = hit.name ?: hit.sourceRowId,
+                grade = catalogHitGrade(hit),
+                maxLines = 2,
             )
-            val meta = listOfNotNull(prettyEnum(hit.detail), hit.kind.takeIf { it.isNotBlank() })
-                .joinToString(" · ")
+            val meta = listOfNotNull(
+                prettyEnum(hit.detail).takeIf { catalogHitGrade(hit) == null },
+                hit.kind.takeIf { it.isNotBlank() },
+            ).joinToString(" · ")
             if (meta.isNotBlank()) {
                 Text(meta, style = MaterialTheme.typography.bodySmall, color = Palette.TextFaint)
             }
@@ -1019,7 +1021,7 @@ private fun Field(
     placeholder: String,
     modifier: Modifier = Modifier,
 ) {
-    Box(Modifier.fillMaxWidth().height(28.dp), contentAlignment = Alignment.CenterStart) {
+    Box(Modifier.fillMaxWidth().height(32.dp), contentAlignment = Alignment.CenterStart) {
         if (value.isEmpty()) {
             Text(placeholder, style = MaterialTheme.typography.bodyMedium, color = Palette.TextFaint)
         }
@@ -1052,7 +1054,12 @@ private fun LoadoutLine(line: ResolvedLoadoutLine) {
             if (line.empty || title == null) {
                 Text("Empty", style = MaterialTheme.typography.bodyMedium, color = Palette.TextFaint)
             } else {
-                Bold(title)
+                ItemNameWithRarity(
+                    name = title,
+                    grade = catalogHitGrade(line.hit),
+                    pipHeight = 22.dp,
+                    maxLines = 2,
+                )
             }
         }
         when {

@@ -14,11 +14,22 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.VerticalScrollbar
+import androidx.compose.foundation.rememberScrollbarAdapter
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.foundation.text.BasicTextField
@@ -36,6 +47,8 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.solisium.core.domain.DisplayName
+import com.solisium.core.domain.ItemGradeHints
+import com.solisium.desktop.theme.appScrollbarStyle
 import com.solisium.desktop.theme.Palette
 import com.solisium.desktop.theme.Spacing
 
@@ -92,8 +105,8 @@ fun Card(
 fun SectionLabel(text: String, modifier: Modifier = Modifier) {
     Text(
         text = text.uppercase(),
-        style = MaterialTheme.typography.labelSmall,
-        color = Palette.TextFaint,
+        style = MaterialTheme.typography.labelMedium,
+        color = Palette.TextMuted,
         modifier = modifier,
     )
 }
@@ -281,16 +294,52 @@ fun ActionButton(
     }
 }
 
+fun displayGrade(sourceRowId: String?, grade: String?): String? =
+    ItemGradeHints.resolve(grade, sourceRowId)
+
 fun rarityColor(grade: String?): Color {
-    val token = DisplayName.prettyEnum(grade)?.uppercase() ?: return Palette.BorderStrong
-    return when (token) {
-        "AAA", "LEGENDARY", "HEROIC", "MYTHIC" -> Palette.Gold
-        "AA", "EPIC" -> Palette.Epic
-        "A", "RARE" -> Palette.Rare
-        "B", "UNCOMMON" -> Palette.Uncommon
-        "C", "COMMON" -> Palette.Common
-        else -> Palette.BorderStrong
+    val resolved = grade?.let { ItemGradeHints.normalizeGrade(it) ?: it }
+    val token = DisplayName.prettyEnum(resolved)?.uppercase() ?: return Palette.Text
+    return when {
+        token in setOf("AAA", "LEGENDARY", "HEROIC", "MYTHIC") -> Palette.Gold
+        token.startsWith("EPIC") || token == "AA" -> Palette.Epic
+        token.startsWith("RARE") || token == "A" -> Palette.Rare
+        token == "B" || token == "UNCOMMON" -> Palette.Uncommon
+        token == "C" || token == "COMMON" -> Palette.Text
+        else -> Palette.Text
     }
+}
+
+fun hasRarityColor(grade: String?, sourceRowId: String? = null): Boolean {
+    val resolved = displayGrade(sourceRowId, grade) ?: return false
+    return rarityColor(resolved) != Palette.Text
+}
+
+/** Subtle left tint so rarity is obvious even at a glance. */
+fun Modifier.rarityRowTint(grade: String?, sourceRowId: String? = null): Modifier {
+    val resolved = displayGrade(sourceRowId, grade) ?: return this
+    val tint = rarityColor(resolved)
+    if (tint == Palette.Text) return this
+    return this.background(tint.copy(alpha = 0.10f))
+}
+
+/** Grade token from catalog hits when [CatalogHit.detail] holds item/rune rarity. */
+fun catalogHitGrade(hit: com.solisium.core.domain.CatalogHit?): String? =
+    when (hit?.kind) {
+        "item", "rune" -> hit.detail
+        else -> null
+    }
+
+/** Best-effort grade parsed from Questlog-style detail strings (`type · category · Epic`). */
+fun detailGradeToken(detail: String?): String? =
+    detail?.split(" · ")
+        ?.map { it.trim() }
+        ?.firstOrNull { part -> hasRarityColor(part) || ItemGradeHints.normalizeGrade(part) != null }
+
+@Composable
+fun RarityBadge(grade: String?, modifier: Modifier = Modifier) {
+    val label = prettyEnum(grade) ?: return
+    Badge(label, rarityColor(grade), modifier = modifier, caps = false)
 }
 
 @Composable
@@ -298,30 +347,33 @@ fun ItemNameWithRarity(
     name: String,
     grade: String?,
     modifier: Modifier = Modifier,
+    sourceRowId: String? = null,
     style: androidx.compose.ui.text.TextStyle = MaterialTheme.typography.bodyMedium,
     pipHeight: androidx.compose.ui.unit.Dp = 20.dp,
     maxLines: Int = Int.MAX_VALUE,
 ) {
+    val resolved = displayGrade(sourceRowId, grade)
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
-        RarityPip(grade, Modifier.height(pipHeight))
+        RarityPip(resolved, Modifier.height(pipHeight))
         Spacer(Modifier.width(Spacing.sm))
         Text(
             name,
             style = style,
-            color = rarityColor(grade),
+            color = rarityColor(resolved),
             maxLines = maxLines,
         )
     }
 }
 
 @Composable
-fun RarityPip(grade: String?, modifier: Modifier = Modifier) {
+fun RarityPip(grade: String?, modifier: Modifier = Modifier, sourceRowId: String? = null) {
+    val resolved = displayGrade(sourceRowId, grade)
     Box(
         modifier
-            .width(4.dp)
+            .width(5.dp)
             .height(28.dp)
             .clip(RoundedCornerShape(2.dp))
-            .background(rarityColor(grade)),
+            .background(rarityColor(resolved)),
     )
 }
 @Composable
@@ -330,6 +382,61 @@ fun Divider(modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun Bold(text: String, color: Color = Palette.Text) {
-    Text(text, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium), color = color)
+fun Bold(text: String, color: Color = Palette.Text, grade: String? = null, sourceRowId: String? = null) {
+    Text(
+        text,
+        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+        color = grade?.let { rarityColor(displayGrade(sourceRowId, it)) }
+            ?: color,
+    )
+}
+
+@Composable
+fun LazyListWithScrollbar(
+    modifier: Modifier = Modifier,
+    state: LazyListState = rememberLazyListState(),
+    contentPadding: androidx.compose.foundation.layout.PaddingValues = androidx.compose.foundation.layout.PaddingValues(0.dp),
+    content: LazyListScope.() -> Unit,
+) {
+    val adapter = rememberScrollbarAdapter(state)
+    Box(modifier) {
+        LazyColumn(
+            Modifier.fillMaxSize(),
+            state = state,
+            contentPadding = contentPadding,
+            content = content,
+        )
+        Box(
+            Modifier.align(Alignment.CenterEnd).fillMaxHeight().width(14.dp)
+                .background(Palette.SurfaceHigh.copy(alpha = 0.85f)),
+        ) {
+            VerticalScrollbar(
+                modifier = Modifier.fillMaxHeight().align(Alignment.CenterEnd),
+                adapter = adapter,
+                style = appScrollbarStyle(),
+            )
+        }
+    }
+}
+
+@Composable
+fun ColumnWithScrollbar(
+    modifier: Modifier = Modifier,
+    state: ScrollState = rememberScrollState(),
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    val adapter = rememberScrollbarAdapter(state)
+    Box(modifier) {
+        Column(Modifier.fillMaxSize().verticalScroll(state), content = content)
+        Box(
+            Modifier.align(Alignment.CenterEnd).fillMaxHeight().width(14.dp)
+                .background(Palette.SurfaceHigh.copy(alpha = 0.85f)),
+        ) {
+            VerticalScrollbar(
+                modifier = Modifier.fillMaxHeight().align(Alignment.CenterEnd),
+                adapter = adapter,
+                style = appScrollbarStyle(),
+            )
+        }
+    }
 }

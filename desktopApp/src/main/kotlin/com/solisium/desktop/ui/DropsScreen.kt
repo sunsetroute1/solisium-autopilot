@@ -182,15 +182,21 @@ private fun DropItemList(model: AppModel) {
                     "Import your warehouse first, then search by the in-game item name.",
                 )
             } else {
-                LazyColumn(Modifier.fillMaxSize().padding(Spacing.md)) {
+                LazyListWithScrollbar(Modifier.fillMaxSize().padding(Spacing.md)) {
                     items(state.value, key = { "${it.sourceTable}:${it.sourceRowId}" }) { item ->
                         val selected = model.selectedDropItem?.sourceRowId == item.sourceRowId &&
                             model.selectedDropItem?.sourceTable == item.sourceTable
-                        HoverRow(selected = selected, onClick = { model.selectDropItem(item) }) {
+                        val grade = model.itemGrade(item.sourceRowId, item.grade)
+                        HoverRow(
+                            selected = selected,
+                            onClick = { model.selectDropItem(item) },
+                            modifier = Modifier.rarityRowTint(grade, item.sourceRowId),
+                        ) {
                             Column(Modifier.padding(vertical = Spacing.sm, horizontal = Spacing.md)) {
                                 ItemNameWithRarity(
                                     name = item.name ?: item.sourceRowId,
-                                    grade = item.grade,
+                                    grade = grade,
+                                    sourceRowId = item.sourceRowId,
                                     maxLines = 1,
                                 )
                                 item.category?.let {
@@ -222,7 +228,7 @@ private fun DropMonsterList(model: AppModel) {
                     "Re-import a warehouse that includes TLRewardNpcFoItem rows (TL-Helper build 24829515+).",
                 )
             } else {
-                LazyColumn(Modifier.fillMaxSize().padding(Spacing.md)) {
+                LazyListWithScrollbar(Modifier.fillMaxSize().padding(Spacing.md)) {
                     items(state.value, key = { it.sourceRowId }) { monster ->
                         val selected = model.selectedDropMonster?.sourceRowId == monster.sourceRowId
                         HoverRow(selected = selected, onClick = { model.selectDropMonster(monster) }) {
@@ -253,13 +259,12 @@ private fun DropMonsterList(model: AppModel) {
 
 @Composable
 private fun DropDetailPane(model: AppModel) {
-    Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState())
-            .padding(Spacing.lg),
-    ) {
-        when (model.dropMode) {
-            DropLookupMode.Item -> DropItemDetail(model)
-            DropLookupMode.Monster -> DropMonsterDetail(model)
+    ColumnWithScrollbar(Modifier.fillMaxSize()) {
+        Column(Modifier.padding(Spacing.lg)) {
+            when (model.dropMode) {
+                DropLookupMode.Item -> DropItemDetail(model)
+                DropLookupMode.Monster -> DropMonsterDetail(model)
+            }
         }
     }
 }
@@ -274,18 +279,20 @@ private fun DropItemDetail(model: AppModel) {
         )
         return
     }
+    val grade = model.itemGrade(item.sourceRowId, item.grade)
     ItemNameWithRarity(
         name = item.name ?: item.sourceRowId,
-        grade = item.grade,
+        grade = grade,
+        sourceRowId = item.sourceRowId,
         style = MaterialTheme.typography.titleLarge,
         pipHeight = 28.dp,
     )
     Spacer(Modifier.height(Spacing.xs))
     Text(
-        listOfNotNull(item.grade?.let { DisplayName.prettyEnum(it) }, DisplayName.prettyEnum(item.category))
+        listOfNotNull(grade?.let { DisplayName.prettyEnum(it) }, DisplayName.prettyEnum(item.category))
             .joinToString(" · ").ifBlank { "warehouse item" },
         style = MaterialTheme.typography.bodySmall,
-        color = rarityColor(item.grade).copy(alpha = 0.85f),
+        color = rarityColor(grade).copy(alpha = 0.85f),
     )
     if (model.dropFetching) {
         Spacer(Modifier.height(Spacing.lg))
@@ -464,6 +471,7 @@ fun ItemDropSourceTable(
                         ItemNameWithRarity(
                             name = row.itemName ?: row.itemSourceRowId,
                             grade = row.itemGrade,
+                            sourceRowId = row.itemSourceRowId,
                         )
                     }
                     val meta = buildList {

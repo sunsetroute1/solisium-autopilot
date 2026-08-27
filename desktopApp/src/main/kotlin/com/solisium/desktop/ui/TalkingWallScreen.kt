@@ -25,7 +25,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.solisium.core.domain.TalkingWallStatement
 import com.solisium.desktop.AppModel
 import com.solisium.desktop.Load
@@ -204,11 +203,7 @@ private fun WallHeroCard(row: TalkingWallStatement, matchCount: Int) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
                 label,
-                style = MaterialTheme.typography.displayMedium.copy(
-                    fontSize = 52.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 2.sp,
-                ),
+                style = MaterialTheme.typography.displayMedium,
                 color = accent,
             )
             Spacer(Modifier.weight(1f))

@@ -903,9 +903,27 @@ ORDER BY (name IS NULL OR name = '' OR name = source_row_id), name COLLATE NOCAS
 selectAllItemGrades:
 SELECT source_row_id, grade FROM game_item
 WHERE snapshot_id = ? AND grade IS NOT NULL AND trim(grade) != ''
-UNION
+UNION ALL
 SELECT source_row_id, grade FROM game_rune
 WHERE snapshot_id = ? AND grade IS NOT NULL AND trim(grade) != '';
+
+selectBestItemGrade:
+SELECT grade FROM (
+  SELECT grade,
+    CASE source_table
+      WHEN 'TLItemLooks_Equip' THEN 0
+      WHEN 'TLItemLooks' THEN 1
+      WHEN 'TLItemEquip' THEN 2
+      ELSE 3
+    END AS sort_key
+  FROM game_item
+  WHERE snapshot_id = ? AND source_row_id = ? AND grade IS NOT NULL AND trim(grade) != ''
+  UNION ALL
+  SELECT grade, 4 AS sort_key FROM game_rune
+  WHERE snapshot_id = ? AND source_row_id = ? AND grade IS NOT NULL AND trim(grade) != ''
+)
+ORDER BY sort_key
+LIMIT 1;
 
 selectDropBrowseItems:
 SELECT source_table, source_row_id, name, grade, category
