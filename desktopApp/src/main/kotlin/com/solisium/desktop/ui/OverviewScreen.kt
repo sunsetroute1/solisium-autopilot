@@ -97,7 +97,9 @@ private fun OverviewBody(model: AppModel, overview: Overview) {
                     "The game has been patched since this dataset was extracted. Values may no longer match.",
                     model.tlHelperLastRun?.takeUnless { it.succeeded }?.summary(),
                 ).joinToString(" "),
-                actionLabel = if (needsExtract) "Run TL-Helper" else null,
+                actionLabel = if (needsExtract) {
+                    if (model.tlHelperCheckout != null) "Run TL-Helper" else "Get TL-Helper"
+                } else null,
                 onAction = if (needsExtract) ({ model.runTLHelper() }) else null,
                 progress = if (needsExtract) model.extractProgress else null,
             )
@@ -118,12 +120,18 @@ private fun OverviewBody(model: AppModel, overview: Overview) {
                 detail = listOfNotNull(
                     if (watch.canImport) {
                         "Use Import warehouse below, or it will import automatically after first-run setup."
+                    } else if (model.tlHelperCheckout == null) {
+                        "The starter catalog is already loaded so you can browse. For live patch data, " +
+                            "download TL-Helper, install Node.js and the .NET SDK, then run extract. " +
+                            "A key is found from Data → Find my key if you already have one."
                     } else {
                         "Solisium does not unpack game paks. A new warehouse for this Steam build is not on disk yet."
                     },
                     model.tlHelperLastRun?.takeUnless { it.succeeded }?.summary(),
                 ).joinToString(" "),
-                actionLabel = if (needsExtract) "Run TL-Helper" else null,
+                actionLabel = if (needsExtract) {
+                    if (model.tlHelperCheckout != null) "Run TL-Helper" else "Get TL-Helper"
+                } else null,
                 onAction = if (needsExtract) ({ model.runTLHelper() }) else null,
                 progress = if (needsExtract) model.extractProgress else null,
             )

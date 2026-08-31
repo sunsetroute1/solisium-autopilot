@@ -226,6 +226,7 @@ class AppModel(private val scope: CoroutineScope) {
         private set
 
     var tlHelperMessage by mutableStateOf<String?>(null)
+    var tlHelperCheckout by mutableStateOf<Path?>(TLHelperLocator().find())
         private set
 
     var catalogSyncNote by mutableStateOf<String?>(null)
@@ -1014,11 +1015,21 @@ class AppModel(private val scope: CoroutineScope) {
      * Opens TL-Helper's extract in a new window. If the checkout is not in a
      * known place, the caller must already have shown a folder picker.
      */
+    fun openTLHelperDownload() {
+        tlHelperMessage = TLHelperLauncher.MISSING_CHECKOUT
+        runCatching {
+            java.awt.Desktop.getDesktop().browse(java.net.URI(TLHelperLocator.CHECKOUT_URL))
+        }
+    }
+
     fun runTLHelper(checkout: Path? = null) {
         val locator = TLHelperLocator()
         val found = checkout ?: locator.find()
+        if (found == null && checkout == null) {
+            openTLHelperDownload()
+        }
         val root = found ?: FilePickers.pickDirectory(
-            "Select the TL-Helper folder",
+            "Select the downloaded TL-Helper folder",
             Path.of("D:", "TL_Helper"),
         ) ?: return
         if (!locator.isCheckout(root)) {
@@ -1026,6 +1037,7 @@ class AppModel(private val scope: CoroutineScope) {
             return
         }
         if (found == null) locator.remember(root)
+        tlHelperCheckout = root
         val buildId = patchWatch?.installedBuild
             ?: (overview as? Load.Ok)?.value?.installedBuild
         val result = TLHelperLauncher(locator = locator).launch(root, buildId)

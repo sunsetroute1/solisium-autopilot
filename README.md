@@ -4,6 +4,22 @@ Read-only Throne and Liberty companion for Windows and Android. It maintains a l
 
 This is not a bot, overlay injector, or game client. It never writes to the game install, touches process memory, or automates gameplay.
 
+## Install from GitHub (Windows)
+
+1. Download [the portable zip](releases/Solisium-Autopilot-0.1.10-windows-x64-portable.zip) or [the MSI zip](releases/Solisium-Autopilot-0.1.10-windows-x64-installer.zip).
+2. Install (portable: run `install.cmd`; MSI: run the `.msi`). No Java and no administrator rights.
+3. Open **Solisium Autopilot**. The starter catalog, demo character, and sample combat log load on first launch so every screen works.
+
+You do **not** need an archive key to browse that starter data. **Data → Find my key** stores a key only if one is already on this PC (typically `source-manifest.json` or `aes.txt` next to TL-Helper / `TL_Data`). The app never ships a key and never invents one.
+
+For live patch data you also need:
+
+- [TL-Helper](https://github.com/sunsetroute1/tl-helper) (clone or download the zip, then point Solisium at that folder)
+- [Node.js](https://nodejs.org/) and the [.NET SDK](https://dotnet.microsoft.com/download)
+- Throne and Liberty installed, plus a key you already have
+
+Then use **Get TL-Helper** / **Run TL-Helper** on Home or Data. Solisium will import `tl-<steam-build>.sqlite` when extract finishes.
+
 ## Current status
 
 Phase 1–5 plus a live `24829515` catalog import: architecture, schema (version 8), CLI import/query, a Compose Desktop app that both imports and reads, typed gear/trait/effect/material/stat mapping, per-item base stat values, shared enchant and item-level curves, and a manual character sheet (combat power, gear score, allocated stat points, weapon-pair class, every equipment slot, bag inventory, weapon mastery levels, and the skills-screen layers).
@@ -47,7 +63,7 @@ Writes two zips to [`releases/`](releases/):
 | `...-windows-x64-installer.zip` | An MSI. Installs per-user, uninstalls through Settings. |
 | `...-windows-x64-portable.zip` | The app plus `install.cmd`, which copies it to `%LOCALAPPDATA%\Programs` and makes shortcuts. Uninstall with `.\Install-Solisium.ps1 -Uninstall`. |
 
-Current build: **0.1.9** — download from [releases/](releases/) without building locally.
+Current build: **0.1.10** — download from [releases/](releases/) without building locally.
 
 Both bundle a Java runtime, so a target machine needs no JDK, and both install
 per-user, so neither needs administrator rights. A starter catalog, demo

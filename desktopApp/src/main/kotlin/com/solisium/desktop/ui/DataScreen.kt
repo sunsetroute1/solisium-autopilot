@@ -93,7 +93,11 @@ private fun ImportPanel(model: AppModel) {
                 Spacer(Modifier.height(Spacing.sm))
                 model.extractProgress?.let { ExtractProgressBars(it) }
                 Spacer(Modifier.height(Spacing.sm))
-                ActionButton("Run TL-Helper", { model.runTLHelper() }, primary = true)
+                ActionButton(
+                    if (model.tlHelperCheckout != null) "Run TL-Helper" else "Get TL-Helper",
+                    { model.runTLHelper() },
+                    primary = true,
+                )
             }
             model.tlHelperMessage?.let { message ->
                 Spacer(Modifier.height(Spacing.xs))
@@ -181,7 +185,9 @@ private fun KeyPanel(model: AppModel) {
         }
         Spacer(Modifier.height(Spacing.xs))
         Text(
-            "Only needed to extract game files yourself. This build ships without one.",
+            "Only needed to extract game files yourself. This build ships without one. " +
+                "Find my key looks in TL-Helper, TL_Data, and this app's config folder " +
+                "for source-manifest.json or aes.txt. Search a folder if yours lives elsewhere.",
             style = MaterialTheme.typography.bodySmall,
             color = Palette.TextFaint,
         )
