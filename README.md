@@ -6,15 +6,15 @@ This is not a bot, overlay injector, or game client. It never writes to the game
 
 ## Install from GitHub (Windows)
 
-1. Download [the portable zip](releases/Solisium-Autopilot-0.1.10-windows-x64-portable.zip) or [the MSI zip](releases/Solisium-Autopilot-0.1.10-windows-x64-installer.zip).
-2. Install (portable: run `install.cmd`; MSI: run the `.msi`). No Java and no administrator rights.
+1. Download [the portable zip](releases/Solisium-Autopilot-0.1.11-windows-x64-portable.zip) or [the MSI zip](releases/Solisium-Autopilot-0.1.11-windows-x64-installer.zip).
+2. Install (portable: run `install.cmd`; MSI: run the `.msi`). No Java and no administrator rights. The portable installer also places TL-Helper under `%LOCALAPPDATA%\Programs\TL-Helper`.
 3. Open **Solisium Autopilot**. The starter catalog, demo character, and sample combat log load on first launch so every screen works.
 
 You do **not** need an archive key to browse that starter data. **Data → Find my key** stores a key only if one is already on this PC (typically `source-manifest.json` or `aes.txt` next to TL-Helper / `TL_Data`). The app never ships a key and never invents one.
 
 For live patch data you also need:
 
-- [TL-Helper](https://github.com/sunsetroute1/tl-helper) (clone or download the zip, then point Solisium at that folder)
+- [TL-Helper](https://github.com/sunsetroute1/tl-helper) — included as `vendor/tl-helper` in this repo (`git clone --recurse-submodules`), bundled in the app image, and installed by `install.cmd` or **Get TL-Helper**
 - [Node.js](https://nodejs.org/) and the [.NET SDK](https://dotnet.microsoft.com/download)
 - Throne and Liberty installed, plus a key you already have
 
@@ -37,7 +37,14 @@ Read these first:
 ## Build
 
 ```powershell
+git clone --recurse-submodules https://github.com/sunsetroute1/solisium-autopilot.git
 .\gradlew.bat :core:jvmTest :cli:run --args="help"
+```
+
+If the clone already exists without the submodule:
+
+```powershell
+git submodule update --init vendor/tl-helper
 ```
 
 ## Desktop app
@@ -63,7 +70,7 @@ Writes two zips to [`releases/`](releases/):
 | `...-windows-x64-installer.zip` | An MSI. Installs per-user, uninstalls through Settings. |
 | `...-windows-x64-portable.zip` | The app plus `install.cmd`, which copies it to `%LOCALAPPDATA%\Programs` and makes shortcuts. Uninstall with `.\Install-Solisium.ps1 -Uninstall`. |
 
-Current build: **0.1.10** — download from [releases/](releases/) without building locally.
+Current build: **0.1.11** — download from [releases/](releases/) without building locally.
 
 Both bundle a Java runtime, so a target machine needs no JDK, and both install
 per-user, so neither needs administrator rights. A starter catalog, demo

@@ -19,4 +19,11 @@ object InstallResources {
 
     fun starter(name: String): Path? =
         root()?.resolve("starter")?.resolve(name)?.takeIf { Files.isRegularFile(it) }
+
+    /** Bundled extract checkout copied into the app image from `vendor/tl-helper`. */
+    fun tlHelper(): Path? {
+        val dir = root()?.resolve("tl-helper") ?: return null
+        val script = dir.resolve("scripts").resolve("update-tl-helper.mjs")
+        return dir.takeIf { Files.isRegularFile(script) }
+    }
 }

@@ -76,6 +76,7 @@ import com.solisium.core.source.PatchWatchReport
 import com.solisium.core.source.PatchWatchState
 import com.solisium.core.source.TLHelperDataSource
 import com.solisium.core.source.TLHelperExtractProgress
+import com.solisium.core.source.TLHelperInstaller
 import com.solisium.core.source.TLHelperLauncher
 import com.solisium.core.source.TLHelperLocator
 import com.solisium.core.source.TLHelperRunLog
@@ -1012,32 +1013,55 @@ class AppModel(private val scope: CoroutineScope) {
     }
 
     /**
-     * Opens TL-Helper's extract in a new window. If the checkout is not in a
-     * known place, the caller must already have shown a folder picker.
+     * Installs TL-Helper from the bundled copy or GitHub when no checkout
+     * is on disk. Does not start extract.
      */
     fun openTLHelperDownload() {
-        tlHelperMessage = TLHelperLauncher.MISSING_CHECKOUT
-        runCatching {
-            java.awt.Desktop.getDesktop().browse(java.net.URI(TLHelperLocator.CHECKOUT_URL))
-        }
+        ensureTLHelperInstalled(thenRun = false)
     }
 
     fun runTLHelper(checkout: Path? = null) {
         val locator = TLHelperLocator()
         val found = checkout ?: locator.find()
-        if (found == null && checkout == null) {
-            openTLHelperDownload()
-        }
-        val root = found ?: FilePickers.pickDirectory(
-            "Select the downloaded TL-Helper folder",
-            Path.of("D:", "TL_Helper"),
-        ) ?: return
-        if (!locator.isCheckout(root)) {
-            tlHelperMessage = TLHelperLauncher.MISSING_CHECKOUT
+        if (found == null) {
+            ensureTLHelperInstalled(thenRun = true)
             return
         }
-        if (found == null) locator.remember(root)
-        tlHelperCheckout = root
+        launchTLHelper(locator, found)
+    }
+
+    private fun ensureTLHelperInstalled(thenRun: Boolean) {
+        scope.launch {
+            tlHelperMessage = "Installing TL-Helper…"
+            val result = withContext(Dispatchers.IO) { TLHelperInstaller().install() }
+            val locator = TLHelperLocator()
+            val root = result.getOrNull() ?: run {
+                tlHelperMessage = result.exceptionOrNull()?.message ?: TLHelperLauncher.MISSING_CHECKOUT
+                runCatching {
+                    java.awt.Desktop.getDesktop().browse(java.net.URI(TLHelperLocator.CHECKOUT_URL))
+                }
+                FilePickers.pickDirectory(
+                    "Select the downloaded TL-Helper folder",
+                    Path.of("D:", "TL_Helper"),
+                )
+            }
+            if (root == null || !locator.isCheckout(root)) {
+                if (tlHelperMessage == "Installing TL-Helper…") {
+                    tlHelperMessage = TLHelperLauncher.MISSING_CHECKOUT
+                }
+                return@launch
+            }
+            locator.remember(root)
+            tlHelperCheckout = root
+            if (thenRun) {
+                launchTLHelper(locator, root)
+            } else {
+                tlHelperMessage = "TL-Helper is ready at $root"
+            }
+        }
+    }
+
+    private fun launchTLHelper(locator: TLHelperLocator, root: Path) {
         val buildId = patchWatch?.installedBuild
             ?: (overview as? Load.Ok)?.value?.installedBuild
         val result = TLHelperLauncher(locator = locator).launch(root, buildId)
