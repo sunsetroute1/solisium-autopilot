@@ -900,6 +900,11 @@ FROM game_item
 WHERE snapshot_id = ?
 ORDER BY (name IS NULL OR name = '' OR name = source_row_id), name COLLATE NOCASE;
 
+selectItemIcons:
+SELECT source_table, source_row_id, icon_path
+FROM game_item
+WHERE snapshot_id = ? AND icon_path IS NOT NULL AND trim(icon_path) != '';
+
 selectAllItemGrades:
 SELECT source_row_id, grade FROM game_item
 WHERE snapshot_id = ? AND grade IS NOT NULL AND trim(grade) != ''

@@ -1,5 +1,6 @@
 package com.solisium.core.meta
 
+import com.solisium.core.domain.CommunityEventEntry
 import com.solisium.core.domain.CommunityHit
 import com.solisium.core.domain.CommunitySnapshot
 import com.solisium.core.domain.QuestlogItemOverlay
@@ -129,6 +130,22 @@ class CommunityMetaClient(
         return QuestlogParser.resourceDetail(body)
     }
 
+    /** Named events from Questlog `database.getEvents`. Not spawn times. */
+    fun fetchEventCatalog(maxPages: Int = 8): List<CommunityEventEntry> {
+        val out = LinkedHashMap<String, CommunityEventEntry>()
+        var page = 1
+        var pages = 1
+        while (page <= pages && page <= maxPages) {
+            val body = http.get(questlogEventsUrl(page))
+            val parsed = EventCalendarParser.page(body)
+            if (parsed.pageCount > 0) pages = parsed.pageCount
+            parsed.entries.forEach { out[it.id] = it }
+            if (parsed.entries.isEmpty() && page > 1) break
+            page += 1
+        }
+        return out.values.toList()
+    }
+
     fun searchEntities(term: String, extendSearch: Boolean = true): List<CommunityHit> {
         val trimmed = term.trim()
         if (trimmed.isEmpty()) return emptyList()
@@ -196,6 +213,11 @@ class CommunityMetaClient(
         fun questlogItemUrl(rowId: String): String {
             val input = """{"id":${jsonString(rowId)},"language":"en"}"""
             return "https://questlog.gg/throne-and-liberty/api/trpc/database.getItem?input=${enc(input)}"
+        }
+
+        fun questlogEventsUrl(page: Int): String {
+            val input = """{"language":"en","page":$page}"""
+            return "https://questlog.gg/throne-and-liberty/api/trpc/database.getEvents?input=${enc(input)}"
         }
 
         private fun enc(value: String): String =

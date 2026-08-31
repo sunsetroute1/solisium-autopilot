@@ -20,7 +20,7 @@ kotlin {
     jvmToolchain(17)
 }
 
-val appVersion = "0.1.2"
+val appVersion = "0.1.3"
 
 compose.desktop {
     application {

@@ -16,7 +16,7 @@ you want live game data instead of the demo set.
 Install (installer zip)
 -----------------------
 1. Extract the zip.
-2. Run "Solisium Autopilot-0.1.2.msi" and follow the prompts.
+2. Run "Solisium Autopilot-0.1.3.msi" and follow the prompts.
 
 Uninstall through Settings > Apps > Installed apps, like any other program.
 
@@ -79,18 +79,18 @@ Where your data lives
 
 Neither is touched by install or uninstall.
 
-What's in this build (0.1.2)
+What's in this build (0.1.3)
 ----------------------------
-- Talking Wall tab: searchable true/false answers (blue TRUE / red FALSE) with community key
-- Gear and Drops rarity colors (gold/purple/blue/green) from warehouse grades and row-id hints
-- Improved readability, visible scrollbars, and hero-style Wall search UX
-- Build screen with goal picker, T&L class types, and Questlog-style modeled CP/GS
+- Build screen: side-by-side "I currently have" / "I would like to have" paper dolls
+  (head, chest, arms, weapons) with warehouse icon paths when extracted PNGs exist
+- Events screen: T&L-style hour timetable, server/region picker, community cadence,
+  and a Questlog-named boss/riftstone roster (not live Amazon spawn times)
+- Talking Wall tab: searchable true/false answers (blue TRUE / red FALSE)
+- Gear and Drops rarity colors from warehouse grades and row-id hints
 - Gear catalog with warehouse stats, curves, and optional Questlog community detail
 - Character sheet editor with full loadout, mastery, and build layers
-- Combat analyzer: import all T&L logs from disk, portfolio DPS trends, per-skill
-  crit/heavy rates, session compare, and build cross-check vs your skill bar
+- Combat analyzer: import all T&L logs, portfolio DPS, session compare
 - Drops screen with farm-time estimates from observed drop rates
-- In-app combat logging setup guide (Ring Menu / Record Combat Log)
 
 T&L combat logs save to:
 

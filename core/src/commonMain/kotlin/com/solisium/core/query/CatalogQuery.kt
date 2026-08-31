@@ -370,6 +370,26 @@ class CatalogQuery(private val db: SolisiumDatabase) {
             it.stat_key to it.stat_name
         }
 
+    /**
+     * Best warehouse `IconPath` per item row id. Looks tables win over `TLItemEquip`.
+     * The path is an Unreal asset string, not a file we ship.
+     */
+    fun itemIcons(snapshotId: String): Map<String, String> {
+        val rank = mapOf(
+            "TLItemLooks_Equip" to 0,
+            "TLItemLooks" to 1,
+            "TLItemEquip" to 2,
+        )
+        return db.schemaQueries.selectItemIcons(snapshotId).executeAsList()
+            .groupBy { it.source_row_id }
+            .mapNotNull { (id, rows) ->
+                val best = rows.minByOrNull { rank[it.source_table] ?: 3 } ?: return@mapNotNull null
+                val path = best.icon_path?.trim()?.takeIf { it.isNotEmpty() } ?: return@mapNotNull null
+                id to path
+            }
+            .toMap()
+    }
+
     fun itemPowerByRow(snapshotId: String): Map<String, GameItemPower> {
         val rows = db.schemaQueries.selectCombatPower(snapshotId).executeAsList()
             .associateBy { it.source_row_id }

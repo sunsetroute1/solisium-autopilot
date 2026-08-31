@@ -11,8 +11,11 @@ import com.solisium.core.domain.CatalogCounts
 import com.solisium.core.domain.CatalogHit
 import com.solisium.core.domain.ClassSource
 import com.solisium.core.domain.CombatSessionSummary
+import com.solisium.core.domain.CommunityEventEntry
 import com.solisium.core.domain.CommunitySnapshot
 import com.solisium.core.domain.DatasetSnapshot
+import com.solisium.core.domain.EventDayPlan
+import com.solisium.core.domain.GameServer
 import com.solisium.core.domain.DesiredBuildPlan
 import com.solisium.core.domain.DiscoveredInfluence
 import com.solisium.core.domain.DisplayName
@@ -40,6 +43,7 @@ import com.solisium.core.domain.WeaponTypeLabel
 import com.solisium.core.domain.WeaponClassMatch
 import com.solisium.core.meta.CommunityMetaClient
 import com.solisium.core.meta.CommunityOverlay
+import com.solisium.core.meta.GameServers
 import com.solisium.core.meta.CommunityWeaponClasses
 import com.solisium.core.meta.OllamaNarrator
 import com.solisium.core.meta.TextNorm
@@ -47,6 +51,7 @@ import com.solisium.core.query.BuildGoal
 import com.solisium.core.query.BuildMismatch
 import com.solisium.core.query.CatalogQuery
 import com.solisium.core.query.DesiredBuildPlanner
+import com.solisium.core.query.EventTimelineBuilder
 import com.solisium.core.query.StatAxis
 import com.solisium.core.query.WeaponClassResolver
 import com.solisium.core.secret.AesKey
@@ -92,9 +97,10 @@ sealed interface Load<out T> {
 
 enum class Screen(val label: String, val blurb: String) {
     Overview("Home", "What to do next"),
-    Build("Build", "What kind of build do you want?"),
+    Build("Build", "What you have, and what you want"),
     Catalog("Gear", "Search by the name you see in game"),
     Drops("Drops", "Monsters, loot tables, farm spots"),
+    Events("Events", "Boss and event timetable"),
     Wall("Wall", "Talking Wall true/false answers"),
     Character("Character", "Your loadout"),
     Combat("Combat", "Damage from official logs"),
@@ -398,6 +404,25 @@ class AppModel(private val scope: CoroutineScope) {
 
     private var wallSearchJob: Job? = null
 
+    var eventServer by mutableStateOf(readStoredEventServer())
+        private set
+
+    var eventServerQuery by mutableStateOf("")
+        private set
+
+    var eventDayOffset by mutableStateOf(0)
+        private set
+
+    var eventPlan by mutableStateOf<Load<EventDayPlan>>(Load.Loading)
+        private set
+
+    var eventRefreshing by mutableStateOf(false)
+        private set
+
+    private var eventCatalog = emptyList<CommunityEventEntry>()
+    private var eventCatalogWarnings = emptyList<String>()
+    private var eventFetchedAt: String? = null
+
     var dropFetching by mutableStateOf(false)
         private set
 
@@ -461,6 +486,12 @@ class AppModel(private val scope: CoroutineScope) {
             }
             Screen.Catalog -> if (rows is Load.Loading) loadRows()
             Screen.Drops -> loadDropBrowse()
+            Screen.Events -> {
+                loadCharacters()
+                suggestEventServerFromCharacter()
+                refreshEventPlan()
+                if (eventCatalog.isEmpty()) refreshEventCatalog()
+            }
             Screen.Wall -> loadTalkingWall()
             Screen.Character -> loadCharacters()
             Screen.Combat -> {
@@ -1537,6 +1568,106 @@ class AppModel(private val scope: CoroutineScope) {
 
     fun selectWallStatement(row: TalkingWallStatement) {
         selectedWallStatement = row
+    }
+
+    fun pickEventServer(server: GameServer) {
+        eventServer = server
+        eventServerQuery = ""
+        persistEventServer(server)
+        refreshEventPlan()
+    }
+
+    fun onEventServerQuery(value: String) {
+        eventServerQuery = value
+    }
+
+    fun commitEventServerQuery() {
+        val typed = eventServerQuery.trim()
+        if (typed.isEmpty()) return
+        val server = GameServers.find(typed) ?: GameServers.custom(typed, eventServer)
+        pickEventServer(server)
+    }
+
+    fun pickEventDay(offset: Int) {
+        eventDayOffset = offset.coerceIn(0, 6)
+        refreshEventPlan()
+    }
+
+    fun characterServerHint(): String? {
+        val id = selectedCharacterId
+        val list = (characters as? Load.Ok)?.value.orEmpty()
+        return list.firstOrNull { it.id == id }?.server?.takeIf { it.isNotBlank() }
+            ?: list.firstOrNull { !it.server.isNullOrBlank() }?.server
+    }
+
+    fun refreshEventCatalog() {
+        if (eventRefreshing) return
+        eventRefreshing = true
+        scope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching { CommunityMetaClient().fetchEventCatalog() }
+            }
+            result.onSuccess { catalog ->
+                eventCatalog = catalog
+                eventCatalogWarnings = emptyList()
+                eventFetchedAt = Instant.now().toString()
+            }.onFailure { error ->
+                eventCatalogWarnings = listOf("Questlog event catalog failed: ${error.message}")
+            }
+            eventRefreshing = false
+            refreshEventPlan()
+        }
+    }
+
+    private fun suggestEventServerFromCharacter() {
+        if (Files.isRegularFile(eventServerFile())) return
+        val hint = characterServerHint() ?: return
+        GameServers.find(hint)?.let { eventServer = it }
+    }
+
+    private fun refreshEventPlan() {
+        scope.launch {
+            eventPlan = Load.Loading
+            val warehouse = when (
+                val loaded = read { q, snapshotId ->
+                    q.monsters(snapshotId, null, 400).filter {
+                        it.kindHint in setOf("field boss", "world boss", "guild raid")
+                    }
+                }
+            ) {
+                is Load.Ok -> loaded.value
+                else -> emptyList()
+            }
+            eventPlan = Load.Ok(
+                EventTimelineBuilder().plan(
+                    server = eventServer,
+                    dayOffset = eventDayOffset,
+                    catalog = eventCatalog,
+                    warehouse = warehouse,
+                    fetchedAt = eventFetchedAt,
+                    warnings = eventCatalogWarnings,
+                ),
+            )
+        }
+    }
+
+    private fun persistEventServer(server: GameServer) {
+        runCatching {
+            val file = eventServerFile()
+            Files.createDirectories(file.parent)
+            Files.writeString(file, server.key)
+        }
+    }
+
+    private fun eventServerFile(): Path =
+        Path.of(System.getProperty("user.home"), ".solisium", "event-server.txt")
+
+    private fun readStoredEventServer(): GameServer {
+        val key = runCatching {
+            val file = eventServerFile()
+            if (Files.isRegularFile(file)) Files.readString(file).trim() else ""
+        }.getOrDefault("")
+        return GameServers.find(key) ?: GameServers.default
     }
 
     private fun loadTalkingWall() {
