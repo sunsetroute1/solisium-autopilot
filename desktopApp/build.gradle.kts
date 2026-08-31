@@ -217,6 +217,9 @@ val buildStarterPack by tasks.registering(JavaExec::class) {
     }
 }
 
+tasks.matching { it.name == "prepareAppResources" }.configureEach {
+    dependsOn(buildStarterPack, stageTlHelperCheckout)
+}
 tasks.matching { it.name == "createDistributable" }.configureEach {
     dependsOn(buildStarterPack, stageTlHelperCheckout)
 }
