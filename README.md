@@ -30,7 +30,7 @@ Read these first:
 .\gradlew.bat :desktopApp:run
 ```
 
-Compose Desktop on JVM 17, reading the same `~/.solisium/solisium.sqlite` as the CLI (override with `SOLISIUM_DB`). Six screens: Overview (provenance, coverage, stale-dataset banner, patch watch), Build (goal picker, T&L class types, Questlog-style modeled CP/GS from warehouse item weights plus typed window targets, extracted ranks, skills-screen influence coverage, optional Questlog/TLDB overlay), Catalog (search with a stats and curve detail pane), Character (resolved loadout plus mastery and sidebar layers), Combat (portfolio analytics, crit/heavy breakdown, session compare, build cross-check), Data (import and snapshot activation).
+Compose Desktop on JVM 17, reading the same `~/.solisium/solisium.sqlite` as the CLI (override with `SOLISIUM_DB`). Screens: Overview (provenance, coverage, stale-dataset banner, patch watch), Build (I currently have / I would like to have paper dolls with warehouse icons when present), Events (server-selectable boss/event timetable), Catalog (search with a stats and curve detail pane), Character (resolved loadout plus mastery and sidebar layers), Combat (portfolio analytics, crit/heavy breakdown, session compare, build cross-check), Data (import and snapshot activation).
 
 The app is read-only with respect to the *game*; it does import into its own database. Data can import a TL-Helper warehouse, a combat log, or a character JSON, so the CLI is optional.
 
@@ -47,7 +47,7 @@ Writes two zips to [`releases/`](releases/):
 | `...-windows-x64-installer.zip` | An MSI. Installs per-user, uninstalls through Settings. |
 | `...-windows-x64-portable.zip` | The app plus `install.cmd`, which copies it to `%LOCALAPPDATA%\Programs` and makes shortcuts. Uninstall with `.\Install-Solisium.ps1 -Uninstall`. |
 
-Current build: **0.1.2** — download from [releases/](releases/) without building locally.
+Current build: **0.1.3** — download from [releases/](releases/) without building locally.
 
 Both bundle a Java runtime, so a target machine needs no JDK, and both install
 per-user, so neither needs administrator rights. A starter catalog, demo

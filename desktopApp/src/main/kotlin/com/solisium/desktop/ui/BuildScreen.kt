@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -22,15 +23,17 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.unit.dp
-import com.solisium.core.domain.BuildAdvice
 import com.solisium.core.domain.CommunitySnapshot
 import com.solisium.core.domain.DesiredBuildPlan
-import com.solisium.core.domain.DisplayName
 import com.solisium.core.domain.RankedGear
 import com.solisium.core.domain.SlotAdvice
 import com.solisium.core.domain.UserCharacter
@@ -47,8 +50,8 @@ import com.solisium.desktop.theme.Spacing
 fun BuildScreen(model: AppModel) {
     Column(Modifier.fillMaxSize()) {
         PageHeader(
-            "What kind of build do you want?",
-            "Questlog-style modeled CP and gear score from warehouse item weights, next to the typed window values. Not live-window CP, not DPS.",
+            "I currently have  ·  I would like to have",
+            "Left is the loadout you typed. Right is the top extracted rank for this goal. Click a slot to see the list underneath.",
         ) {
             Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm), verticalAlignment = Alignment.CenterVertically) {
                 ActionButton(
@@ -65,8 +68,6 @@ fun BuildScreen(model: AppModel) {
             GoalPicker(model)
             Spacer(Modifier.height(Spacing.md))
             ClassPicker(model)
-            Spacer(Modifier.height(Spacing.md))
-            DesiredTargetBar(model)
             Spacer(Modifier.height(Spacing.md))
             AxisPicker(model)
             Spacer(Modifier.height(Spacing.md))
@@ -169,50 +170,6 @@ private fun ClassPicker(model: AppModel) {
             color = Palette.TextFaint,
         )
     }
-}
-
-@Composable
-private fun DesiredTargetBar(model: AppModel) {
-    val current = (model.characters as? Load.Ok)?.value
-        ?.firstOrNull { it.id == model.selectedCharacterId }
-    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
-        NumberField(
-            label = "Current CP",
-            value = current?.combatPower?.format() ?: "—",
-            enabled = false,
-            onValueChange = {},
-            modifier = Modifier.weight(1f),
-        )
-        NumberField(
-            label = "Desired CP",
-            value = model.desiredCombatPowerText,
-            enabled = true,
-            onValueChange = model::onDesiredCombatPower,
-            placeholder = "e.g. 10000",
-            modifier = Modifier.weight(1f),
-        )
-        NumberField(
-            label = "Current gear score",
-            value = current?.gearScore?.format() ?: "—",
-            enabled = false,
-            onValueChange = {},
-            modifier = Modifier.weight(1f),
-        )
-        NumberField(
-            label = "Desired gear score",
-            value = model.desiredGearScoreText,
-            enabled = true,
-            onValueChange = model::onDesiredGearScore,
-            placeholder = "watermark, typed",
-            modifier = Modifier.weight(1f),
-        )
-    }
-    Spacer(Modifier.height(Spacing.xs))
-    Text(
-        "Typed CP/GS are the character-window numbers you entered. Modeled values use Questlog's equipment + skills + mastery layout with warehouse TLItemCombatPower weights when the item maps.",
-        style = MaterialTheme.typography.bodySmall,
-        color = Palette.TextFaint,
-    )
 }
 
 @Composable
@@ -617,6 +574,11 @@ private fun RoadmapCard(plan: DesiredBuildPlan) {
 @Composable
 private fun AdviceBody(model: AppModel, plan: DesiredBuildPlan) {
     val advice = plan.advice
+    var selectedSlot by remember { mutableStateOf<String?>(null) }
+    HaveWantRow(model, plan, selectedSlot) { selectedSlot = it }
+    Spacer(Modifier.height(Spacing.md))
+    GapMeters(plan)
+    Spacer(Modifier.height(Spacing.lg))
     ScoreboardCard(plan)
     Spacer(Modifier.height(Spacing.lg))
     RoadmapCard(plan)
@@ -632,8 +594,6 @@ private fun AdviceBody(model: AppModel, plan: DesiredBuildPlan) {
             )
             Spacer(Modifier.height(Spacing.md))
             CompareRadar(advice.axes, Modifier.fillMaxWidth())
-            Spacer(Modifier.height(Spacing.md))
-            PaperDoll(advice, plan)
         }
         Card(Modifier.weight(1f)) {
             SectionLabel("Briefing")
@@ -689,53 +649,163 @@ private fun AdviceBody(model: AppModel, plan: DesiredBuildPlan) {
 
     Spacer(Modifier.height(Spacing.lg))
     advice.slots.filter { it.recommended.isNotEmpty() || it.equipped != null }.forEach { slot ->
-        SlotCard(slot)
+        SlotCard(slot, selected = slot.slot == selectedSlot, onSelect = { selectedSlot = slot.slot })
         Spacer(Modifier.height(Spacing.md))
     }
 }
 
 @Composable
-private fun PaperDoll(advice: BuildAdvice, plan: DesiredBuildPlan) {
-    val bySlot = advice.slots.associateBy { it.slot }
-    val tokens = advice.weaponTokens.ifEmpty {
-        plan.selectedClass?.tokens?.toList().orEmpty()
+private fun HaveWantRow(
+    model: AppModel,
+    plan: DesiredBuildPlan,
+    selectedSlot: String?,
+    onSlotClick: (String) -> Unit,
+) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.lg)) {
+        Card(Modifier.weight(1f)) {
+            Text("I currently have", style = MaterialTheme.typography.titleLarge, color = Palette.Cool)
+            Spacer(Modifier.height(Spacing.xs))
+            Text(
+                plan.advice.characterName?.let { "Loadout for $it" }
+                    ?: "No character imported — slots stay empty until you load a sheet.",
+                style = MaterialTheme.typography.bodySmall,
+                color = Palette.TextFaint,
+            )
+            Spacer(Modifier.height(Spacing.md))
+            ScorePair(
+                combatPower = plan.currentCombatPower,
+                gearScore = plan.currentGearScore,
+                modeled = plan.modeled?.current,
+                modeledGs = plan.modeled?.gearScore,
+                editable = false,
+                desiredCombatPower = "",
+                desiredGearScore = "",
+                onCombatPower = {},
+                onGearScore = {},
+            )
+            Spacer(Modifier.height(Spacing.lg))
+            EquipmentPaperDoll(
+                advice = plan.advice,
+                plan = plan,
+                mode = DollMode.Current,
+                selectedSlot = selectedSlot,
+                onSlotClick = onSlotClick,
+            )
+        }
+        Card(Modifier.weight(1f)) {
+            Text("I would like to have", style = MaterialTheme.typography.titleLarge, color = Palette.Accent)
+            Spacer(Modifier.height(Spacing.xs))
+            Text(
+                "Top extracted piece per slot for this goal. Gold pip means the rank beats what you are wearing.",
+                style = MaterialTheme.typography.bodySmall,
+                color = Palette.TextFaint,
+            )
+            Spacer(Modifier.height(Spacing.md))
+            ScorePair(
+                combatPower = plan.desiredCombatPower,
+                gearScore = plan.desiredGearScore,
+                modeled = plan.modeled?.potential,
+                modeledGs = plan.modeled?.potentialGearScore,
+                editable = true,
+                desiredCombatPower = model.desiredCombatPowerText,
+                desiredGearScore = model.desiredGearScoreText,
+                onCombatPower = model::onDesiredCombatPower,
+                onGearScore = model::onDesiredGearScore,
+            )
+            Spacer(Modifier.height(Spacing.lg))
+            EquipmentPaperDoll(
+                advice = plan.advice,
+                plan = plan,
+                mode = DollMode.Desired,
+                selectedSlot = selectedSlot,
+                onSlotClick = onSlotClick,
+            )
+        }
     }
-    val weaponSlots = tokens.mapNotNull { token ->
-        DisplayName.prettyEnum(token)?.lowercase()?.let { slot ->
-            slot to (DisplayName.prettyEnum(token) ?: slot)
+}
+
+@Composable
+private fun ScorePair(
+    combatPower: Long?,
+    gearScore: Long?,
+    modeled: Long?,
+    modeledGs: Long?,
+    editable: Boolean,
+    desiredCombatPower: String,
+    desiredGearScore: String,
+    onCombatPower: (String) -> Unit,
+    onGearScore: (String) -> Unit,
+) {
+    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
+        if (editable) {
+            NumberField(
+                label = "Desired CP",
+                value = desiredCombatPower,
+                enabled = true,
+                onValueChange = onCombatPower,
+                placeholder = "e.g. 10000",
+                modifier = Modifier.weight(1f),
+            )
+            NumberField(
+                label = "Desired gear score",
+                value = desiredGearScore,
+                enabled = true,
+                onValueChange = onGearScore,
+                placeholder = "watermark, typed",
+                modifier = Modifier.weight(1f),
+            )
+        } else {
+            NumberField(
+                label = "Typed CP",
+                value = combatPower?.format() ?: "—",
+                enabled = false,
+                onValueChange = {},
+                modifier = Modifier.weight(1f),
+            )
+            NumberField(
+                label = "Typed gear score",
+                value = gearScore?.format() ?: "—",
+                enabled = false,
+                onValueChange = {},
+                modifier = Modifier.weight(1f),
+            )
         }
-    }.distinctBy { it.first }
-    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-            SlotPip("Head", bySlot["head"])
-        }
-        Spacer(Modifier.height(Spacing.sm))
-        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-            weaponSlots.forEach { (slot, label) -> SlotPip(label, bySlot[slot]) }
-            SlotPip("Chest", bySlot["chest"])
-            SlotPip("Cloak", bySlot["cloak"])
-        }
-        Spacer(Modifier.height(Spacing.sm))
-        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-            SlotPip("Hands", bySlot["hands"])
-            SlotPip("Legs", bySlot["legs"])
-            SlotPip("Feet", bySlot["feet"])
-        }
-        Spacer(Modifier.height(Spacing.sm))
-        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-            SlotPip("Neck", bySlot["necklace"])
-            SlotPip("Ring", bySlot["ring"])
-            SlotPip("Wrist", bySlot["bracelet"])
-            SlotPip("Belt", bySlot["belt"])
-        }
-        Spacer(Modifier.height(Spacing.sm))
+    }
+    if (modeled != null || modeledGs != null) {
+        Spacer(Modifier.height(Spacing.xs))
         Text(
-            advice.characterName?.let { "Loadout for $it" } ?: "No character imported — ranks only",
+            listOfNotNull(
+                modeled?.let { "Modeled CP ${it.format()}" },
+                modeledGs?.let { "modeled GS ${it.format()}" },
+            ).joinToString(" · "),
             style = MaterialTheme.typography.bodySmall,
-            color = Palette.TextFaint,
+            color = Palette.TextMuted,
         )
+    }
+}
+
+@Composable
+private fun GapMeters(plan: DesiredBuildPlan) {
+    Card(Modifier.fillMaxWidth()) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.lg)) {
+            HaveWantMeter(
+                label = "Combat power",
+                current = plan.modeled?.current ?: plan.currentCombatPower,
+                desired = plan.desiredCombatPower,
+                accent = Palette.Cool,
+                modifier = Modifier.weight(1f),
+            )
+            HaveWantMeter(
+                label = "Gear score",
+                current = plan.modeled?.gearScore ?: plan.currentGearScore,
+                desired = plan.desiredGearScore,
+                accent = Palette.Accent,
+                modifier = Modifier.weight(1f),
+            )
+        }
+        Spacer(Modifier.height(Spacing.xs))
         Text(
-            "Filled pip = equipped. Accent border = a named rank exists for this slot.",
+            "Bars use modeled values when a loadout maps; otherwise the typed window numbers. Not live-window CP.",
             style = MaterialTheme.typography.bodySmall,
             color = Palette.TextFaint,
         )
@@ -743,23 +813,29 @@ private fun PaperDoll(advice: BuildAdvice, plan: DesiredBuildPlan) {
 }
 
 @Composable
-private fun SlotCard(slot: SlotAdvice) {
+private fun SlotCard(slot: SlotAdvice, selected: Boolean, onSelect: () -> Unit) {
     val max = listOfNotNull(slot.equipped?.score, slot.recommended.maxOfOrNull { it.score }).maxOrNull() ?: 1L
-    Card(Modifier.fillMaxWidth()) {
+    Card(Modifier.fillMaxWidth().clickable(onClick = onSelect)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
+            GearIcon(iconPath = (slot.equipped ?: slot.recommended.firstOrNull())?.iconPath, slot = slot.slot, modifier = Modifier.size(28.dp))
+            Spacer(Modifier.width(Spacing.sm))
             Text(
                 slot.slot.replaceFirstChar { it.uppercase() },
                 style = MaterialTheme.typography.titleMedium,
                 color = Palette.Text,
                 modifier = Modifier.weight(1f),
             )
+            if (selected) {
+                Badge("this slot", Palette.Accent, caps = false)
+                Spacer(Modifier.width(Spacing.sm))
+            }
             slot.gap?.let { gap ->
                 Badge(if (gap == 0L) "on rank" else "gap ${gap.format()}", if (gap == 0L) Palette.Extracted else Palette.Unverified)
             }
         }
         slot.equipped?.let { GearRow("You", it, max, Palette.Cool) }
         slot.recommended.forEachIndexed { index, gear ->
-            GearRow(if (index == 0) "Top" else "#${index + 1}", gear, max, Palette.Accent)
+            GearRow(if (index == 0) "Want" else "#${index + 1}", gear, max, Palette.Accent)
         }
         if (slot.recommended.isEmpty()) {
             Spacer(Modifier.height(Spacing.sm))
@@ -773,6 +849,8 @@ private fun GearRow(tag: String, gear: RankedGear, max: Long, color: androidx.co
     Column(Modifier.fillMaxWidth().padding(top = Spacing.sm)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(tag, style = MaterialTheme.typography.bodySmall, color = Palette.TextFaint, modifier = Modifier.width(44.dp))
+            GearIcon(iconPath = gear.iconPath, slot = gear.slot, modifier = Modifier.size(22.dp))
+            Spacer(Modifier.width(Spacing.sm))
             ItemNameWithRarity(
                 name = gear.name,
                 grade = gear.grade,

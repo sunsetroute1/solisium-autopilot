@@ -27,6 +27,7 @@ class BuildAdvisorTest {
             val weapon = advice.slots.single { it.slot == "bow" }
             val top = weapon.recommended.single()
             assertEquals("Fixture Longbow", top.name)
+            assertEquals("/Game/Icon/bow", top.iconPath)
             // 17 attack power + 550 attack speed from main_base seed 2. Not DPS.
             assertEquals(567L, top.score)
             assertTrue(top.contributions.any { it.statKey == "attack_power_main_hand" && it.rawValue == 17L })

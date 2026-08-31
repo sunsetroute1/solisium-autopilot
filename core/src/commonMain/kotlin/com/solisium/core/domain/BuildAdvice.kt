@@ -18,6 +18,8 @@ data class RankedGear(
     val itemPower: Long? = null,
     val itemPowerEvidence: String? = null,
     val potentialPower: Long? = null,
+    /** Warehouse `IconPath.assetPath` (Unreal), not a packaged image. */
+    val iconPath: String? = null,
 )
 
 data class StatContribution(
