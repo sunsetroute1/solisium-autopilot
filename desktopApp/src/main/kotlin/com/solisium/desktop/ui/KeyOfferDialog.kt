@@ -34,6 +34,10 @@ import com.solisium.desktop.theme.Spacing
 @Composable
 fun KeyOfferDialog(model: AppModel) {
     if (model.warehouseSetup != null || model.dropSyncOffer != null) return
+    if (model.keys.offerChoice && model.keys.candidates.isNotEmpty()) {
+        ManyKeysOfferDialog(model)
+        return
+    }
     val offer = model.keys.offer ?: return
     Dialog(onDismissRequest = { model.declineFoundKey() }) {
         Column(
@@ -92,6 +96,65 @@ fun KeyOfferDialog(model: AppModel) {
             ) {
                 ActionButton("No thanks", { model.declineFoundKey() })
                 ActionButton("Store this key", { model.acceptFoundKey() }, primary = true)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ManyKeysOfferDialog(model: AppModel) {
+    val found = model.keys.candidates
+    Dialog(onDismissRequest = { model.declineFoundKey() }) {
+        Column(
+            Modifier.width(560.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .background(Palette.Surface)
+                .border(1.dp, Palette.Border, RoundedCornerShape(14.dp))
+                .padding(Spacing.xl),
+        ) {
+            Text(
+                "Found ${found.size} archive keys on this PC",
+                style = MaterialTheme.typography.titleLarge,
+                color = Palette.Text,
+            )
+            Spacer(Modifier.height(Spacing.xs))
+            Text(
+                "Store one so you do not have to find it again? You do not need a key to browse " +
+                    "data you have already imported.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = Palette.TextMuted,
+            )
+            Spacer(Modifier.height(Spacing.lg))
+            found.take(6).forEach { candidate ->
+                Column(
+                    Modifier.fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Palette.Base)
+                        .padding(Spacing.md),
+                ) {
+                    Bold("fingerprint ${candidate.fingerprint}")
+                    Spacer(Modifier.height(2.dp))
+                    Text(candidate.source, style = MonoStyle, color = Palette.TextFaint)
+                }
+                Spacer(Modifier.height(Spacing.sm))
+            }
+            if (found.size > 6) {
+                Text(
+                    "and ${found.size - 6} more on Data",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Palette.TextFaint,
+                )
+                Spacer(Modifier.height(Spacing.sm))
+            }
+            Reassurance("It stays on this PC. It is never sent anywhere and never shared.")
+            Reassurance("Only you can see it. The app shows fingerprints, never the key.")
+            Spacer(Modifier.height(Spacing.xl))
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.sm, Alignment.End),
+            ) {
+                ActionButton("No thanks", { model.declineFoundKey() })
+                ActionButton("Choose on Data", { model.chooseFoundKeysOnData() }, primary = true)
             }
         }
     }

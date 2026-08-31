@@ -16,9 +16,9 @@ you want live game data instead of the demo set.
 Install (installer zip)
 -----------------------
 1. Extract the zip.
-2. Run "Solisium Autopilot-0.1.11.msi" and follow the prompts.
-   After the MSI finishes, run Install-TLHelper.ps1 from this zip (or use
-   Get TL-Helper in the app) so extract has a checkout on disk.
+2. Run "Solisium Autopilot-0.1.12.msi" and follow the prompts.
+   The MSI includes the full TL-Helper checkout. First launch (or
+   Install-TLHelper.ps1 / Get TL-Helper) copies it onto disk. No key is included.
 
 Uninstall through Settings > Apps > Installed apps, like any other program.
 
@@ -86,10 +86,13 @@ Where your data lives
 
 Neither is touched by install or uninstall.
 
-What's in this build (0.1.11)
+What's in this build (0.1.12)
 ----------------------------
+- The installer ships the full TL-Helper checkout (web, scripts, collector),
+  never a key or config.local.json
+- First launch installs that checkout and asks if a key is already on this PC
 - TL-Helper is in this repo as vendor/tl-helper and is installed with Solisium
-  (bundled extract checkout, or a download from sunsetroute1/tl-helper)
+  (bundled copy, or a download from sunsetroute1/tl-helper)
 - Get TL-Helper installs that checkout instead of only opening GitHub
 - A GitHub install works on the starter catalog with no key and no TL-Helper
 - Find my key also searches the TL-Helper folder and source-manifest.json

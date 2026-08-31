@@ -14,7 +14,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-$skipDirs = @('.git', 'node_modules', 'bin', 'obj', 'out', 'tools', '.claude', '.wrangler', 'supabase')
+$skipDirs = @('.git', 'node_modules', 'bin', 'obj', 'out', 'tools', '.claude', '.wrangler')
 $skipFiles = @('.env', '.env.local', 'config.local.json', 'aes.txt', 'aes.key', 'secrets.properties', 'source-manifest.json')
 
 function Test-Checkout([string] $Path) {

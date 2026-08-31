@@ -93,7 +93,6 @@ class TLHelperInstaller(
             "tools",
             ".claude",
             ".wrangler",
-            "supabase",
         )
 
         val skipFileNames = setOf(

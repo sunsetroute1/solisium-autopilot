@@ -70,6 +70,19 @@ class SecretScanner(
     )
     private val interestingExtensions = listOf("txt", "key", "json", "ini", "cfg", "conf", "properties", "yaml", "yml")
 
+    /**
+     * Bundled TL-Helper ships a lot of JSON whose `key` fields are content hashes.
+     * Walking those would bury a real archive key and prompt the user with noise.
+     */
+    private val skipDirectoryNames = setOf(
+        "optimizer-precache",
+        "node_modules",
+        ".git",
+        "bin",
+        "obj",
+    )
+    private val skipFileNames = setOf("package-lock.json")
+
     fun scan(extraRoots: List<Path> = emptyList()): ScanReport {
         val candidates = LinkedHashMap<String, KeyCandidate>()
         val skipped = mutableListOf<String>()
@@ -147,10 +160,19 @@ class SecretScanner(
 
     private fun isInteresting(path: Path): Boolean {
         if (!Files.isRegularFile(path)) return false
+        if (isIgnoredPath(path)) return false
         val name = path.fileName?.toString()?.lowercase() ?: return false
+        if (name in skipFileNames) return false
         if (name in interestingNames) return true
         val extension = name.substringAfterLast('.', "")
         return extension in interestingExtensions
+    }
+
+    private fun isIgnoredPath(path: Path): Boolean {
+        for (i in 0 until path.nameCount) {
+            if (path.getName(i).toString().lowercase() in skipDirectoryNames) return true
+        }
+        return false
     }
 
     private fun readTextOrNull(file: Path, skipped: MutableList<String>): String? {

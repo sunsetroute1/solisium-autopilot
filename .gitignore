@@ -16,6 +16,10 @@ Thumbs.db
 # Staged into the app image at package time from vendor/tl-helper.
 desktopApp/appResources/windows/tl-helper/
 
+# Full TL-Helper in the image pushes these over GitHub's 100 MB git limit.
+# Publish them as GitHub Release assets instead.
+/releases/Solisium-Autopilot-*-windows-x64-*.zip
+
 # Never commit extracted game data, warehouse copies, or archive keys.
 # Patterns are deliberately broad: a key committed once stays in history forever.
 /data/
