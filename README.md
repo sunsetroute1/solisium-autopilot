@@ -6,15 +6,15 @@ This is not a bot, overlay injector, or game client. It never writes to the game
 
 ## Install from GitHub (Windows)
 
-1. Download [the portable zip](https://github.com/sunsetroute1/solisium-autopilot/releases/download/v0.1.11/Solisium-Autopilot-0.1.11-windows-x64-portable.zip) or [the MSI zip](https://github.com/sunsetroute1/solisium-autopilot/releases/download/v0.1.11/Solisium-Autopilot-0.1.11-windows-x64-installer.zip).
-2. Install (portable: run `install.cmd`; MSI: run the `.msi`). No Java and no administrator rights. The portable installer also places TL-Helper under `%LOCALAPPDATA%\Programs\TL-Helper`.
+1. Download [the portable zip](https://github.com/sunsetroute1/solisium-autopilot/releases/download/v0.1.12/Solisium-Autopilot-0.1.12-windows-x64-portable.zip) or [the MSI zip](https://github.com/sunsetroute1/solisium-autopilot/releases/download/v0.1.12/Solisium-Autopilot-0.1.12-windows-x64-installer.zip).
+2. Install (portable: run `install.cmd`; MSI: run the `.msi`). No Java and no administrator rights. The installer ships the full TL-Helper checkout (no keys) and places it under `%LOCALAPPDATA%\Programs\TL-Helper`.
 3. Open **Solisium Autopilot**. The starter catalog, demo character, and sample combat log load on first launch so every screen works.
 
 You do **not** need an archive key to browse that starter data. **Data → Find my key** stores a key only if one is already on this PC (typically `source-manifest.json` or `aes.txt` next to TL-Helper / `TL_Data`). The app never ships a key and never invents one.
 
 For live patch data you also need:
 
-- [TL-Helper](https://github.com/sunsetroute1/tl-helper) — included as `vendor/tl-helper` in this repo (`git clone --recurse-submodules`), bundled in the app image, and installed by `install.cmd` or **Get TL-Helper**
+- [TL-Helper](https://github.com/sunsetroute1/tl-helper) — the full checkout is in `vendor/tl-helper`, bundled in the installer, and installed on first launch / `install.cmd` / **Get TL-Helper**. Keys are never shipped; the app searches this PC and asks before storing one.
 - [Node.js](https://nodejs.org/) and the [.NET SDK](https://dotnet.microsoft.com/download)
 - Throne and Liberty installed, plus a key you already have
 
@@ -70,7 +70,7 @@ Writes two zips to [`releases/`](releases/):
 | `...-windows-x64-installer.zip` | An MSI. Installs per-user, uninstalls through Settings. |
 | `...-windows-x64-portable.zip` | The app plus `install.cmd`, which copies it to `%LOCALAPPDATA%\Programs` and makes shortcuts. Uninstall with `.\Install-Solisium.ps1 -Uninstall`. |
 
-Current build: **0.1.11** — download from the [v0.1.11 release](https://github.com/sunsetroute1/solisium-autopilot/releases/tag/v0.1.11) without building locally.
+Current build: **0.1.12** — download from the [v0.1.12 release](https://github.com/sunsetroute1/solisium-autopilot/releases/tag/v0.1.12) without building locally.
 
 Both bundle a Java runtime, so a target machine needs no JDK, and both install
 per-user, so neither needs administrator rights. A starter catalog, demo

@@ -21,7 +21,7 @@ kotlin {
     jvmToolchain(17)
 }
 
-val appVersion = "0.1.11"
+val appVersion = "0.1.12"
 
 compose.desktop {
     application {
@@ -100,12 +100,21 @@ fun labelMeansKey(label: String): Boolean {
  */
 val fixtureMarker = "secret-scan-allow-fixture"
 
+val skipSecretScanPathParts = setOf(
+    "optimizer-precache",
+    "node_modules",
+    ".git",
+)
+
 fun findSecrets(root: File, label: String): List<String> {
     if (!root.exists()) return emptyList()
     val problems = mutableListOf<String>()
     root.walkTopDown().forEach { file ->
         if (!file.isFile) return@forEach
+        val relative = file.relativeTo(root).path
+        if (relative.split('\\', '/').any { it.lowercase() in skipSecretScanPathParts }) return@forEach
         val name = file.name.lowercase()
+        if (name == "package-lock.json") return@forEach
         val extension = name.substringAfterLast('.', "")
         if (name in forbiddenFileNames || extension in forbiddenExtensions) {
             problems.add("$label: forbidden file ${file.relativeTo(root)}")
@@ -166,7 +175,7 @@ val tlHelperBundleDir = layout.projectDirectory.dir("appResources/windows/tl-hel
 
 val stageTlHelperCheckout by tasks.registering(Copy::class) {
     group = "distribution"
-    description = "Copies the extract checkout from vendor/tl-helper into the app image."
+    description = "Copies the full TL-Helper checkout into the app image, minus secrets and build junk."
     from({
         listOf(
             rootProject.file("vendor/tl-helper"),
@@ -176,16 +185,14 @@ val stageTlHelperCheckout by tasks.registering(Copy::class) {
                 "TL-Helper checkout not found. Run: git submodule update --init vendor/tl-helper",
             )
     }) {
-        include("scripts/**")
-        include("src/TlCollector/**")
-        include("schemas/**")
-        include("data-build-baselines/**")
-        include("package.json")
-        include("package-lock.json")
-        include("README.md")
-        include("web/tl-questlog-rules.js")
+        exclude("**/.git/**")
+        exclude("**/node_modules/**")
         exclude("**/bin/**")
         exclude("**/obj/**")
+        exclude("**/out/**")
+        exclude("**/.claude/**")
+        exclude("**/.wrangler/**")
+        exclude("**/tools/**")
         exclude("**/config.local.json")
         exclude("**/.env")
         exclude("**/.env.local")
@@ -193,6 +200,8 @@ val stageTlHelperCheckout by tasks.registering(Copy::class) {
         exclude("**/aes.key")
         exclude("**/secrets.properties")
         exclude("**/source-manifest.json")
+        exclude("**/oodle-data-shared.dll")
+        exclude("**/zlib-ng2.dll")
     }
     into(tlHelperBundleDir)
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE

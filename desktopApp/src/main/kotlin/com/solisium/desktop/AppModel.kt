@@ -157,9 +157,11 @@ data class KeyState(
     val message: String? = null,
     /** Set when a key was found on first run and the user has not answered yet. */
     val offer: KeyCandidate? = null,
+    /** Set when several keys were found on first run; [candidates] holds them. */
+    val offerChoice: Boolean = false,
 ) {
     override fun toString(): String =
-        "KeyState(stored=$stored, candidates=${candidates.size}, scanning=$scanning, offer=${offer != null})"
+        "KeyState(stored=$stored, candidates=${candidates.size}, scanning=$scanning, offer=${offer != null}, offerChoice=$offerChoice)"
 }
 
 /** A catalog kind rendered as a uniform row, so one list view serves every type. */
@@ -488,7 +490,7 @@ class AppModel(private val scope: CoroutineScope) {
         StarterBootstrap.seedIfNeeded(databasePath())
         refreshOverview()
         loadRows()
-        offerFoundKey()
+        bootstrapExtractAndKeys()
         refreshCharacterDetection()
         if (detectedCharacter != null) {
             importDetectedCharacters()
@@ -545,6 +547,22 @@ class AppModel(private val scope: CoroutineScope) {
         get() = secrets.path.parent.resolve("key-offer.declined")
 
     /**
+     * After installing, put the bundled TL-Helper on disk if it is not already
+     * here, then look for a key the operator already has and ask before storing it.
+     */
+    private fun bootstrapExtractAndKeys() {
+        scope.launch {
+            withContext(Dispatchers.IO) {
+                if (TLHelperLocator().find() == null) {
+                    TLHelperInstaller().install()
+                }
+            }
+            tlHelperCheckout = TLHelperLocator().find()
+            offerFoundKey()
+        }
+    }
+
+    /**
      * After installing, the key is usually already sitting on disk from whatever
      * extracted the game data. Rather than expecting the user to know that and go
      * looking for a settings screen, find it once and ask.
@@ -562,10 +580,11 @@ class AppModel(private val scope: CoroutineScope) {
             val found = withContext(Dispatchers.IO) {
                 runCatching { SecretScanner().scan().candidates }.getOrDefault(emptyList())
             }
-            // With more than one candidate there is nothing to recommend, so send the
-            // user to the Data screen to choose rather than guessing on their behalf.
-            val single = found.singleOrNull() ?: return@launch
-            keys = keys.copy(offer = single)
+            when (found.size) {
+                0 -> Unit
+                1 -> keys = keys.copy(offer = found.single())
+                else -> keys = keys.copy(candidates = found, offerChoice = true)
+            }
         }
     }
 
@@ -575,8 +594,13 @@ class AppModel(private val scope: CoroutineScope) {
         storeKey(offered)
     }
 
+    fun chooseFoundKeysOnData() {
+        keys = keys.copy(offerChoice = false)
+        go(Screen.Data)
+    }
+
     fun declineFoundKey() {
-        keys = keys.copy(offer = null)
+        keys = keys.copy(offer = null, offerChoice = false)
         runCatching {
             Files.createDirectories(offerDeclinedMarker.parent)
             Files.writeString(

@@ -73,6 +73,21 @@ class SecretScannerTest {
 
     /** The regression that made the first version of this scan worthless. */
     @Test
+    fun ignoresOptimizerPrecacheHashesThatUseAKeyField() {
+        val dir = tempDir()
+        val cache = dir.resolve("web").resolve("data").resolve("optimizer-precache")
+        Files.createDirectories(cache)
+        Files.writeString(
+            cache.resolve("preset.json"),
+            """{"schema":"tl-helper.optimizer-precache-entry","key":"$key","engineFingerprint":"$other"}""",
+        )
+        Files.writeString(dir.resolve("aes.txt"), "$key\n")
+        val report = scanner().scan(listOf(dir))
+        assertEquals(listOf(key), report.candidates.map { it.keyHex })
+        assertTrue(report.candidates.single().source.contains("aes.txt"), "got ${report.candidates}")
+    }
+
+    @Test
     fun doesNotReportContentHashesFromAManifest() {
         val dir = tempDir()
         Files.writeString(
