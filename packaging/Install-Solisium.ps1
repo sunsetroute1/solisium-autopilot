@@ -2,7 +2,8 @@
     Per-user installer for Solisium Autopilot.
 
     Installs to %LOCALAPPDATA%\Programs so it needs no administrator rights, and copies
-    only the application image. It deliberately never creates, moves, or looks for a key:
+    the application image and installs TL-Helper (bundled copy, or a download from
+    github.com/sunsetroute1/tl-helper). It deliberately never creates, moves, or looks for a key:
     keys live in %LOCALAPPDATA%\Solisium\secrets.properties, which this script does not
     touch, so installing, reinstalling, and uninstalling all leave a key untouched and
     none of them can carry one into the install folder.
@@ -86,6 +87,15 @@ if (-not $NoShortcuts) {
     New-Shortcut $desktopLink $exe
 }
 
+$tlHelperRoot = Join-Path $InstallRoot 'TL-Helper'
+try {
+    Write-Host ''
+    & (Join-Path $PSScriptRoot 'Install-TLHelper.ps1') -InstallRoot $tlHelperRoot -SearchRoot $target
+} catch {
+    Write-Host "TL-Helper was not installed: $($_.Exception.Message)" -ForegroundColor Yellow
+    Write-Host 'Use Get TL-Helper in the app, or run Install-TLHelper.ps1 later.' -ForegroundColor Yellow
+}
+
 Write-Host ''
 Write-Host "$AppName installed." -ForegroundColor Green
 Write-Host "  Location:   $target"
@@ -96,3 +106,4 @@ Write-Host '  open the app, go to Data, and use the key finder' -ForegroundColor
 Write-Host '  (it is stored in %LOCALAPPDATA%\Solisium, never inside this folder)' -ForegroundColor DarkGray
 Write-Host ''
 Write-Host "Uninstall with: .\Install-Solisium.ps1 -Uninstall" -ForegroundColor DarkGray
+Write-Host "TL-Helper, if installed, is left at $tlHelperRoot" -ForegroundColor DarkGray

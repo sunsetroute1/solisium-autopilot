@@ -5,7 +5,7 @@ import java.nio.file.Path
 
 /**
  * Opens TL-Helper's extract in a new console. Solisium does not unpack paks;
- * this only starts the sibling tool the operator already installed.
+ * this only starts the sibling tool installed beside the app or found on disk.
  */
 class TLHelperLauncher(
     private val locator: TLHelperLocator = TLHelperLocator(),
@@ -123,8 +123,9 @@ class TLHelperLauncher(
 
     companion object {
         const val MISSING_CHECKOUT =
-            "TL-Helper was not found. Download it from ${TLHelperLocator.CHECKOUT_URL}, " +
-                "then pick the folder that contains scripts\\update-tl-helper.mjs. " +
+            "TL-Helper was not found. Get TL-Helper installs it from the bundled copy or " +
+                "${TLHelperLocator.CHECKOUT_URL}. Pick the folder that contains " +
+                "scripts\\update-tl-helper.mjs if you already downloaded it. " +
                 "Extract also needs Node.js and the .NET SDK. A key is found with Data → Find my key " +
                 "if you already have source-manifest.json or aes.txt on this PC."
         const val MISSING_NODE =

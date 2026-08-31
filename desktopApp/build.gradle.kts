@@ -1,3 +1,4 @@
+import java.io.File
 import org.gradle.jvm.tasks.Jar
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 
@@ -20,7 +21,7 @@ kotlin {
     jvmToolchain(17)
 }
 
-val appVersion = "0.1.10"
+val appVersion = "0.1.11"
 
 compose.desktop {
     application {
@@ -161,6 +162,44 @@ tasks.matching { it.name == "packageMsi" || it.name == "packageDistributionForCu
     .configureEach { dependsOn(verifyNoSecretsInDistribution) }
 
 val starterOutputDir = layout.projectDirectory.dir("appResources/windows/starter")
+val tlHelperBundleDir = layout.projectDirectory.dir("appResources/windows/tl-helper")
+
+val stageTlHelperCheckout by tasks.registering(Copy::class) {
+    group = "distribution"
+    description = "Copies the extract checkout from vendor/tl-helper into the app image."
+    from({
+        listOf(
+            rootProject.file("vendor/tl-helper"),
+            file("D:/TL_Helper"),
+        ).firstOrNull { File(it, "scripts/update-tl-helper.mjs").isFile }
+            ?: throw GradleException(
+                "TL-Helper checkout not found. Run: git submodule update --init vendor/tl-helper",
+            )
+    }) {
+        include("scripts/**")
+        include("src/TlCollector/**")
+        include("schemas/**")
+        include("data-build-baselines/**")
+        include("package.json")
+        include("package-lock.json")
+        include("README.md")
+        include("web/tl-questlog-rules.js")
+        exclude("**/bin/**")
+        exclude("**/obj/**")
+        exclude("**/config.local.json")
+        exclude("**/.env")
+        exclude("**/.env.local")
+        exclude("**/aes.txt")
+        exclude("**/aes.key")
+        exclude("**/secrets.properties")
+        exclude("**/source-manifest.json")
+    }
+    into(tlHelperBundleDir)
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    doFirst {
+        tlHelperBundleDir.asFile.deleteRecursively()
+    }
+}
 
 val buildStarterPack by tasks.registering(JavaExec::class) {
     group = "distribution"
@@ -178,8 +217,12 @@ val buildStarterPack by tasks.registering(JavaExec::class) {
     }
 }
 
-tasks.matching { it.name == "createDistributable" }.configureEach { dependsOn(buildStarterPack) }
-tasks.matching { it.name == "run" }.configureEach { dependsOn(buildStarterPack) }
+tasks.matching { it.name == "createDistributable" }.configureEach {
+    dependsOn(buildStarterPack, stageTlHelperCheckout)
+}
+tasks.matching { it.name == "run" }.configureEach {
+    dependsOn(buildStarterPack, stageTlHelperCheckout)
+}
 
 val releaseDir = rootProject.layout.projectDirectory.dir("releases")
 
@@ -197,7 +240,7 @@ val packageInstallerZip by tasks.registering(Zip::class) {
         include("*.msi")
     }
     from(rootProject.file("packaging")) {
-        include("README-INSTALL.txt")
+        include("README-INSTALL.txt", "Install-TLHelper.ps1")
     }
 }
 
@@ -217,7 +260,7 @@ val packagePortableZip by tasks.registering(Zip::class) {
     // installer script expects.
     from(layout.buildDirectory.dir("compose/binaries/main/app"))
     from(rootProject.file("packaging")) {
-        include("install.cmd", "Install-Solisium.ps1", "README-INSTALL.txt")
+        include("install.cmd", "Install-Solisium.ps1", "Install-TLHelper.ps1", "README-INSTALL.txt")
     }
 }
 

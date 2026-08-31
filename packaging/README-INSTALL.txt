@@ -16,7 +16,9 @@ you want live game data instead of the demo set.
 Install (installer zip)
 -----------------------
 1. Extract the zip.
-2. Run "Solisium Autopilot-0.1.10.msi" and follow the prompts.
+2. Run "Solisium Autopilot-0.1.11.msi" and follow the prompts.
+   After the MSI finishes, run Install-TLHelper.ps1 from this zip (or use
+   Get TL-Helper in the app) so extract has a checkout on disk.
 
 Uninstall through Settings > Apps > Installed apps, like any other program.
 
@@ -25,8 +27,10 @@ Install (portable zip)
 1. Extract the whole zip somewhere (Downloads is fine).
 2. Double-click install.cmd.
 
-That copies the app to %LOCALAPPDATA%\Programs\Solisium Autopilot and adds Start
-Menu and Desktop shortcuts.
+That copies the app to %LOCALAPPDATA%\Programs\Solisium Autopilot, installs
+TL-Helper to %LOCALAPPDATA%\Programs\TL-Helper (from the bundled copy, or a
+download from github.com/sunsetroute1/tl-helper), and adds Start Menu and
+Desktop shortcuts.
 
 To uninstall, run in PowerShell from the extracted folder:
 
@@ -52,9 +56,9 @@ and %LOCALAPPDATA%\Solisium. The first run also offers to store a found key,
 showing a fingerprint and the file it came from. Say no and it will not ask
 again. Search a folder if yours lives somewhere else.
 
-Live extract is optional. Download TL-Helper from
-https://github.com/sunsetroute1/tl-helper , install Node.js and the .NET SDK,
-then use Get TL-Helper / Run TL-Helper in the app.
+Live extract is optional. The installer (or Get TL-Helper in the app) places
+TL-Helper on disk from the bundled copy or https://github.com/sunsetroute1/tl-helper .
+Install Node.js and the .NET SDK, then use Run TL-Helper.
 
 A stored key:
 
@@ -82,12 +86,13 @@ Where your data lives
 
 Neither is touched by install or uninstall.
 
-What's in this build (0.1.10)
+What's in this build (0.1.11)
 ----------------------------
+- TL-Helper is in this repo as vendor/tl-helper and is installed with Solisium
+  (bundled extract checkout, or a download from sunsetroute1/tl-helper)
+- Get TL-Helper installs that checkout instead of only opening GitHub
 - A GitHub install works on the starter catalog with no key and no TL-Helper
 - Find my key also searches the TL-Helper folder and source-manifest.json
-- Get TL-Helper opens https://github.com/sunsetroute1/tl-helper when extract
-  is needed and no checkout is on disk
 - Run TL-Helper prepares warehouse inputs (loc, Questlog snapshots, baseline)
   after decode so a new Steam build can produce tl-<build>.sqlite
 - Run TL-Helper opens a visible Command Prompt (hidden consoles made clicks

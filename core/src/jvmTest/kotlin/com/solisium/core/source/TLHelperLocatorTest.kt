@@ -16,11 +16,8 @@ class TLHelperLocatorTest {
     @Test
     fun envPathWinsWhenItIsACheckout() {
         val root = checkout("from-env")
-        val locator = TLHelperLocator(
+        val locator = isolatedLocator(
             env = { if (it == "SOLISIUM_TL_HELPER") root.toString() else null },
-            isFile = { Files.isRegularFile(it) },
-            solisiumHome = Files.createTempDirectory("solisium-tlh-home"),
-            userHome = Files.createTempDirectory("solisium-tlh-unused"),
         )
         assertEquals(root, locator.find())
     }
@@ -29,12 +26,7 @@ class TLHelperLocatorTest {
     fun rememberedPathIsUsedWhenEnvIsUnset() {
         val home = Files.createTempDirectory("solisium-tlh-remember")
         val root = checkout("remembered")
-        val locator = TLHelperLocator(
-            env = { null },
-            isFile = { Files.isRegularFile(it) },
-            solisiumHome = home,
-            userHome = Files.createTempDirectory("solisium-tlh-unused"),
-        )
+        val locator = isolatedLocator(solisiumHome = home)
         locator.remember(root)
         assertEquals(root.normalize(), locator.find()?.normalize())
     }
@@ -42,10 +34,8 @@ class TLHelperLocatorTest {
     @Test
     fun folderWithoutTheUpdateScriptIsIgnored() {
         val empty = Files.createTempDirectory("solisium-tlh-empty")
-        val locator = TLHelperLocator(
+        val locator = isolatedLocator(
             env = { if (it == "SOLISIUM_TL_HELPER") empty.toString() else null },
-            isFile = { Files.isRegularFile(it) },
-            solisiumHome = Files.createTempDirectory("solisium-tlh-home"),
             userHome = empty,
         )
         assertNull(locator.resolveCheckout(empty))
@@ -54,12 +44,7 @@ class TLHelperLocatorTest {
     @Test
     fun updateScriptPathResolvesToTheCheckout() {
         val root = checkout("script-path")
-        val locator = TLHelperLocator(
-            env = { null },
-            isFile = { Files.isRegularFile(it) },
-            solisiumHome = Files.createTempDirectory("solisium-tlh-home"),
-            userHome = Files.createTempDirectory("solisium-tlh-unused"),
-        )
+        val locator = isolatedLocator()
         assertEquals(root, locator.resolveCheckout(root.resolve("scripts").resolve(TLHelperLocator.UPDATE_SCRIPT)))
     }
 
@@ -88,11 +73,9 @@ class TLHelperLocatorTest {
         val root = checkout("launch")
         val home = Files.createTempDirectory("solisium-tlh-home")
         val started = mutableListOf<TLHelperLauncher.LaunchSpec>()
-        val locator = TLHelperLocator(
+        val locator = isolatedLocator(
             env = { if (it == "SOLISIUM_TL_HELPER") root.toString() else null },
-            isFile = { Files.isRegularFile(it) },
             solisiumHome = home,
-            userHome = Files.createTempDirectory("solisium-tlh-unused"),
         )
         val launcher = TLHelperLauncher(
             locator = locator,
@@ -116,6 +99,36 @@ class TLHelperLocatorTest {
         assertTrue(!body.contains("powershell", ignoreCase = true))
         assertEquals(root.toAbsolutePath(), started.single().workingDir)
     }
+
+    @Test
+    fun defaultInstallRootIsPreferredOverTheDevDrive() {
+        val local = Files.createTempDirectory("solisium-tlh-local")
+        val root = checkout("installed")
+        val installed = local.resolve("Programs").resolve(TLHelperLocator.INSTALL_DIR_NAME)
+        Files.createDirectories(installed.resolve("scripts"))
+        Files.copy(
+            root.resolve("scripts").resolve(TLHelperLocator.UPDATE_SCRIPT),
+            installed.resolve("scripts").resolve(TLHelperLocator.UPDATE_SCRIPT),
+        )
+        val locator = isolatedLocator(localAppData = local)
+        assertEquals(installed, locator.find())
+    }
+
+    private fun isolatedLocator(
+        env: (String) -> String? = { null },
+        solisiumHome: Path = Files.createTempDirectory("solisium-tlh-home"),
+        userHome: Path = Files.createTempDirectory("solisium-tlh-unused"),
+        localAppData: Path = Files.createTempDirectory("solisium-tlh-appdata"),
+    ): TLHelperLocator = TLHelperLocator(
+        env = env,
+        isFile = { Files.isRegularFile(it) },
+        solisiumHome = solisiumHome,
+        userHome = userHome,
+        localAppData = localAppData,
+        bundledCheckouts = emptyList(),
+        workingDir = Files.createTempDirectory("solisium-tlh-cwd"),
+        wellKnownRoots = emptyList(),
+    )
 
     private fun checkout(label: String): Path {
         val root = Files.createTempDirectory("solisium-tlh-$label")
