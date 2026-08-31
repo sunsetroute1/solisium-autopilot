@@ -73,7 +73,13 @@ import com.solisium.core.source.InstalledGameDataSource
 import com.solisium.core.source.ManualImportDataSource
 import com.solisium.core.source.PatchWatch
 import com.solisium.core.source.PatchWatchReport
+import com.solisium.core.source.PatchWatchState
 import com.solisium.core.source.TLHelperDataSource
+import com.solisium.core.source.TLHelperExtractProgress
+import com.solisium.core.source.TLHelperLauncher
+import com.solisium.core.source.TLHelperLocator
+import com.solisium.core.source.TLHelperRunLog
+import com.solisium.core.source.TLHelperRunStatus
 import com.solisium.core.source.WarehouseLocator
 import com.solisium.core.source.WarehouseRef
 import java.nio.file.Files
@@ -219,8 +225,23 @@ class AppModel(private val scope: CoroutineScope) {
     var patchWatch by mutableStateOf<PatchWatchReport?>(null)
         private set
 
+    var tlHelperMessage by mutableStateOf<String?>(null)
+        private set
+
+    var catalogSyncNote by mutableStateOf<String?>(null)
+        private set
+
+    var tlHelperLastRun by mutableStateOf<TLHelperRunStatus?>(null)
+        private set
+
+    var extractProgress by mutableStateOf<TLHelperExtractProgress.Snapshot?>(null)
+        private set
+
     var discoveredInfluences by mutableStateOf<List<DiscoveredInfluence>>(emptyList())
         private set
+
+    private var pendingCatalogConfirm = false
+    private var warehouseWatchJob: Job? = null
 
     var kind by mutableStateOf(CatalogKind.Items)
         private set
@@ -989,6 +1010,44 @@ class AppModel(private val scope: CoroutineScope) {
         importWarehouse(path)
     }
 
+    /**
+     * Opens TL-Helper's extract in a new window. If the checkout is not in a
+     * known place, the caller must already have shown a folder picker.
+     */
+    fun runTLHelper(checkout: Path? = null) {
+        val locator = TLHelperLocator()
+        val found = checkout ?: locator.find()
+        val root = found ?: FilePickers.pickDirectory(
+            "Select the TL-Helper folder",
+            Path.of("D:", "TL_Helper"),
+        ) ?: return
+        if (!locator.isCheckout(root)) {
+            tlHelperMessage = TLHelperLauncher.MISSING_CHECKOUT
+            return
+        }
+        if (found == null) locator.remember(root)
+        val buildId = patchWatch?.installedBuild
+            ?: (overview as? Load.Ok)?.value?.installedBuild
+        val result = TLHelperLauncher(locator = locator).launch(root, buildId)
+        tlHelperMessage = result.fold(
+            onSuccess = {
+                "Opened a Command Prompt titled \"${TLHelperLauncher.WINDOW_TITLE}\". " +
+                    "If extract fails, that window stays open with the error. " +
+                    "Solisium will import the warehouse when it appears."
+            },
+            onFailure = { it.message ?: "Could not start TL-Helper." },
+        )
+        if (result.isSuccess) watchForNewWarehouse()
+    }
+
+    fun dismissTLHelperMessage() {
+        tlHelperMessage = null
+    }
+
+    fun dismissCatalogSyncNote() {
+        catalogSyncNote = null
+    }
+
     fun dismissWarehouseSetup() {
         warehouseSetup = null
         markWarehouseSetupComplete()
@@ -1028,11 +1087,58 @@ class AppModel(private val scope: CoroutineScope) {
         scope.launch {
             delay(1_500)
             checkPatch(autoImport = false)
+            refreshExtractProgress()
+            val marker = Path.of(System.getProperty("user.home"), ".solisium", "tl-extract.json")
+            if (Files.isRegularFile(marker)) watchForNewWarehouse()
             maybeOfferWarehouseSetup()
             while (true) {
                 delay(patchWatchInterval())
                 checkPatch(autoImport = warehouseSetupComplete())
             }
+        }
+    }
+
+    /**
+     * After the user starts TL-Helper extract, poll often enough to import the
+     * new warehouse when it lands and drop the stale-data banners.
+     */
+    private fun watchForNewWarehouse() {
+        warehouseWatchJob?.cancel()
+        warehouseWatchJob = scope.launch {
+            repeat(EXTRACT_WATCH_ATTEMPTS) {
+                refreshExtractProgress()
+                val build = patchWatch?.installedBuild
+                    ?: (overview as? Load.Ok)?.value?.installedBuild
+                tlHelperLastRun = withContext(Dispatchers.IO) {
+                    runCatching { TLHelperRunLog().latest(build) }.getOrNull()
+                }
+                val progress = extractProgress
+                if (progress?.failed == true) {
+                    tlHelperMessage = listOfNotNull(
+                        progress.label,
+                        tlHelperLastRun?.takeUnless { it.succeeded }?.summary(),
+                    ).joinToString(" ")
+                }
+                if (!importing && it % 10 == 0) {
+                    checkPatch(autoImport = true)
+                }
+                if (patchWatch?.state == PatchWatchState.CURRENT) {
+                    tlHelperMessage = null
+                    refreshExtractProgress()
+                    refreshOverview()
+                    return@launch
+                }
+                delay(EXTRACT_PROGRESS_MS)
+            }
+        }
+    }
+
+    private suspend fun refreshExtractProgress() {
+        val build = patchWatch?.installedBuild
+            ?: (overview as? Load.Ok)?.value?.installedBuild
+            ?: return
+        extractProgress = withContext(Dispatchers.IO) {
+            runCatching { TLHelperExtractProgress().inspect(build) }.getOrNull()
         }
     }
 
@@ -1058,6 +1164,9 @@ class AppModel(private val scope: CoroutineScope) {
             return
         }
         patchWatch = report
+        tlHelperLastRun = withContext(Dispatchers.IO) {
+            runCatching { TLHelperRunLog().latest(report.installedBuild) }.getOrNull()
+        }
         report.pakFingerprint?.let { writePakCache(it) }
         if (autoImport && report.canImport && warehouseSetupComplete()) {
             val path = report.warehouse?.path ?: return
@@ -1200,6 +1309,9 @@ class AppModel(private val scope: CoroutineScope) {
                 markWarehouseSetupComplete()
                 query?.invalidateGradeCache()
                 maybeOfferDropSyncAfterImport()
+                pendingCatalogConfirm = true
+                warehouseWatchJob?.cancel()
+                checkPatch(autoImport = false)
             }
             refreshOverview()
             loadSnapshots()
@@ -1535,11 +1647,31 @@ class AppModel(private val scope: CoroutineScope) {
                 discoveredInfluences = snapshot?.let {
                     dbLock.withLock { withContext(Dispatchers.IO) { q.discoveredInfluences(it.id) } }
                 }.orEmpty()
+                val warning = BuildMismatch.warning(installed, snapshot?.gameBuild)
+                if (pendingCatalogConfirm) {
+                    pendingCatalogConfirm = false
+                    val current = patchWatch?.state == null ||
+                        patchWatch?.state == PatchWatchState.CURRENT
+                    catalogSyncNote = if (snapshot != null && warning == null && current) {
+                        val fresh = discoveredInfluences.count { it.newThisPatch }
+                        buildString {
+                            append("Imported build ${snapshot.gameBuild}. Matches the installed game.")
+                            if (fresh > 0) {
+                                append(" $fresh new influence ")
+                                append(if (fresh == 1) "family" else "families")
+                                append(" in this warehouse.")
+                            }
+                        }
+                    } else {
+                        null
+                    }
+                    if (catalogSyncNote != null) tlHelperMessage = null
+                }
                 Overview(
                     snapshot = snapshot,
                     counts = counts,
                     installedBuild = installed,
-                    buildWarning = BuildMismatch.warning(installed, snapshot?.gameBuild),
+                    buildWarning = warning,
                 )
             }
         }
@@ -1889,6 +2021,8 @@ class AppModel(private val scope: CoroutineScope) {
 
     companion object {
         private const val BROWSE_CAP = 400
+        private const val EXTRACT_PROGRESS_MS = 1_000L
+        private const val EXTRACT_WATCH_ATTEMPTS = 1_200
 
         /** Matches the CLI so both surfaces read the same database. */
         fun databasePath(): Path {

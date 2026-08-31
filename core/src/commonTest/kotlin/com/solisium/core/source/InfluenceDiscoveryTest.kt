@@ -18,6 +18,7 @@ class InfluenceDiscoveryTest {
         )
         assertEquals(listOf("prefix:WP_FL"), found.map { it.id })
         assertEquals(2, found.single().namedCount)
+        assertEquals(listOf("Flute Tune", "Verse"), found.single().names)
         assertTrue(found.single().newThisPatch)
     }
 

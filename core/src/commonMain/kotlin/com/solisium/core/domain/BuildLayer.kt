@@ -129,4 +129,5 @@ data class DiscoveredInfluence(
     val totalCount: Int,
     val newThisPatch: Boolean,
     val note: String,
+    val names: List<String> = emptyList(),
 )

@@ -73,7 +73,7 @@ class JsonParseException(message: String) : IllegalArgumentException(message)
 
 object JsonParser {
     fun parse(text: String): JsonValue {
-        val parser = Parser(text)
+        val parser = Parser(text.removePrefix("\uFEFF"))
         val value = parser.parseValue()
         parser.skipWs()
         if (!parser.done()) throw JsonParseException("trailing content at ${parser.index}")

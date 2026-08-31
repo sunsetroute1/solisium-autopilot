@@ -16,7 +16,7 @@ you want live game data instead of the demo set.
 Install (installer zip)
 -----------------------
 1. Extract the zip.
-2. Run "Solisium Autopilot-0.1.3.msi" and follow the prompts.
+2. Run "Solisium Autopilot-0.1.9.msi" and follow the prompts.
 
 Uninstall through Settings > Apps > Installed apps, like any other program.
 
@@ -79,8 +79,23 @@ Where your data lives
 
 Neither is touched by install or uninstall.
 
-What's in this build (0.1.3)
+What's in this build (0.1.9)
 ----------------------------
+- Run TL-Helper prepares warehouse inputs (loc, Questlog snapshots, baseline)
+  after decode so a new Steam build can produce tl-<build>.sqlite
+- Run TL-Helper opens a visible Command Prompt (hidden consoles made clicks
+  look like a no-op)
+- Failed extract is shown on the banners instead of a stuck Decode 50% bar
+- Stale/waiting banners show collector, decode, and warehouse progress percent
+  while extract runs
+- Run TL-Helper now starts collector, then decode, then warehouse (a full
+  pipeline preflight-fails on a new Steam build)
+- Stale/waiting banners show the last TL-Helper extract status when it failed
+- New build influences on Home are clickable and list warehouse names
+- After a matching warehouse import, stale/waiting banners clear and a current
+  confirmation is shown; Run TL-Helper also polls for the new sqlite
+- Stale-data and patch-watch warnings include a Run TL-Helper button that opens
+  extract in a new window (D:\TL_Helper, or a folder you pick)
 - Build screen: side-by-side "I currently have" / "I would like to have" paper dolls
   (head, chest, arms, weapons) with warehouse icon paths when extracted PNGs exist
 - Events screen: T&L-style hour timetable, server/region picker, community cadence,

@@ -20,8 +20,10 @@ object InfluenceDiscovery {
                 if (prefix == null) return@mapNotNull null
                 if (SkillFamilyLookup.isCataloguedPrefix(prefix)) return@mapNotNull null
                 if (SkillFamilyLookup.isBlockedPrefix(prefix)) return@mapNotNull null
-                val named = rows.count { DisplayName.of(it.name, it.sourceRowId) != null }
-                if (named == 0) return@mapNotNull null
+                val names = rows.mapNotNull { DisplayName.of(it.name, it.sourceRowId) }
+                    .distinct()
+                    .sorted()
+                if (names.isEmpty()) return@mapNotNull null
                 val kind = when {
                     prefix.startsWith("WP_", ignoreCase = true) -> "weapon-skill prefix"
                     prefix.startsWith("WM_", ignoreCase = true) -> "mastery-node prefix"
@@ -31,10 +33,11 @@ object InfluenceDiscovery {
                     id = "prefix:$prefix",
                     label = "New $kind $prefix",
                     prefix = prefix,
-                    namedCount = named,
+                    namedCount = names.size,
                     totalCount = rows.size,
                     newThisPatch = prefix !in previousPrefixes,
                     note = "Observed on this warehouse. Not a hardcoded skills-screen family and not a CP formula.",
+                    names = names,
                 )
             }
             .sortedWith(compareByDescending<DiscoveredInfluence> { it.newThisPatch }.thenBy { it.prefix })
