@@ -22,9 +22,9 @@ function Test-Checkout([string] $Path) {
 }
 
 function Write-Remembered([string] $Path) {
-    $home = Join-Path $env:USERPROFILE '.solisium'
-    New-Item -ItemType Directory -Force -Path $home | Out-Null
-    Set-Content -Path (Join-Path $home 'tl-helper-root.txt') -Value $Path -NoNewline
+    $solisiumHome = Join-Path $env:USERPROFILE '.solisium'
+    New-Item -ItemType Directory -Force -Path $solisiumHome | Out-Null
+    Set-Content -Path (Join-Path $solisiumHome 'tl-helper-root.txt') -Value $Path -NoNewline
 }
 
 function Copy-Checkout([string] $From, [string] $To) {
