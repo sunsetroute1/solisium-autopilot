@@ -6,7 +6,7 @@ This is not a bot, overlay injector, or game client. It never writes to the game
 
 ## Install from GitHub (Windows)
 
-1. Download [the portable zip](releases/Solisium-Autopilot-0.1.11-windows-x64-portable.zip) or [the MSI zip](releases/Solisium-Autopilot-0.1.11-windows-x64-installer.zip).
+1. Download [the portable zip](https://github.com/sunsetroute1/solisium-autopilot/releases/download/v0.1.11/Solisium-Autopilot-0.1.11-windows-x64-portable.zip) or [the MSI zip](https://github.com/sunsetroute1/solisium-autopilot/releases/download/v0.1.11/Solisium-Autopilot-0.1.11-windows-x64-installer.zip).
 2. Install (portable: run `install.cmd`; MSI: run the `.msi`). No Java and no administrator rights. The portable installer also places TL-Helper under `%LOCALAPPDATA%\Programs\TL-Helper`.
 3. Open **Solisium Autopilot**. The starter catalog, demo character, and sample combat log load on first launch so every screen works.
 
@@ -70,7 +70,7 @@ Writes two zips to [`releases/`](releases/):
 | `...-windows-x64-installer.zip` | An MSI. Installs per-user, uninstalls through Settings. |
 | `...-windows-x64-portable.zip` | The app plus `install.cmd`, which copies it to `%LOCALAPPDATA%\Programs` and makes shortcuts. Uninstall with `.\Install-Solisium.ps1 -Uninstall`. |
 
-Current build: **0.1.11** — download from [releases/](releases/) without building locally.
+Current build: **0.1.11** — download from the [v0.1.11 release](https://github.com/sunsetroute1/solisium-autopilot/releases/tag/v0.1.11) without building locally.
 
 Both bundle a Java runtime, so a target machine needs no JDK, and both install
 per-user, so neither needs administrator rights. A starter catalog, demo

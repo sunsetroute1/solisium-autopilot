@@ -16,4 +16,4 @@ To rebuild after a version bump:
 .\gradlew.bat :desktopApp:packageRelease
 ```
 
-Zips are written here so they can be committed and downloaded directly from the repo.
+The current build is also on the [GitHub Releases](https://github.com/sunsetroute1/solisium-autopilot/releases) page. Zips here can be committed and downloaded from the repo.
