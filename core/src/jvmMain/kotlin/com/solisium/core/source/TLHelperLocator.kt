@@ -60,5 +60,6 @@ class TLHelperLocator(
 
     companion object {
         const val UPDATE_SCRIPT = "update-tl-helper.mjs"
+        const val CHECKOUT_URL = "https://github.com/sunsetroute1/tl-helper"
     }
 }

@@ -123,7 +123,10 @@ class TLHelperLauncher(
 
     companion object {
         const val MISSING_CHECKOUT =
-            "TL-Helper was not found. Pick the folder that contains scripts\\update-tl-helper.mjs."
+            "TL-Helper was not found. Download it from ${TLHelperLocator.CHECKOUT_URL}, " +
+                "then pick the folder that contains scripts\\update-tl-helper.mjs. " +
+                "Extract also needs Node.js and the .NET SDK. A key is found with Data → Find my key " +
+                "if you already have source-manifest.json or aes.txt on this PC."
         const val MISSING_NODE =
             "Node.js was not found. Install it, or set SOLISIUM_NODE to node.exe."
 

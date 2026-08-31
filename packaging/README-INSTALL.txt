@@ -16,7 +16,7 @@ you want live game data instead of the demo set.
 Install (installer zip)
 -----------------------
 1. Extract the zip.
-2. Run "Solisium Autopilot-0.1.9.msi" and follow the prompts.
+2. Run "Solisium Autopilot-0.1.10.msi" and follow the prompts.
 
 Uninstall through Settings > Apps > Installed apps, like any other program.
 
@@ -44,14 +44,17 @@ About keys
 This build contains no archive key, and the build fails if one is ever found in
 the packaged files.
 
-You do not need a key to browse data you have already imported. A key is only
-for extracting game files yourself.
+You do not need a key to browse the starter catalog. A key is only for
+extracting game files yourself with TL-Helper. This build never contains one.
 
-If one is already on this PC, the app finds it for you. The first time you run
-it, it asks whether to store the key it found, showing you a short fingerprint
-and the file it came from so you can tell it is yours. Say no and it will not ask
-again. You can also do it later from Data > Archive key, which is where you go if
-you have several keys or want to point at a specific folder.
+If one is already on this PC, Data > Find my key looks in TL-Helper, TL_Data,
+and %LOCALAPPDATA%\Solisium. The first run also offers to store a found key,
+showing a fingerprint and the file it came from. Say no and it will not ask
+again. Search a folder if yours lives somewhere else.
+
+Live extract is optional. Download TL-Helper from
+https://github.com/sunsetroute1/tl-helper , install Node.js and the .NET SDK,
+then use Get TL-Helper / Run TL-Helper in the app.
 
 A stored key:
 
@@ -79,8 +82,12 @@ Where your data lives
 
 Neither is touched by install or uninstall.
 
-What's in this build (0.1.9)
+What's in this build (0.1.10)
 ----------------------------
+- A GitHub install works on the starter catalog with no key and no TL-Helper
+- Find my key also searches the TL-Helper folder and source-manifest.json
+- Get TL-Helper opens https://github.com/sunsetroute1/tl-helper when extract
+  is needed and no checkout is on disk
 - Run TL-Helper prepares warehouse inputs (loc, Questlog snapshots, baseline)
   after decode so a new Steam build can produce tl-<build>.sqlite
 - Run TL-Helper opens a visible Command Prompt (hidden consoles made clicks

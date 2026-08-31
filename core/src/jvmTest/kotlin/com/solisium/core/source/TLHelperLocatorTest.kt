@@ -9,6 +9,11 @@ import kotlin.test.assertTrue
 
 class TLHelperLocatorTest {
     @Test
+    fun checkoutUrlPointsAtThePublicMirror() {
+        assertTrue(TLHelperLocator.CHECKOUT_URL.startsWith("https://github.com/sunsetroute1/"))
+    }
+
+    @Test
     fun envPathWinsWhenItIsACheckout() {
         val root = checkout("from-env")
         val locator = TLHelperLocator(

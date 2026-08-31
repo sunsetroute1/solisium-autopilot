@@ -48,6 +48,21 @@ class SecretScannerTest {
     }
 
     @Test
+    fun defaultRootsIncludeTheConfiguredTlHelperCheckout() {
+        val dir = tempDir()
+        Files.writeString(dir.resolve("source-manifest.json"), """{"aes_key":"$key"}""")
+        val report = SecretScanner(
+            env = { if (it == "SOLISIUM_TL_HELPER") dir.toString() else null },
+            useDefaultRoots = true,
+        ).scan()
+        assertTrue(report.searchedRoots.any { it.normalize() == dir.normalize() })
+        assertTrue(
+            report.candidates.any { it.keyHex == key && it.source.contains("source-manifest.json") },
+            "got ${report.candidates}",
+        )
+    }
+
+    @Test
     fun findsALabelledKeyAndReportsTheFieldAsEvidence() {
         val dir = tempDir()
         Files.writeString(dir.resolve("config.json"), """{"aesKey":"$key"}""")

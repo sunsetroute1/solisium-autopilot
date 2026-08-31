@@ -1,5 +1,6 @@
 package com.solisium.core.secret
 
+import com.solisium.core.source.TLHelperLocator
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.Path
@@ -65,6 +66,7 @@ class SecretScanner(
     private val interestingNames = listOf(
         "aes.txt", "aes.key", "key.txt", "keys.txt",
         "secrets.properties", "local.properties", ".env",
+        "source-manifest.json", "config.local.json",
     )
     private val interestingExtensions = listOf("txt", "key", "json", "ini", "cfg", "conf", "properties", "yaml", "yml")
 
@@ -121,11 +123,7 @@ class SecretScanner(
         val dataRoot = env("TL_DATA_ROOT")?.takeIf { it.isNotBlank() } ?: "D:\\TL_Data"
         roots.add(Path.of(dataRoot))
         roots.add(SecretPaths.directory(env))
-        val userHome = System.getProperty("user.home")
-        if (userHome != null) {
-            roots.add(Path.of(userHome, "projects", "tl-helper"))
-            roots.add(Path.of(userHome, "tl-helper"))
-        }
+        TLHelperLocator(env = env).candidates().forEach { roots.add(it) }
         return roots
     }
 
