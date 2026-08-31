@@ -5,8 +5,12 @@ and install per-user (no administrator rights).
 
 | File | Install |
 | --- | --- |
-| `Solisium-Autopilot-*-installer.zip` | Extract, run the `.msi`, uninstall via Settings > Apps |
-| `Solisium-Autopilot-*-portable.zip` | Extract, run `install.cmd` (or `Install-Solisium.ps1`) |
+| `Solisium-Autopilot-*-installer.zip.partNN` | Join, extract, run the `.msi` |
+| `Solisium-Autopilot-*-portable.zip.partNN` | Join, extract, run `install.cmd` |
+
+A full zip is over GitHub's 100 MB git limit, so each archive is stored as 45 MB
+parts. Double-click `assemble.cmd` (or run `..\packaging\Join-Release.ps1`) to
+rebuild the zips, then extract and install as usual.
 
 See [packaging/README-INSTALL.txt](../packaging/README-INSTALL.txt) for full instructions.
 
@@ -16,4 +20,4 @@ To rebuild after a version bump:
 .\gradlew.bat :desktopApp:packageRelease
 ```
 
-The current build is also on the [GitHub Releases](https://github.com/sunsetroute1/solisium-autopilot/releases) page. Zips here can be committed and downloaded from the repo.
+Whole zips are also on the [GitHub Releases](https://github.com/sunsetroute1/solisium-autopilot/releases) page.

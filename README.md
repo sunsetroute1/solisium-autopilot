@@ -6,7 +6,7 @@ This is not a bot, overlay injector, or game client. It never writes to the game
 
 ## Install from GitHub (Windows)
 
-1. Download [the portable zip](https://github.com/sunsetroute1/solisium-autopilot/releases/download/v0.1.12/Solisium-Autopilot-0.1.12-windows-x64-portable.zip) or [the MSI zip](https://github.com/sunsetroute1/solisium-autopilot/releases/download/v0.1.12/Solisium-Autopilot-0.1.12-windows-x64-installer.zip).
+1. Download the whole zip from [the v0.1.12 release](https://github.com/sunsetroute1/solisium-autopilot/releases/tag/v0.1.12), **or** clone this repo and run [`releases/assemble.cmd`](releases/assemble.cmd) to join the git-sized `.partNN` files.
 2. Install (portable: run `install.cmd`; MSI: run the `.msi`). No Java and no administrator rights. The installer ships the full TL-Helper checkout (no keys) and places it under `%LOCALAPPDATA%\Programs\TL-Helper`.
 3. Open **Solisium Autopilot**. The starter catalog, demo character, and sample combat log load on first launch so every screen works.
 
@@ -67,8 +67,10 @@ Writes two zips to [`releases/`](releases/):
 
 | Artifact | Contents |
 | --- | --- |
-| `...-windows-x64-installer.zip` | An MSI. Installs per-user, uninstalls through Settings. |
-| `...-windows-x64-portable.zip` | The app plus `install.cmd`, which copies it to `%LOCALAPPDATA%\Programs` and makes shortcuts. Uninstall with `.\Install-Solisium.ps1 -Uninstall`. |
+| `...-windows-x64-installer.zip` (+ `.partNN`) | An MSI. Installs per-user, uninstalls through Settings. |
+| `...-windows-x64-portable.zip` (+ `.partNN`) | The app plus `install.cmd`, which copies it to `%LOCALAPPDATA%\Programs` and makes shortcuts. Uninstall with `.\Install-Solisium.ps1 -Uninstall`. |
+
+The assembled zips are larger than GitHub allows in git, so `packageRelease` also writes 45 MB `.partNN` pieces. Run `releases\assemble.cmd` to put a zip back together.
 
 Current build: **0.1.12** — download from the [v0.1.12 release](https://github.com/sunsetroute1/solisium-autopilot/releases/tag/v0.1.12) without building locally.
 
