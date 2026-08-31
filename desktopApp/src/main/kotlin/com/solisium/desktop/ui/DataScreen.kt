@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import com.solisium.core.domain.DatasetSnapshot
+import com.solisium.core.source.PatchWatchState
 import com.solisium.desktop.AppModel
 import com.solisium.desktop.FilePickers
 import com.solisium.desktop.ImportOutcome
@@ -86,6 +87,18 @@ private fun ImportPanel(model: AppModel) {
         model.patchWatch?.let { watch ->
             Spacer(Modifier.height(Spacing.sm))
             Text(watch.reason, style = MaterialTheme.typography.bodySmall, color = Palette.TextMuted)
+            val needsExtract = watch.state == PatchWatchState.WAITING_FOR_WAREHOUSE ||
+                watch.state == PatchWatchState.NO_WAREHOUSE
+            if (needsExtract) {
+                Spacer(Modifier.height(Spacing.sm))
+                model.extractProgress?.let { ExtractProgressBars(it) }
+                Spacer(Modifier.height(Spacing.sm))
+                ActionButton("Run TL-Helper", { model.runTLHelper() }, primary = true)
+            }
+            model.tlHelperMessage?.let { message ->
+                Spacer(Modifier.height(Spacing.xs))
+                Text(message, style = MaterialTheme.typography.bodySmall, color = Palette.TextMuted)
+            }
         }
         Spacer(Modifier.height(Spacing.lg))
 

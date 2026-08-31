@@ -41,6 +41,13 @@ class JsonParserTest {
     }
 
     @Test
+    fun stripsALeadingUtf8Bom() {
+        val value = JsonParser.parse("\uFEFF{\"stage\":\"failed\",\"at\":\"decode\"}")
+        assertEquals("failed", value.str("stage"))
+        assertEquals("decode", value.str("at"))
+    }
+
+    @Test
     fun looksUpSnakeAndCamelKeys() {
         val value = JsonParser.parse("""{"combat_power": 12, "itemLevel": 9}""")
         assertEquals(12L, value.longAny("combatPower", "combat_power"))

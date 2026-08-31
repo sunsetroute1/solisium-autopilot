@@ -2,6 +2,7 @@ package com.solisium.desktop.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -16,15 +17,23 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import com.solisium.core.domain.CatalogCounts
 import com.solisium.core.domain.DatasetSnapshot
+import com.solisium.core.domain.DiscoveredInfluence
 import com.solisium.core.source.PatchWatchState
+import com.solisium.core.source.TLHelperExtractProgress
 import com.solisium.desktop.AppModel
 import com.solisium.desktop.Load
 import com.solisium.desktop.Overview
@@ -78,17 +87,27 @@ private fun OverviewBody(model: AppModel, overview: Overview) {
             ActionButton("Import more", { model.go(com.solisium.desktop.Screen.Data) })
         }
         Spacer(Modifier.height(Spacing.lg))
+        val needsExtract = model.patchWatch?.state == PatchWatchState.WAITING_FOR_WAREHOUSE ||
+            model.patchWatch?.state == PatchWatchState.NO_WAREHOUSE ||
+            (overview.buildWarning != null && model.patchWatch?.canImport != true)
         if (overview.buildWarning != null) {
             WarningBanner(
                 overview.buildWarning,
-                detail = "The game has been patched since this dataset was extracted. " +
-                    "Values may no longer match.",
+                detail = listOfNotNull(
+                    "The game has been patched since this dataset was extracted. Values may no longer match.",
+                    model.tlHelperLastRun?.takeUnless { it.succeeded }?.summary(),
+                ).joinToString(" "),
+                actionLabel = if (needsExtract) "Run TL-Helper" else null,
+                onAction = if (needsExtract) ({ model.runTLHelper() }) else null,
+                progress = if (needsExtract) model.extractProgress else null,
             )
             Spacer(Modifier.height(Spacing.lg))
         }
         model.patchWatch?.takeIf {
             it.state != PatchWatchState.CURRENT
         }?.let { watch ->
+            val needsExtract = watch.state == PatchWatchState.WAITING_FOR_WAREHOUSE ||
+                watch.state == PatchWatchState.NO_WAREHOUSE
             WarningBanner(
                 watch.reason,
                 label = when (watch.state) {
@@ -96,11 +115,17 @@ private fun OverviewBody(model: AppModel, overview: Overview) {
                     PatchWatchState.WAITING_FOR_WAREHOUSE -> "waiting on TL-Helper"
                     else -> "patch watch"
                 },
-                detail = if (watch.canImport) {
-                    "Use Import warehouse below, or it will import automatically after first-run setup."
-                } else {
-                    "Solisium does not unpack game paks. New skill-screen prefixes become typed influences after a warehouse import."
-                },
+                detail = listOfNotNull(
+                    if (watch.canImport) {
+                        "Use Import warehouse below, or it will import automatically after first-run setup."
+                    } else {
+                        "Solisium does not unpack game paks. A new warehouse for this Steam build is not on disk yet."
+                    },
+                    model.tlHelperLastRun?.takeUnless { it.succeeded }?.summary(),
+                ).joinToString(" "),
+                actionLabel = if (needsExtract) "Run TL-Helper" else null,
+                onAction = if (needsExtract) ({ model.runTLHelper() }) else null,
+                progress = if (needsExtract) model.extractProgress else null,
             )
             if (watch.canImport) {
                 Spacer(Modifier.height(Spacing.sm))
@@ -108,24 +133,16 @@ private fun OverviewBody(model: AppModel, overview: Overview) {
             }
             Spacer(Modifier.height(Spacing.lg))
         }
+        model.catalogSyncNote?.let { note ->
+            ConfirmBanner(note)
+            Spacer(Modifier.height(Spacing.lg))
+        }
+        model.tlHelperMessage?.let { message ->
+            Text(message, style = MaterialTheme.typography.bodySmall, color = Palette.TextMuted)
+            Spacer(Modifier.height(Spacing.lg))
+        }
         if (model.discoveredInfluences.isNotEmpty()) {
-            Card(Modifier.fillMaxWidth()) {
-                SectionLabel("New build influences")
-                Spacer(Modifier.height(Spacing.sm))
-                Text(
-                    "Prefixes observed in this warehouse that are not one of the hardcoded skills-screen families. Presence only; not combat power.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Palette.TextFaint,
-                )
-                Spacer(Modifier.height(Spacing.sm))
-                model.discoveredInfluences.forEach { inf ->
-                    Text(
-                        "${inf.label} · ${inf.namedCount} named" + if (inf.newThisPatch) " · new this patch" else "",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Palette.Text,
-                    )
-                }
-            }
+            InfluenceRoster(model.discoveredInfluences)
             Spacer(Modifier.height(Spacing.lg))
         }
 
@@ -227,7 +244,148 @@ private fun CountGrid(counts: CatalogCounts) {
 }
 
 @Composable
-fun WarningBanner(message: String, label: String = "stale data", detail: String? = null) {
+private fun InfluenceRoster(influences: List<DiscoveredInfluence>) {
+    var selectedPrefix by remember { mutableStateOf<String?>(null) }
+    Card(Modifier.fillMaxWidth()) {
+        SectionLabel("New build influences")
+        Spacer(Modifier.height(Spacing.sm))
+        Text(
+            "Prefixes observed in this warehouse that are not one of the hardcoded skills-screen families. " +
+                "Presence only; not combat power. Click a family to see its names.",
+            style = MaterialTheme.typography.bodySmall,
+            color = Palette.TextFaint,
+        )
+        Spacer(Modifier.height(Spacing.sm))
+        influences.forEach { inf ->
+            val selected = inf.prefix == selectedPrefix
+            Column(
+                Modifier.fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(if (selected) Palette.SurfaceHigh else Palette.Surface)
+                    .clickable {
+                        selectedPrefix = if (selected) null else inf.prefix
+                    }
+                    .padding(horizontal = Spacing.sm, vertical = Spacing.sm),
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        "${inf.label} · ${inf.namedCount} named",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Palette.Text,
+                        modifier = Modifier.weight(1f),
+                    )
+                    if (inf.newThisPatch) Badge("new this patch", Palette.Derived)
+                }
+                if (selected) {
+                    Spacer(Modifier.height(Spacing.sm))
+                    Text(inf.note, style = MaterialTheme.typography.bodySmall, color = Palette.TextFaint)
+                    Spacer(Modifier.height(Spacing.xs))
+                    val shown = inf.names.take(80)
+                    shown.forEach { name ->
+                        Text(name, style = MaterialTheme.typography.bodySmall, color = Palette.TextMuted)
+                    }
+                    if (inf.names.size > shown.size) {
+                        Text(
+                            "+${inf.names.size - shown.size} more",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Palette.TextFaint,
+                        )
+                    }
+                    if (inf.names.isEmpty()) {
+                        Text(
+                            "No localized names in this warehouse.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Palette.TextFaint,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ExtractProgressBars(progress: TLHelperExtractProgress.Snapshot) {
+    Column(Modifier.fillMaxWidth()) {
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                progress.label,
+                style = MaterialTheme.typography.bodySmall,
+                color = if (progress.failed) Palette.Danger else Palette.Text,
+            )
+            Text(
+                "${progress.overallPercent}%",
+                style = MaterialTheme.typography.bodySmall,
+                color = if (progress.failed) Palette.Danger else Palette.Accent,
+            )
+        }
+        Spacer(Modifier.height(Spacing.xs))
+        LinearProgressIndicator(
+            progress = { progress.overallPercent / 100f },
+            modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
+            color = if (progress.failed) Palette.Danger else Palette.Accent,
+            trackColor = Palette.Border,
+        )
+        Spacer(Modifier.height(Spacing.sm))
+        progress.stages.forEach { stage ->
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    stage.name.replaceFirstChar { it.uppercase() },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (stage.name == progress.activeStage) Palette.Text else Palette.TextFaint,
+                )
+                Text(
+                    buildString {
+                        append("${stage.percent}%")
+                        stage.counts?.let { append(" · $it") }
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Palette.TextMuted,
+                )
+            }
+            Spacer(Modifier.height(2.dp))
+            LinearProgressIndicator(
+                progress = { stage.percent / 100f },
+                modifier = Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)),
+                color = if (stage.name == progress.activeStage) Palette.Accent else Palette.TextMuted,
+                trackColor = Palette.Border,
+            )
+            Spacer(Modifier.height(Spacing.xs))
+        }
+    }
+}
+
+@Composable
+private fun ConfirmBanner(message: String) {
+    Column(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
+            .background(Palette.Extracted.copy(alpha = 0.10f))
+            .border(1.dp, Palette.Extracted.copy(alpha = 0.35f), RoundedCornerShape(10.dp))
+            .padding(Spacing.md),
+    ) {
+        Badge("current", Palette.Extracted)
+        Spacer(Modifier.height(Spacing.sm))
+        Text(message, style = MaterialTheme.typography.bodyMedium, color = Palette.Text)
+    }
+}
+
+@Composable
+fun WarningBanner(
+    message: String,
+    label: String = "stale data",
+    detail: String? = null,
+    actionLabel: String? = null,
+    onAction: (() -> Unit)? = null,
+    progress: TLHelperExtractProgress.Snapshot? = null,
+) {
     Column(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
             .background(Palette.Unverified.copy(alpha = 0.10f))
@@ -242,6 +400,14 @@ fun WarningBanner(message: String, label: String = "stale data", detail: String?
         if (detail != null) {
             Spacer(Modifier.height(Spacing.xs))
             Text(detail, style = MaterialTheme.typography.bodySmall, color = Palette.TextMuted)
+        }
+        if (progress != null) {
+            Spacer(Modifier.height(Spacing.sm))
+            ExtractProgressBars(progress)
+        }
+        if (actionLabel != null && onAction != null) {
+            Spacer(Modifier.height(Spacing.sm))
+            ActionButton(actionLabel, onAction, primary = true)
         }
     }
 }
