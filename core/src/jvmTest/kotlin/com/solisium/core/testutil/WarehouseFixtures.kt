@@ -164,7 +164,9 @@ object WarehouseFixtures {
                     ('TLSkill:WM_GT_Unstoppable','WM_GT_Unstoppable','skill','TLSkill','Unstoppable','$build','1.431.22.7761','0.2.0','{"skill_category":"ESkillCategory::kPassive"}'),
                     ('TLSkill:WP_Item_core','WP_Item_core','skill','TLSkill','Talus''s Transcendent Barrier','$build','1.431.22.7761','0.2.0','{"skill_category":"ESkillCategory::kItem"}'),
                     ('TLSkill:Gem_Attack_01','Gem_Attack_01','skill','TLSkill','Gemstone Attack','$build','1.431.22.7761','0.2.0','{"skill_category":"ESkillCategory::kItem"}'),
-                    ('TLItemLooks:perk_orb_aa_t3_boss_001','perk_orb_aa_t3_boss_001','item','TLItemLooks','Skill Core: Talus''s Transcendent Barrier','$build','1.431.22.7761','0.2.0','{}')
+                    ('TLItemLooks:perk_orb_aa_t3_boss_001','perk_orb_aa_t3_boss_001','item','TLItemLooks','Skill Core: Talus''s Transcendent Barrier','$build','1.431.22.7761','0.2.0','{}'),
+                    ('TLItemLooks_Equip:perk_crossbow_aa_S1_001','perk_crossbow_aa_S1_001','item','TLItemLooks_Equip','Skill Core: Double Trap','$build','1.431.22.7761','0.2.0','{}'),
+                    ('TLItemLooks_Equip:perk_crossbow_aa_S1_rift_001','perk_crossbow_aa_S1_rift_001','item','TLItemLooks_Equip','Skill Core: Double Trap','$build','1.431.22.7761','0.2.0','{}')
                     """.trimIndent(),
                 )
             }

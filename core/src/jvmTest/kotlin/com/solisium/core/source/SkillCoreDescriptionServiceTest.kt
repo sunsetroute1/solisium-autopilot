@@ -50,6 +50,50 @@ class SkillCoreDescriptionServiceTest {
     }
 
     @Test
+    fun substitutesFormulaTooltipNumbersFromWarehouse() {
+        val warehouse = WarehouseFixtures.withSkillFamilies(WarehouseFixtures.writeMiniWarehouse())
+        DriverManager.getConnection("jdbc:sqlite:${warehouse.toAbsolutePath()}").use { connection ->
+            connection.createStatement().use { statement ->
+                statement.execute(
+                    """
+                    INSERT INTO records VALUES
+                    ('TLItemEquip:orb_aa_t3_boss_001','orb_aa_t3_boss_001','item','TLItemEquip',null,'24118850','1.431.22.7761','0.2.0',
+                     '{"unique_skill_complex_id":"SkillSet_WP_Item_core","equip_category":"EItemCategory::kOrb"}'),
+                    ('TLFormulaParameterNew:WP_Item_core_DD','WP_Item_core_DD','reference','TLFormulaParameterNew',null,'24118850','1.431.22.7761','0.2.0',
+                     '{"FormulaParameter":[{"skill_level":1,"tooltip1":42,"tooltip2":0}]}')
+                    """.trimIndent(),
+                )
+            }
+        }
+        val locres = Files.createTempFile("game-locres", ".json")
+        Files.writeString(
+            locres,
+            """{"TLStringSkillDesc|TEXT_SKILL_DESC_WP_Item_core":"Deals ${'$'}[WP_Item_core_DD.tooltip1]% Base Damage."}""",
+        )
+        try {
+            val service = SkillCoreDescriptionService(
+                locresLocator = LocresLocator(
+                    env = { if (it == "SOLISIUM_LOCRES") locres.toString() else null },
+                    isFile = { Files.isRegularFile(it) },
+                    listGameLocres = { emptyList() },
+                ),
+            )
+            assertEquals(
+                "Deals 42% Base Damage.",
+                service.description(
+                    rowId = "perk_orb_aa_t3_boss_001",
+                    name = "Skill Core: Talus's Transcendent Barrier",
+                    warehousePath = warehouse.toString(),
+                    gameBuild = "24118850",
+                ),
+            )
+        } finally {
+            Files.deleteIfExists(warehouse)
+            Files.deleteIfExists(locres)
+        }
+    }
+
+    @Test
     fun reloadsWhenLocresFileChangesOrInvalidateIsCalled() {
         val locres = Files.createTempFile("game-locres", ".json")
         Files.writeString(

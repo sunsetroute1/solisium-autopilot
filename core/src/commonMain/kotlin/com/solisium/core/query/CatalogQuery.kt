@@ -423,10 +423,28 @@ class CatalogQuery(private val db: SolisiumDatabase) {
             .map { group ->
                 group.minByOrNull { if (DisplayName.isItemLooks(it.sourceTable)) 0 else 1 }!!
             }
+            .groupBy { skillCoreIdentity(it) }
+            .values
+            .map { group -> group.minByOrNull(::skillCorePreference)!! }
             .sortedWith(
                 compareBy<GameItem> { DisplayName.of(it.name, it.sourceRowId) ?: it.sourceRowId }
                     .thenBy { it.sourceRowId },
             )
+    }
+
+    /** Same localized name + weapon, including rift/non-rift copies of one core. */
+    private fun skillCoreIdentity(item: GameItem): String {
+        val name = TextNorm.fold(DisplayName.of(item.name, item.sourceRowId) ?: item.name.orEmpty())
+        val weapon = SkillFamilyLookup.skillCoreWeaponHint(item.sourceRowId)
+            ?: EquipCategory.token(item.category)
+            ?: ""
+        return "$name|$weapon"
+    }
+
+    private fun skillCorePreference(item: GameItem): Int {
+        var rank = if (DisplayName.isItemLooks(item.sourceTable)) 0 else 10
+        if (item.sourceRowId.contains("rift", ignoreCase = true)) rank += 1
+        return rank
     }
 
     fun items(snapshotId: String, nameContains: String? = null): List<GameItem> {

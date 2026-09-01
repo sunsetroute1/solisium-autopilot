@@ -20,7 +20,7 @@ you want live game data instead of the demo set.
 Install (installer zip)
 -----------------------
 1. Extract the zip.
-2. Run "Solisium Autopilot-0.1.14.msi" and follow the prompts.
+2. Run "Solisium Autopilot-0.1.15.msi" and follow the prompts.
    The MSI includes the full TL-Helper checkout. First launch (or
    Install-TLHelper.ps1 / Get TL-Helper) copies it onto disk. No key is included.
 
@@ -90,8 +90,10 @@ Where your data lives
 
 Neither is touched by install or uninstall.
 
-What's in this build (0.1.14)
+What's in this build (0.1.15)
 ----------------------------
+- Skill-core descriptions show warehouse tooltip numbers, not $[row.tooltip] keys
+- Cores list collapses rift/non-rift copies of the same named core (Double Trap)
 - Cores (and Catalog) show extracted skill-core tooltips from locres
 - Those descriptions follow a new warehouse / Game.locres after a patch extract
 - Cores tab: searchable warehouse list of skill cores (perk items)

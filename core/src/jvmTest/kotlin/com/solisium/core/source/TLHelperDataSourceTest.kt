@@ -270,6 +270,9 @@ class TLHelperDataSourceTest {
             assertTrue(hits.any { it.name?.contains("Skill Core") == true })
             val cores = query.skillCores(snapshotId)
             assertTrue(cores.any { it.sourceRowId == "perk_orb_aa_t3_boss_001" })
+            val doubleTrap = cores.filter { it.name?.contains("Double Trap") == true }
+            assertEquals(1, doubleTrap.size)
+            assertEquals("perk_crossbow_aa_S1_001", doubleTrap.single().sourceRowId)
             assertTrue(query.skillCores(snapshotId, "Talus").any { it.sourceRowId == "perk_orb_aa_t3_boss_001" })
             assertTrue(query.skillCores(snapshotId, "zzz-no-such-core").isEmpty())
         } finally {
