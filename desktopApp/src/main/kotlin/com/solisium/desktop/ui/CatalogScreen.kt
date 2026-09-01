@@ -234,7 +234,9 @@ private fun DetailBody(detail: RowDetail) {
             verticalArrangement = Arrangement.spacedBy(Spacing.lg),
         ) {
             DetailHeader(detail)
-            detail.questlog?.description?.takeIf { it.isNotBlank() }?.let { DescriptionCard(it) }
+            val description = detail.warehouseDescription?.takeIf { it.isNotBlank() }
+                ?: detail.questlog?.description?.takeIf { it.isNotBlank() }
+            description?.let { DescriptionCard(it) }
             WarehouseStats(detail.stats)
             detail.combatPower?.let { CombatPowerCard(it) }
             Curves(detail)
