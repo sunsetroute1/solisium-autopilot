@@ -44,7 +44,7 @@ class SkillCoreDescriptionLookupTest {
             ),
         )
         assertEquals(
-            "Deals \$[hit.tooltip1]% Base Damage.",
+            "Deals —% Base Damage.",
             SkillCoreDescriptionLookup.description(
                 table,
                 "Skill Core: Thunder Strike",
@@ -52,6 +52,55 @@ class SkillCoreDescriptionLookupTest {
             ),
         )
         assertNull(SkillCoreDescriptionLookup.description(table, "Skill Core: Unknown", "None"))
+    }
+
+    @Test
+    fun substitutesWarehouseTooltipNumbers() {
+        val table = MapLocres(
+            "TLSkillPcLooks_Item" to mapOf(
+                "WP_Item_Nix_Crack_DA_01_RankDescription_ValueIndex0" to
+                    "increases Critical Hit Chance by \$[WP_Item_Nix_Crack_DA_01_Critical_Buff.tooltip1] for \$[WP_Item_Nix_Crack_DA_01_Duration.tooltip1]s. " +
+                    "increases Critical Damage by \$[WP_Item_Nix_Crack_DA_01_CriticalDealt_Buff.tooltip1]% for \$[WP_Item_Nix_Crack_DA_01_Duration.tooltip1]s.",
+            ),
+        )
+        val tooltips = TooltipFieldLookup { rowId, field ->
+            when {
+                rowId.endsWith("Critical_Buff") && field.equals("tooltip1", true) -> 700.0
+                rowId.endsWith("Duration") && field.equals("tooltip1", true) -> 3.0
+                rowId.endsWith("CriticalDealt_Buff") && field.equals("tooltip1", true) -> 35.0
+                else -> null
+            }
+        }
+        assertEquals(
+            "increases Critical Hit Chance by 700 for 3s. increases Critical Damage by 35% for 3s.",
+            SkillCoreDescriptionLookup.description(
+                table,
+                "Skill Core: Ambush",
+                "SkillSet_WP_Item_Nix_Crack_DA_01",
+                tooltips,
+            ),
+        )
+        assertEquals(
+            "by —",
+            SkillCoreDescriptionLookup.substitute("by \$[missing.tooltip1]", TooltipFieldLookup.Empty),
+        )
+        val numbers = TooltipFieldLookup { rowId, field ->
+            when {
+                rowId == "Buff" && field.equals("tooltip1", true) -> 35.0
+                rowId == "Rate" && field.equals("tooltip1", true) -> 20.0
+                rowId == "Base" && field.equals("tooltip1", true) -> 50.0
+                else -> null
+            }
+        }
+        assertEquals("140", SkillCoreDescriptionLookup.substitute("\$[Buff.tooltip1*4]", numbers))
+        assertEquals("40", SkillCoreDescriptionLookup.substitute("\$[100*Rate.tooltip1/Base.tooltip1]", numbers))
+        assertEquals(
+            false,
+            SkillCoreDescriptionLookup.substitute(
+                "\$[WP_Item_Nix_Crack_DA_01_Critical_Buff.tooltip1] / \$[nope.tooltip1]%",
+                numbers,
+            ).contains("$["),
+        )
     }
 
     @Test
