@@ -74,6 +74,7 @@ import com.solisium.core.source.ManualImportDataSource
 import com.solisium.core.source.PatchWatch
 import com.solisium.core.source.PatchWatchReport
 import com.solisium.core.source.PatchWatchState
+import com.solisium.core.source.SkillFamilyLookup
 import com.solisium.core.source.TLHelperDataSource
 import com.solisium.core.source.TLHelperExtractProgress
 import com.solisium.core.source.TLHelperInstaller
@@ -106,6 +107,7 @@ enum class Screen(val label: String, val blurb: String) {
     Overview("Home", "What to do next"),
     Build("Build", "What you have, and what you want"),
     Catalog("Gear", "Search by the name you see in game"),
+    SkillCores("Cores", "Skill cores from the warehouse"),
     Drops("Drops", "Monsters, loot tables, farm spots"),
     Events("Events", "Boss and event timetable"),
     Wall("Wall", "Talking Wall true/false answers"),
@@ -252,6 +254,17 @@ class AppModel(private val scope: CoroutineScope) {
 
     var search by mutableStateOf("")
         private set
+
+    var skillCoreSearch by mutableStateOf("")
+        private set
+
+    var skillCoreRows by mutableStateOf<Load<List<CatalogRow>>>(Load.Loading)
+        private set
+
+    var skillCoreTotal by mutableStateOf(0)
+        private set
+
+    private var skillCoreSearchJob: Job? = null
 
     var rows by mutableStateOf<Load<List<CatalogRow>>>(Load.Loading)
         private set
@@ -510,6 +523,7 @@ class AppModel(private val scope: CoroutineScope) {
                 refreshAdvice()
             }
             Screen.Catalog -> if (rows is Load.Loading) loadRows()
+            Screen.SkillCores -> loadSkillCores()
             Screen.Drops -> loadDropBrowse()
             Screen.Events -> {
                 loadCharacters()
@@ -1645,6 +1659,15 @@ class AppModel(private val scope: CoroutineScope) {
         }
     }
 
+    fun onSkillCoreSearch(text: String) {
+        skillCoreSearch = text
+        skillCoreSearchJob?.cancel()
+        skillCoreSearchJob = scope.launch {
+            delay(180)
+            loadSkillCores()
+        }
+    }
+
     fun select(row: CatalogRow) {
         selected = row
         detailJob?.cancel()
@@ -1907,6 +1930,45 @@ class AppModel(private val scope: CoroutineScope) {
 
     private fun loadSnapshots() {
         scope.launch { snapshots = read { q, _ -> q.snapshots() } }
+    }
+
+    private fun loadSkillCores() {
+        val term = skillCoreSearch.takeIf { it.isNotBlank() }
+        scope.launch {
+            skillCoreRows = Load.Loading
+            val loaded = read { q, snapshotId ->
+                q.skillCores(snapshotId, term).mapNotNull { item ->
+                    val display = DisplayName.of(item.name, item.sourceRowId)
+                    if (display == null && term == null) return@mapNotNull null
+                    val weapon = SkillFamilyLookup.skillCoreWeaponHint(item.sourceRowId)
+                    CatalogRow(
+                        name = display ?: item.sourceRowId,
+                        sourceTable = item.sourceTable,
+                        sourceRowId = item.sourceRowId,
+                        meta = DisplayName.prettyEnum(weapon) ?: DisplayName.prettyEnum(item.category),
+                        grade = item.grade?.takeIf { it.isNotBlank() }
+                            ?: q.resolveItemGrade(snapshotId, item.sourceRowId),
+                        named = display != null,
+                    )
+                }
+            }
+            if (loaded is Load.Ok) {
+                skillCoreTotal = loaded.value.size
+                val page = loaded.value.take(BROWSE_CAP)
+                skillCoreRows = Load.Ok(page)
+                val stillVisible = selected?.let { current ->
+                    page.any { it.sourceTable == current.sourceTable && it.sourceRowId == current.sourceRowId }
+                } == true
+                if (!stillVisible) {
+                    selected = null
+                    detail = null
+                    page.firstOrNull()?.let { select(it) }
+                }
+            } else {
+                skillCoreTotal = 0
+                skillCoreRows = loaded
+            }
+        }
     }
 
     private fun loadRows() {

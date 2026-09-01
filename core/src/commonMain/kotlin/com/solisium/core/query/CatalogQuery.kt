@@ -409,6 +409,26 @@ class CatalogQuery(private val db: SolisiumDatabase) {
         }.toMap()
     }
 
+    /**
+     * Perk items named Skill Core: … plus any `perk_*` row. Duplicate tables
+     * for the same row id collapse to the ItemLooks copy when one exists.
+     */
+    fun skillCores(snapshotId: String, nameContains: String? = null): List<GameItem> {
+        val rows = items(snapshotId, nameContains).filter { item ->
+            SkillFamilyLookup.isSkillCoreItem(item.sourceRowId, item.name)
+        }
+        return rows
+            .groupBy { it.sourceRowId.lowercase() }
+            .values
+            .map { group ->
+                group.minByOrNull { if (DisplayName.isItemLooks(it.sourceTable)) 0 else 1 }!!
+            }
+            .sortedWith(
+                compareBy<GameItem> { DisplayName.of(it.name, it.sourceRowId) ?: it.sourceRowId }
+                    .thenBy { it.sourceRowId },
+            )
+    }
+
     fun items(snapshotId: String, nameContains: String? = null): List<GameItem> {
         if (nameContains.isNullOrBlank()) {
             return db.schemaQueries.selectItems(snapshotId).executeAsList().map {

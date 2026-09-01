@@ -39,6 +39,7 @@ fun AppShell(model: AppModel) {
                 Screen.Overview -> OverviewScreen(model)
                 Screen.Build -> BuildScreen(model)
                 Screen.Catalog -> CatalogScreen(model)
+                Screen.SkillCores -> SkillCoresScreen(model)
                 Screen.Drops -> DropsScreen(model)
                 Screen.Events -> EventsScreen(model)
                 Screen.Character -> CharacterScreen(model)

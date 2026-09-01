@@ -53,6 +53,14 @@ object SkillFamilyLookup {
         return label.startsWith("Skill Core:", ignoreCase = true)
     }
 
+    /** `perk_orb_aa_t3_boss_001` → `kOrb` when the token is a known weapon. */
+    fun skillCoreWeaponHint(rowId: String?): String? {
+        val id = rowId?.trim().orEmpty()
+        if (!id.startsWith("perk_", ignoreCase = true)) return null
+        val token = id.drop(5).substringBefore("_")
+        return parseWeaponToken(token) ?: weaponCode(token)
+    }
+
     /**
      * Stable prefix used to group skills across patches. Unknown `WP_XX` codes
      * stay grouped rather than being guessed as a named weapon.

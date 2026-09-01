@@ -63,7 +63,7 @@ fun CatalogScreen(model: AppModel) {
         Row(Modifier.fillMaxSize()) {
             Box(Modifier.weight(1f).fillMaxHeight()) { ResultList(model) }
             Box(Modifier.width(1.dp).fillMaxHeight().background(Palette.Border))
-            Box(Modifier.width(500.dp).fillMaxHeight()) { DetailPane(model) }
+            Box(Modifier.width(500.dp).fillMaxHeight()) { CatalogDetailPane(model) }
         }
     }
 }
@@ -165,7 +165,7 @@ private fun ResultList(model: AppModel) {
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = Spacing.lg),
                 ) {
                     items(rows, key = { it.sourceTable + "|" + it.sourceRowId }) { row ->
-                        ResultRow(row, model.selected == row) { model.select(row) }
+                        CatalogResultRow(row, model.selected == row) { model.select(row) }
                     }
                 }
             }
@@ -174,7 +174,7 @@ private fun ResultList(model: AppModel) {
 }
 
 @Composable
-private fun ResultRow(row: CatalogRow, selected: Boolean, onClick: () -> Unit) {
+fun CatalogResultRow(row: CatalogRow, selected: Boolean, onClick: () -> Unit) {
     val grade = displayGrade(row.sourceRowId, row.grade)
     HoverRow(
         selected = selected,
@@ -207,11 +207,14 @@ private fun ResultRow(row: CatalogRow, selected: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-private fun DetailPane(model: AppModel) {
+fun CatalogDetailPane(
+    model: AppModel,
+    emptyTitle: String = "Pick gear on the left",
+) {
     val detail = model.detail
     if (detail == null) {
         EmptyState(
-            title = "Pick gear on the left",
+            title = emptyTitle,
             detail = "Warehouse stats, upgrade curves, and Questlog community detail appear here.",
         )
         return

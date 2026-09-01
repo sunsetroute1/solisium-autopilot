@@ -268,6 +268,10 @@ class TLHelperDataSourceTest {
             assertEquals("other", byId["fixture_skill"]?.family)
             val hits = query.suggestBuildLayer(snapshotId, "Talus", "skill_core")
             assertTrue(hits.any { it.name?.contains("Skill Core") == true })
+            val cores = query.skillCores(snapshotId)
+            assertTrue(cores.any { it.sourceRowId == "perk_orb_aa_t3_boss_001" })
+            assertTrue(query.skillCores(snapshotId, "Talus").any { it.sourceRowId == "perk_orb_aa_t3_boss_001" })
+            assertTrue(query.skillCores(snapshotId, "zzz-no-such-core").isEmpty())
         } finally {
             Files.deleteIfExists(warehouse)
         }
