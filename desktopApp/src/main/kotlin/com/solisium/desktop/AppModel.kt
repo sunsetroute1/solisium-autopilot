@@ -74,6 +74,7 @@ import com.solisium.core.source.ManualImportDataSource
 import com.solisium.core.source.PatchWatch
 import com.solisium.core.source.PatchWatchReport
 import com.solisium.core.source.PatchWatchState
+import com.solisium.core.source.SkillCoreDescriptionService
 import com.solisium.core.source.SkillFamilyLookup
 import com.solisium.core.source.TLHelperDataSource
 import com.solisium.core.source.TLHelperExtractProgress
@@ -201,6 +202,8 @@ data class RowDetail(
     val questlog: QuestlogItemOverlay? = null,
     val questlogWarning: String? = null,
     val category: String? = null,
+    /** Extracted locres tooltip for perk / skill-core rows. Not Questlog text. */
+    val warehouseDescription: String? = null,
 )
 
 data class Overview(
@@ -220,6 +223,7 @@ class AppModel(private val scope: CoroutineScope) {
     private var openError: String? = null
     private val database: SolisiumDatabase? by lazy(LazyThreadSafetyMode.NONE) { openDatabase() }
     private val query: CatalogQuery? by lazy(LazyThreadSafetyMode.NONE) { database?.let { CatalogQuery(it) } }
+    private val skillCoreDescriptions = SkillCoreDescriptionService()
 
     var screen by mutableStateOf(Screen.Overview)
         private set
@@ -1382,6 +1386,7 @@ class AppModel(private val scope: CoroutineScope) {
                 warehouseSetup = null
                 markWarehouseSetupComplete()
                 query?.invalidateGradeCache()
+                skillCoreDescriptions.invalidate()
                 maybeOfferDropSyncAfterImport()
                 pendingCatalogConfirm = true
                 warehouseWatchJob?.cancel()
@@ -1674,7 +1679,15 @@ class AppModel(private val scope: CoroutineScope) {
         detail = Load.Loading
         detailJob = scope.launch {
             when (val warehouse = read { q, snapshotId ->
-                q.itemDetail(snapshotId, row.sourceTable, row.sourceRowId)
+                val item = q.itemDetail(snapshotId, row.sourceTable, row.sourceRowId)
+                val snapshot = q.snapshotService().get(snapshotId)
+                val warehouseDescription = skillCoreDescriptions.description(
+                    rowId = row.sourceRowId,
+                    name = row.name,
+                    warehousePath = snapshot?.sourcePath,
+                    gameBuild = snapshot?.gameBuild,
+                )
+                item to warehouseDescription
             }) {
                 is Load.Err -> {
                     detail = warehouse
@@ -1682,7 +1695,7 @@ class AppModel(private val scope: CoroutineScope) {
                 }
                 is Load.Loading -> return@launch
                 is Load.Ok -> {
-                    val base = warehouse.value
+                    val (base, warehouseDescription) = warehouse.value
                     val questlog = withContext(Dispatchers.IO) {
                         runCatching { CommunityMetaClient().fetchItem(row.sourceRowId) }
                     }
@@ -1698,6 +1711,7 @@ class AppModel(private val scope: CoroutineScope) {
                             questlog = questlog.getOrNull(),
                             questlogWarning = questlog.exceptionOrNull()?.message,
                             category = base.category,
+                            warehouseDescription = warehouseDescription,
                         ),
                     )
                 }
