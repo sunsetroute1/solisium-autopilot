@@ -20,7 +20,7 @@ you want live game data instead of the demo set.
 Install (installer zip)
 -----------------------
 1. Extract the zip.
-2. Run "Solisium Autopilot-0.1.12.msi" and follow the prompts.
+2. Run "Solisium Autopilot-0.1.13.msi" and follow the prompts.
    The MSI includes the full TL-Helper checkout. First launch (or
    Install-TLHelper.ps1 / Get TL-Helper) copies it onto disk. No key is included.
 
@@ -90,8 +90,9 @@ Where your data lives
 
 Neither is touched by install or uninstall.
 
-What's in this build (0.1.12)
+What's in this build (0.1.13)
 ----------------------------
+- Cores tab: searchable warehouse list of skill cores (perk items)
 - The installer ships the full TL-Helper checkout (web, scripts, collector),
   never a key or config.local.json
 - First launch installs that checkout and asks if a key is already on this PC

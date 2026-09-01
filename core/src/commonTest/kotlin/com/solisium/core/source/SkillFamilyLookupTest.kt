@@ -4,6 +4,7 @@ import com.solisium.core.domain.SkillFamily
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class SkillFamilyLookupTest {
@@ -50,6 +51,8 @@ class SkillFamilyLookupTest {
         assertTrue(SkillFamilyLookup.isSkillCoreItem("perk_orb_aa_t3_boss_001", null))
         assertTrue(SkillFamilyLookup.isSkillCoreItem("looks_row", "Skill Core: Talus's Transcendent Barrier"))
         assertFalse(SkillFamilyLookup.isSkillCoreItem("sword_aa_t1", "Fixture Greatsword"))
+        assertEquals("kOrb", SkillFamilyLookup.skillCoreWeaponHint("perk_orb_aa_t3_boss_001"))
+        assertNull(SkillFamilyLookup.skillCoreWeaponHint("sword_aa_t1"))
     }
 
     @Test
