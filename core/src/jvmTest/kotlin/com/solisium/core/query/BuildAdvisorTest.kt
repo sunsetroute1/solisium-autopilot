@@ -3,6 +3,7 @@ package com.solisium.core.query
 import com.solisium.core.db.JvmDatabase
 import com.solisium.core.domain.CommunityHit
 import com.solisium.core.domain.CommunitySnapshot
+import com.solisium.core.source.CharacterSheetJson
 import com.solisium.core.source.ImportRequest
 import com.solisium.core.source.ManualImportDataSource
 import com.solisium.core.source.TLHelperDataSource
@@ -160,6 +161,49 @@ class BuildAdvisorTest {
             val scout = query.findBuildClass(snapshotId, name = "Scout")!!
             val scoutAdvice = BuildAdvisor(query).advise(snapshotId, BuildGoal.MeleeDps, classOption = scout)
             assertEquals("Fixture Longbow", scoutAdvice.slots.single { it.slot == "bow" }.recommended.single().name)
+        } finally {
+            Files.deleteIfExists(warehouse)
+        }
+    }
+
+    @Test
+    fun characterTypedArmorShowsAsEquipped() {
+        val warehouse = WarehouseFixtures.withCalanthiaGear(WarehouseFixtures.writeMiniWarehouse())
+        try {
+            val db = JvmDatabase.inMemory()
+            val snapshotId = TLHelperDataSource().importInto(
+                db,
+                ImportRequest(path = warehouse.toString(), activate = true),
+            ).snapshotId!!
+            val draft = CharacterSheetJson.Draft(
+                id = "typed-armor",
+                name = "Armorer",
+                level = "",
+                combatPower = "",
+                gearScore = "",
+                strength = "",
+                dexterity = "",
+                wisdom = "",
+                perception = "",
+                fortitude = "",
+                server = "",
+                weapons = emptyList(),
+                equipment = listOf(
+                    CharacterSheetJson.NamedSlot("head", "Calanthia's Visage"),
+                    CharacterSheetJson.NamedSlot("chest", "Custom Chestplate"),
+                    CharacterSheetJson.NamedSlot("earring2", "Silver Hoop"),
+                ),
+                inventory = emptyList(),
+            )
+            val sheet = CatalogQuery(db).resolveDraft(draft, snapshotId)
+            val advice = BuildAdvisor(CatalogQuery(db)).advise(
+                snapshotId,
+                BuildGoal.RangedDps,
+                sheet = sheet,
+            )
+            assertEquals("Calanthia's Visage", advice.slots.single { it.slot == "head" }.equipped?.name)
+            assertEquals("Custom Chestplate", advice.slots.single { it.slot == "chest" }.equipped?.name)
+            assertEquals("Silver Hoop", advice.slots.single { it.slot == "earring" }.equipped?.name)
         } finally {
             Files.deleteIfExists(warehouse)
         }

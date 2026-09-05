@@ -7,6 +7,12 @@ import com.solisium.core.domain.ClassSource
 import com.solisium.core.domain.DisplayName
 import com.solisium.core.domain.ResolvedCharacterSheet
 import com.solisium.core.domain.SkillFamily
+import com.solisium.core.domain.UserBuildLayer
+import com.solisium.core.domain.UserCharacter
+import com.solisium.core.domain.UserEquipment
+import com.solisium.core.domain.UserSkill
+import com.solisium.core.domain.UserWeapon
+import com.solisium.core.domain.UserWeaponMastery
 import com.solisium.core.query.WeaponClassResolver
 
 /**
@@ -227,6 +233,69 @@ object CharacterSheetJson {
             val extra = row.third?.let { ", \"$extraKey\": $it" } ?: ""
             "    { \"source_table\": ${quote(row.first.orEmpty())}, \"source_row_id\": ${quote(row.second.orEmpty())}$extra }"
         }
+    }
+
+    fun toCharacterSheet(draft: Draft): CharacterSheet {
+        fun num(raw: String): Long? = raw.trim().replace(",", "").toLongOrNull()
+        return CharacterSheet(
+            character = UserCharacter(
+                id = draft.id.ifBlank { "draft" },
+                name = draft.name.ifBlank { "Your character" },
+                level = num(draft.level),
+                combatPower = num(draft.combatPower),
+                gearScore = num(draft.gearScore),
+                server = draft.server.ifBlank { null },
+                notes = null,
+                strength = num(draft.strength),
+                dexterity = num(draft.dexterity),
+                wisdom = num(draft.wisdom),
+                perception = num(draft.perception),
+                fortitude = num(draft.fortitude),
+                className = draft.className.ifBlank { null },
+                classSource = draft.classSource.ifBlank { null },
+            ),
+            equipment = CharacterSlots.mergeEquipment(
+                draft.equipment.filter { it.name.isNotBlank() }.map {
+                    UserEquipment(it.slot, null, null, null, it.name.trim())
+                },
+            ),
+            weapons = CharacterSlots.mergeWeapons(
+                draft.weapons.filter { it.name.isNotBlank() }.map {
+                    UserWeapon(it.slot, null, null, null, it.name.trim())
+                },
+            ),
+            traits = emptyList(),
+            runes = emptyList(),
+            skills = draft.skills.filter { it.name.isNotBlank() }.map {
+                UserSkill(
+                    sourceTable = null,
+                    sourceRowId = null,
+                    loadout = it.loadout.ifBlank { null },
+                    name = it.name.trim(),
+                    skillLevel = num(it.level),
+                    family = it.family.ifBlank { null },
+                )
+            },
+            weaponMastery = draft.weaponMastery.filter { it.weapon.isNotBlank() }.map {
+                UserWeaponMastery(it.weapon.trim(), num(it.level))
+            },
+            buildLayers = draft.buildLayers.filter { it.name.isNotBlank() }.map {
+                UserBuildLayer(
+                    layer = it.layer,
+                    slot = it.slot.ifBlank { null },
+                    sourceTable = null,
+                    sourceRowId = null,
+                    name = it.name.trim(),
+                    level = num(it.level),
+                )
+            },
+            inventory = emptyList(),
+            materials = emptyList(),
+            currency = emptyList(),
+            cookingLevel = null,
+            goals = emptyList(),
+            builds = emptyList(),
+        )
     }
 
     private fun writtenClassSource(draft: Draft): String {

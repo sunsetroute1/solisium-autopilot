@@ -42,6 +42,7 @@ import androidx.compose.ui.res.loadImageBitmap
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.solisium.core.domain.RankedGear
 import com.solisium.core.domain.AxisScore
 import com.solisium.core.domain.BuildAdvice
 import com.solisium.core.domain.DesiredBuildPlan
@@ -220,7 +221,8 @@ fun EquipmentPaperDoll(
     plan: DesiredBuildPlan,
     mode: DollMode,
     selectedSlot: String?,
-    onSlotClick: (String) -> Unit,
+    onSlotClick: (String, DollMode) -> Unit,
+    desiredGearForSlot: (String) -> RankedGear? = { null },
     modifier: Modifier = Modifier,
 ) {
     val bySlot = advice.slots.associateBy { it.slot }
@@ -246,6 +248,7 @@ fun EquipmentPaperDoll(
                 mode = mode,
                 selectedSlot = selectedSlot,
                 onSlotClick = onSlotClick,
+                desiredGearForSlot = desiredGearForSlot,
             )
             Box(
                 Modifier.weight(1f).height(400.dp).padding(horizontal = Spacing.sm),
@@ -259,6 +262,7 @@ fun EquipmentPaperDoll(
                 mode = mode,
                 selectedSlot = selectedSlot,
                 onSlotClick = onSlotClick,
+                desiredGearForSlot = desiredGearForSlot,
             )
         }
         Spacer(Modifier.height(Spacing.md))
@@ -273,7 +277,8 @@ fun EquipmentPaperDoll(
                     advice = bySlot[slot],
                     mode = mode,
                     selected = selectedSlot == slot,
-                    onClick = { onSlotClick(slot) },
+                    desiredGear = if (mode == DollMode.Desired) desiredGearForSlot(slot) else null,
+                    onClick = { onSlotClick(slot, mode) },
                 )
             }
         }
@@ -286,7 +291,8 @@ private fun SlotColumn(
     bySlot: Map<String, SlotAdvice>,
     mode: DollMode,
     selectedSlot: String?,
-    onSlotClick: (String) -> Unit,
+    onSlotClick: (String, DollMode) -> Unit,
+    desiredGearForSlot: (String) -> RankedGear?,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
         keys.forEach { (slot, label) ->
@@ -296,7 +302,8 @@ private fun SlotColumn(
                 advice = bySlot[slot],
                 mode = mode,
                 selected = selectedSlot == slot,
-                onClick = { onSlotClick(slot) },
+                desiredGear = if (mode == DollMode.Desired) desiredGearForSlot(slot) else null,
+                onClick = { onSlotClick(slot, mode) },
             )
         }
     }
@@ -309,13 +316,16 @@ fun EquipmentSlot(
     advice: SlotAdvice?,
     mode: DollMode,
     selected: Boolean,
+    desiredGear: RankedGear? = null,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val gear = when (mode) {
         DollMode.Current -> advice?.equipped
-        DollMode.Desired -> advice?.recommended?.firstOrNull()
+        DollMode.Desired -> desiredGear ?: advice?.recommended?.firstOrNull()
     }
+    val customPick = mode == DollMode.Desired && desiredGear != null &&
+        desiredGear.sourceRowId != advice?.recommended?.firstOrNull()?.sourceRowId
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
     val rarity = rarityColor(displayGrade(gear?.sourceRowId, gear?.grade))
@@ -365,13 +375,16 @@ fun EquipmentSlot(
             overflow = TextOverflow.Ellipsis,
         )
         Text(
-            gear?.name ?: "Empty",
+            gear?.name ?: "Pick…",
             style = MaterialTheme.typography.labelSmall,
             color = if (filled) rarityColor(displayGrade(gear?.sourceRowId, gear?.grade)) else Palette.TextFaint,
             textAlign = TextAlign.Center,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
+        if (customPick) {
+            Badge("custom", Palette.Derived, caps = false)
+        }
     }
 }
 

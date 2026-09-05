@@ -4,6 +4,10 @@ import com.solisium.core.domain.BuildClassOption
 import com.solisium.core.domain.BuildLayer
 import com.solisium.core.domain.DesiredBuildPlan
 import com.solisium.core.domain.DisplayName
+import com.solisium.core.domain.GearWatermarkInput
+import com.solisium.core.domain.GearWatermarkPlan
+import com.solisium.core.query.GearWatermarkCalculator
+import com.solisium.core.query.GearWatermarkInferrer
 import com.solisium.core.domain.LayerCoverage
 import com.solisium.core.domain.ModeledPowerBreakdown
 import com.solisium.core.domain.RankedGear
@@ -24,9 +28,11 @@ class DesiredBuildPlanner(private val query: CatalogQuery) {
         snapshotId: String,
         goal: BuildGoal,
         characterId: String? = null,
+        sheet: ResolvedCharacterSheet? = null,
         community: CommunitySnapshot? = null,
         desiredCombatPower: Long? = null,
         desiredGearScore: Long? = null,
+        watermarkInput: GearWatermarkInput? = null,
         axes: List<StatAxis> = emptyList(),
         extraKeys: Set<String> = emptySet(),
         classOption: BuildClassOption? = null,
@@ -35,12 +41,13 @@ class DesiredBuildPlanner(private val query: CatalogQuery) {
             snapshotId = snapshotId,
             goal = goal,
             characterId = characterId,
+            sheet = sheet,
             community = community,
             extraKeys = extraKeys,
             axes = axes,
             classOption = classOption,
         )
-        val sheet = characterId?.let { query.resolveCharacter(it, snapshotId) }
+        val sheet = sheet ?: characterId?.let { query.resolveCharacter(it, snapshotId) }
         val currentCp = sheet?.sheet?.character?.combatPower
         val currentGs = sheet?.sheet?.character?.gearScore
         val cpGap = typedGap(currentCp, desiredCombatPower)
@@ -59,6 +66,7 @@ class DesiredBuildPlanner(private val query: CatalogQuery) {
             modeled = modeled,
             modeledCpGap = modeledCpGap,
             modeledGsGap = modeledGsGap,
+            watermark = watermarkInput?.let { GearWatermarkCalculator.plan(it) },
             characterPresent = sheet != null,
             classOption = classOption,
         )
@@ -73,6 +81,7 @@ class DesiredBuildPlanner(private val query: CatalogQuery) {
             modeled = modeled,
             modeledCombatPowerGap = modeledCpGap,
             modeledGearScoreGap = modeledGsGap,
+            watermark = watermarkInput?.let { GearWatermarkCalculator.plan(it) },
             axes = axes.map { it.label },
             extraKeys = extraKeys.sorted(),
             roadmap = roadmap,
@@ -93,10 +102,40 @@ class DesiredBuildPlanner(private val query: CatalogQuery) {
         modeled: ModeledPowerBreakdown?,
         modeledCpGap: Long?,
         modeledGsGap: Long?,
+        watermark: GearWatermarkPlan?,
         characterPresent: Boolean,
         classOption: BuildClassOption?,
     ): List<RoadmapStep> {
         val steps = mutableListOf<RoadmapStep>()
+        watermark?.let { wm ->
+            val farm = GearWatermarkInferrer.farmLabel(wm.farmCategories)
+            steps += RoadmapStep(
+                kind = "watermark-farm",
+                title = "Farm next: $farm (watermark ${wm.watermark})",
+                detail = buildString {
+                    append("Drop watermark ${wm.watermark} · ")
+                    append("${"%.1f".format(wm.upgradeChancePercent)}% chance next drop raises IL · ")
+                    wm.expectedDropsToUpgrade?.let { append("~${"%.1f".format(it)} drops per +1. ") }
+                    append("Category highs W${wm.input.weapon}/A${wm.input.armor}/Ac${wm.input.accessory}.")
+                },
+            )
+            if (wm.mayRoundUp) {
+                steps += RoadmapStep(
+                    kind = "watermark-round",
+                    title = "Fractional average ${"%.2f".format(wm.average)} may round up",
+                    detail = "Community datamine: the game sometimes treats you as watermark ${wm.watermark + 1}.",
+                )
+            }
+            gsGap?.let { gap ->
+                if (gap > 0) {
+                    steps += RoadmapStep(
+                        kind = "watermark-target",
+                        title = "Typed gear score target is $gap above current window value",
+                        detail = "Window gear score and drop watermark use different systems — track both.",
+                    )
+                }
+            }
+        }
         if (classOption != null) {
             steps += RoadmapStep(
                 kind = "class",

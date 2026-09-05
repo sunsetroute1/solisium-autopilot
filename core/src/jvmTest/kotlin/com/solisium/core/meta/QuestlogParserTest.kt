@@ -76,6 +76,27 @@ class QuestlogParserTest {
     }
 
     @Test
+    fun itemDetailParsesResonancePool() {
+        val json = """
+            {"result":{"data":{
+              "id":"head_aa_S1_plate_003",
+              "itemStats":{
+                "traits":{"melee_critical_defense":[400,800,1200,1600]},
+                "resonance":{
+                  "magic_critical_defense":{"tiers":[640,960,1150,1280],"probability":5.45},
+                  "cost_max":{"tiers":[260,390,470,520],"probability":21}
+                }
+              }
+            }}}
+        """.trimIndent()
+        val detail = QuestlogParser.itemDetail(json)!!
+        assertEquals(1, detail.traitLines.size)
+        assertEquals("melee_critical_defense", detail.traitLines.first().key)
+        assertEquals(2, detail.resonanceLines.size)
+        assertTrue(detail.resonanceLines.any { it.key == "magic_critical_defense" && it.tiers.contains("640") })
+    }
+
+    @Test
     fun npcDetailParsesLootTable() {
         val json = """
             {"result":{"data":{

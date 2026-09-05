@@ -110,6 +110,7 @@ object QuestlogParser {
             properties = itemProperties(obj),
             statLines = statLines(statsRoot),
             traitLines = traitLines(statsRoot),
+            resonanceLines = resonanceLines(statsRoot),
             perkSummaries = obj.arr("itemAvailablePerks").mapNotNull { perk ->
                 val perkObj = perk as? JsonValue.Obj ?: return@mapNotNull null
                 val name = perkObj.str("name")?.let(TextNorm::stripMarkup) ?: return@mapNotNull null
@@ -217,6 +218,24 @@ object QuestlogParser {
             }
     }
 
+    private fun resonanceLines(statsRoot: JsonValue.Obj?): List<CommunityTraitLine> {
+        if (statsRoot == null) return emptyList()
+        val resonance = statsRoot.obj("resonance") ?: return emptyList()
+        return resonance.fields.mapNotNull { (key, value) ->
+            val tiers = when (value) {
+                is JsonValue.Arr -> value.items.mapNotNull { (it as? JsonValue.Num)?.value?.toLong() }
+                is JsonValue.Obj -> value.arr("tiers").mapNotNull { (it as? JsonValue.Num)?.value?.toLong() }
+                else -> return@mapNotNull null
+            }
+            if (tiers.isEmpty()) return@mapNotNull null
+            CommunityTraitLine(
+                label = prettyStatId(key),
+                tiers = tiers.joinToString(" → "),
+                key = key,
+            )
+        }
+    }
+
     private fun traitLines(statsRoot: JsonValue.Obj?): List<CommunityTraitLine> {
         if (statsRoot == null) return emptyList()
         val traits = statsRoot.obj("traits") ?: return emptyList()
@@ -224,7 +243,11 @@ object QuestlogParser {
             val tiers = (value as? JsonValue.Arr)?.items?.mapNotNull { (it as? JsonValue.Num)?.value?.toLong() }
                 ?: return@mapNotNull null
             if (tiers.isEmpty()) return@mapNotNull null
-            CommunityTraitLine(prettyStatId(key), tiers.joinToString(" → "))
+            CommunityTraitLine(
+                label = prettyStatId(key),
+                tiers = tiers.joinToString(" → "),
+                key = key,
+            )
         }
     }
 

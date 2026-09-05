@@ -26,6 +26,7 @@ data class QuestlogItemOverlay(
     val properties: List<String>,
     val statLines: List<CommunityStatLine>,
     val traitLines: List<CommunityTraitLine>,
+    val resonanceLines: List<CommunityTraitLine> = emptyList(),
     val perkSummaries: List<String>,
     val droppedFromNpcs: List<QuestlogDropEntry> = emptyList(),
     val containerSources: List<QuestlogDropEntry> = emptyList(),
@@ -44,4 +45,6 @@ data class CommunityStatLine(
 data class CommunityTraitLine(
     val label: String,
     val tiers: String,
+    /** Questlog stat key, e.g. `cost_max`. */
+    val key: String = "",
 )

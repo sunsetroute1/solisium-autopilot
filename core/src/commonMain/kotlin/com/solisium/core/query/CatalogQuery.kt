@@ -24,8 +24,8 @@ import com.solisium.core.domain.GameClass
 import com.solisium.core.domain.GameCurvePoint
 import com.solisium.core.domain.GameItem
 import com.solisium.core.domain.GameItemCurve
-import com.solisium.core.domain.GameItemStat
 import com.solisium.core.domain.GameItemPower
+import com.solisium.core.domain.GameItemStat
 import com.solisium.core.domain.GameMaterial
 import com.solisium.core.domain.DropCacheStats
 import com.solisium.core.domain.ItemDropSource
@@ -69,6 +69,7 @@ import com.solisium.core.domain.WeaponTypeLabel
 import com.solisium.core.meta.CommunityWeaponClasses
 import com.solisium.core.meta.TextNorm
 import com.solisium.core.snapshot.SnapshotService
+import com.solisium.core.source.CharacterSheetJson
 import com.solisium.core.source.EquipCategory
 
 class CatalogQuery(private val db: SolisiumDatabase) {
@@ -409,6 +410,18 @@ class CatalogQuery(private val db: SolisiumDatabase) {
         }.toMap()
     }
 
+    fun traitNameIndex(snapshotId: String): Map<String, String> {
+        val merged = db.schemaQueries.selectMergedGameTraitNames().executeAsList()
+            .associate { it.source_row_id to it.name }
+        val active = db.schemaQueries.selectGameTraits(snapshotId).executeAsList()
+            .mapNotNull { row ->
+                val name = row.name?.trim()?.takeIf { it.isNotEmpty() && it != row.source_row_id }
+                name?.let { row.source_row_id to it }
+            }
+            .toMap()
+        return merged + active
+    }
+
     /**
      * Perk items named Skill Core: … plus any `perk_*` row. Duplicate tables
      * for the same row id collapse to the ItemLooks copy when one exists.
@@ -743,6 +756,13 @@ class CatalogQuery(private val db: SolisiumDatabase) {
 
     fun resolveCharacter(id: String, snapshotId: String?): ResolvedCharacterSheet? {
         val sheet = characterSheet(id) ?: return null
+        return resolveSheet(sheet, snapshotId)
+    }
+
+    fun resolveDraft(draft: CharacterSheetJson.Draft, snapshotId: String?): ResolvedCharacterSheet =
+        resolveSheet(CharacterSheetJson.toCharacterSheet(draft), snapshotId)
+
+    fun resolveSheet(sheet: CharacterSheet, snapshotId: String?): ResolvedCharacterSheet {
         val snapshot = snapshotId?.let { snapshots.get(it) }
         val lines = buildList {
             CharacterSlots.mergeEquipment(sheet.equipment).forEach {
