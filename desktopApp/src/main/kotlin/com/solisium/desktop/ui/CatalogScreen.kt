@@ -60,10 +60,11 @@ fun CatalogScreen(model: AppModel) {
         KindChips(model)
         Spacer(Modifier.height(Spacing.md))
         Divider()
-        Row(Modifier.fillMaxSize()) {
-            Box(Modifier.weight(1f).fillMaxHeight()) { ResultList(model) }
+        // Fill all space under the search/header — avoid fillMaxSize on this Row (clips below the fold).
+        Row(Modifier.weight(1f).fillMaxWidth()) {
+            Box(Modifier.weight(0.38f).fillMaxHeight()) { ResultList(model) }
             Box(Modifier.width(1.dp).fillMaxHeight().background(Palette.Border))
-            Box(Modifier.width(500.dp).fillMaxHeight()) { CatalogDetailPane(model) }
+            Box(Modifier.weight(0.62f).fillMaxHeight()) { CatalogDetailPane(model) }
         }
     }
 }
@@ -148,7 +149,7 @@ private fun ResultList(model: AppModel) {
                 )
                 return
             }
-            Column {
+            Column(Modifier.fillMaxSize()) {
                 Row(
                     Modifier.fillMaxWidth().padding(horizontal = Spacing.xxl, vertical = Spacing.sm),
                 ) {
@@ -161,7 +162,7 @@ private fun ResultList(model: AppModel) {
                     )
                 }
                 LazyListWithScrollbar(
-                    Modifier.fillMaxSize(),
+                    Modifier.weight(1f).fillMaxWidth(),
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = Spacing.lg),
                 ) {
                     items(rows, key = { it.sourceTable + "|" + it.sourceRowId }) { row ->
@@ -222,26 +223,63 @@ fun CatalogDetailPane(
     when (detail) {
         is Load.Loading -> LoadingRow("Loading stats")
         is Load.Err -> Column(Modifier.padding(Spacing.lg)) { ErrorState(detail.message) }
-        is Load.Ok -> DetailBody(detail.value)
+        is Load.Ok -> DetailBody(model, detail.value)
     }
 }
 
 @Composable
-private fun DetailBody(detail: RowDetail) {
+private fun DetailBody(model: AppModel, detail: RowDetail) {
+    val showInspector = showGearInspector(model.kind, detail)
     ColumnWithScrollbar(Modifier.fillMaxSize()) {
         Column(
-            Modifier.padding(Spacing.lg),
-            verticalArrangement = Arrangement.spacedBy(Spacing.lg),
+            Modifier.padding(Spacing.md),
+            verticalArrangement = Arrangement.spacedBy(if (showInspector) Spacing.sm else Spacing.md),
         ) {
             DetailHeader(detail)
+            if (showInspector) {
+                GearInspectorCard(model, detail)
+            }
+            // Keep trait setup above the fold; tuck warehouse / community detail underneath.
+            var moreOpen by remember(detail.row.sourceRowId) { mutableStateOf(!showInspector) }
             val description = detail.warehouseDescription?.takeIf { it.isNotBlank() }
                 ?: detail.questlog?.description?.takeIf { it.isNotBlank() }
-            description?.let { DescriptionCard(it) }
-            WarehouseStats(detail.stats)
-            detail.combatPower?.let { CombatPowerCard(it) }
-            Curves(detail)
-            detail.questlog?.let { CommunitySection(it, detail.questlogWarning) }
-            TechnicalFooter(detail)
+            val hasMore = description != null ||
+                detail.stats.isNotEmpty() ||
+                detail.combatPower != null ||
+                detail.curves.isNotEmpty() ||
+                detail.questlog != null
+            if (hasMore) {
+                Row(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
+                        .clickable { moreOpen = !moreOpen }
+                        .padding(vertical = Spacing.sm),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        if (moreOpen) "Hide item data" else "Show item data",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = Palette.Accent,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Text(
+                        if (moreOpen) "▲" else "▼",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = Palette.TextFaint,
+                    )
+                }
+                if (moreOpen) {
+                    Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
+                        description?.let { DescriptionCard(it) }
+                        WarehouseStats(detail.stats)
+                        detail.combatPower?.let { CombatPowerCard(it) }
+                        Curves(detail)
+                        detail.questlog?.let { CommunitySection(it, detail.questlogWarning) }
+                        TechnicalFooter(detail)
+                    }
+                }
+            } else {
+                TechnicalFooter(detail)
+            }
         }
     }
 }

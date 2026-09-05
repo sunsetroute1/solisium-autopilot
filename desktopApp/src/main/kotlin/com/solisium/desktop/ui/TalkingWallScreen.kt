@@ -13,10 +13,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -25,21 +24,31 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.solisium.core.domain.GateOfMemoryPlan
+import com.solisium.core.domain.GateOfMemoryRegion
+import com.solisium.core.domain.GateOfMemoryWindow
 import com.solisium.core.domain.TalkingWallStatement
 import com.solisium.desktop.AppModel
 import com.solisium.desktop.Load
+import com.solisium.desktop.theme.MonoStyle
 import com.solisium.desktop.theme.Palette
 import com.solisium.desktop.theme.Spacing
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 @Composable
 fun TalkingWallScreen(model: AppModel) {
     Column(
         Modifier
             .fillMaxSize()
+            .verticalScroll(rememberScrollState())
             .padding(horizontal = Spacing.xxl),
     ) {
         Spacer(Modifier.height(Spacing.lg))
         WallTitleRow(model)
+        Spacer(Modifier.height(Spacing.md))
+        WallTimerCard(model)
         Spacer(Modifier.height(Spacing.md))
         WallSearchBar(model)
         Spacer(Modifier.height(Spacing.sm))
@@ -48,7 +57,8 @@ fun TalkingWallScreen(model: AppModel) {
         WallHeroAnswer(model)
         Spacer(Modifier.height(Spacing.md))
         Divider()
-        WallResultList(model, Modifier.weight(1f))
+        WallResultList(model)
+        Spacer(Modifier.height(Spacing.xxl))
     }
 }
 
@@ -80,6 +90,139 @@ private fun WallTitleRow(model: AppModel) {
         }
     }
 }
+
+@Composable
+private fun WallTimerCard(model: AppModel) {
+    val plan = model.wallTimerPlan
+    Card(Modifier.fillMaxWidth()) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+            Column(Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        "Gate of Memory",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = Palette.Text,
+                    )
+                    Spacer(Modifier.width(Spacing.sm))
+                    Badge("MetaForge cadence", Palette.Unverified, caps = false)
+                    if (plan.activeNow) {
+                        Spacer(Modifier.width(Spacing.sm))
+                        Badge("live", Palette.Extracted, caps = false)
+                    }
+                }
+                Spacer(Modifier.height(Spacing.xs))
+                Text(
+                    plan.zoneLabel,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Palette.TextFaint,
+                )
+                Spacer(Modifier.height(Spacing.md))
+                Text(
+                    if (plan.activeNow) "Gate of Memory is live" else "Next Gate of Memory in",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (plan.activeNow) Palette.Extracted else Palette.TextMuted,
+                )
+                Spacer(Modifier.height(Spacing.xs))
+                Text(
+                    formatWallCountdown(plan.countdownMs),
+                    style = MaterialTheme.typography.displayMedium,
+                    color = if (plan.activeNow) Palette.Extracted else Palette.Accent,
+                )
+                Spacer(Modifier.height(Spacing.xs))
+                Text(
+                    plan.nextStartLabel,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Palette.TextMuted,
+                )
+            }
+            Column(horizontalAlignment = Alignment.End) {
+                Text("Region", style = MaterialTheme.typography.labelSmall, color = Palette.TextFaint)
+                Spacer(Modifier.height(Spacing.xs))
+                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                    GateOfMemoryRegion.entries.forEach { region ->
+                        ActionButton(
+                            region.label,
+                            onClick = { model.pickWallRegion(region) },
+                            primary = model.wallRegion == region,
+                        )
+                    }
+                }
+            }
+        }
+        if (plan.upcoming.isNotEmpty()) {
+            Spacer(Modifier.height(Spacing.md))
+            SectionLabel("Upcoming — next 24 hours")
+            Spacer(Modifier.height(Spacing.sm))
+            plan.upcoming.forEach { window ->
+                WallUpcomingRow(window, plan)
+            }
+        }
+        Spacer(Modifier.height(Spacing.sm))
+        plan.notes.forEach { note ->
+            Text(
+                note,
+                style = MaterialTheme.typography.bodySmall,
+                color = Palette.TextFaint,
+                modifier = Modifier.padding(bottom = 2.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun WallUpcomingRow(window: GateOfMemoryWindow, plan: GateOfMemoryPlan) {
+    val zone = runCatching { ZoneId.of(plan.region.zoneId) }.getOrDefault(ZoneId.systemDefault())
+    val start = Instant.ofEpochMilli(window.startsAtEpochMs).atZone(zone).format(WALL_TIME)
+    val end = Instant.ofEpochMilli(window.endsAtEpochMs).atZone(zone).format(WALL_TIME)
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(vertical = 3.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            "$start – $end",
+            style = MonoStyle,
+            color = Palette.TextMuted,
+            modifier = Modifier.width(140.dp),
+        )
+        Text(
+            formatWallCountdownShort(window.startsInMs),
+            style = MaterialTheme.typography.bodySmall,
+            color = Palette.TextFaint,
+            modifier = Modifier.width(72.dp),
+        )
+        if (window.active) {
+            Badge("now", Palette.Extracted, caps = false)
+        }
+    }
+}
+
+private fun formatWallCountdown(ms: Long): String {
+    val totalSec = (ms + 999) / 1000
+    val hours = totalSec / 3600
+    val minutes = (totalSec % 3600) / 60
+    val seconds = totalSec % 60
+    return if (hours > 0) {
+        "%d:%02d:%02d".format(hours, minutes, seconds)
+    } else {
+        "%02d:%02d".format(minutes, seconds)
+    }
+}
+
+private fun formatWallCountdownShort(ms: Long): String {
+    if (ms <= 0) return "now"
+    val totalSec = (ms + 999) / 1000
+    val hours = totalSec / 3600
+    val minutes = (totalSec % 3600) / 60
+    return when {
+        hours > 0 -> "${hours}h ${minutes}m"
+        minutes > 0 -> "${minutes}m"
+        else -> "${totalSec}s"
+    }
+}
+
+private val WALL_TIME: DateTimeFormatter = DateTimeFormatter.ofPattern("h:mm a")
 
 @Composable
 private fun WallSearchBar(model: AppModel) {
@@ -231,7 +374,7 @@ private fun WallHeroCard(row: TalkingWallStatement, matchCount: Int) {
 }
 
 @Composable
-private fun WallResultList(model: AppModel, modifier: Modifier = Modifier) {
+private fun WallResultList(model: AppModel) {
     when (val state = model.wallStatements) {
         is Load.Loading, is Load.Err -> Unit
         is Load.Ok -> {
@@ -240,20 +383,18 @@ private fun WallResultList(model: AppModel, modifier: Modifier = Modifier) {
             if (rows.size == 1 && model.wallSearch.isNotBlank()) {
                 return
             }
-            Column(modifier.fillMaxWidth()) {
+            Column(Modifier.fillMaxWidth()) {
                 SectionLabel(
                     if (model.wallSearch.isBlank()) "All statements" else "Matches",
                     modifier = Modifier.padding(vertical = Spacing.sm),
                 )
-                LazyColumn(Modifier.fillMaxSize()) {
-                    items(rows, key = { it.sourceTable + it.sourceRowId }) { row ->
-                        WallResultRow(
-                            row = row,
-                            selected = model.selectedWallStatement == row,
-                            onClick = { model.selectWallStatement(row) },
-                        )
-                        Spacer(Modifier.height(Spacing.xs))
-                    }
+                rows.forEach { row ->
+                    WallResultRow(
+                        row = row,
+                        selected = model.selectedWallStatement == row,
+                        onClick = { model.selectWallStatement(row) },
+                    )
+                    Spacer(Modifier.height(Spacing.xs))
                 }
             }
         }

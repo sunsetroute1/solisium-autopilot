@@ -77,7 +77,7 @@ private fun OverviewBody(model: AppModel, overview: Overview) {
             .padding(horizontal = Spacing.xxl),
     ) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
-            ActionButton("What kind of build?", { model.go(com.solisium.desktop.Screen.Build) }, primary = true)
+            ActionButton("What should I do next?", { model.go(com.solisium.desktop.Screen.Progress) }, primary = true)
             ActionButton("Browse gear", { model.go(com.solisium.desktop.Screen.Catalog) })
             ActionButton("Skill cores", { model.go(com.solisium.desktop.Screen.SkillCores) })
             ActionButton("Farm drops", { model.go(com.solisium.desktop.Screen.Drops) })

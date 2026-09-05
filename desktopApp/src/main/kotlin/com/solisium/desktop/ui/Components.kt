@@ -427,7 +427,8 @@ fun ColumnWithScrollbar(
 ) {
     val adapter = rememberScrollbarAdapter(state)
     Box(modifier) {
-        Column(Modifier.fillMaxSize().verticalScroll(state), content = content)
+        // Scroll height follows content; fillMaxSize on the scroller created empty scroll space.
+        Column(Modifier.fillMaxWidth().verticalScroll(state), content = content)
         Box(
             Modifier.align(Alignment.CenterEnd).fillMaxHeight().width(14.dp)
                 .background(Palette.SurfaceHigh.copy(alpha = 0.85f)),

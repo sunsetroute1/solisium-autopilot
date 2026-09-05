@@ -33,8 +33,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.unit.dp
 import com.solisium.core.domain.CommunitySnapshot
+import com.solisium.core.domain.BuildLayer
 import com.solisium.core.domain.DesiredBuildPlan
 import com.solisium.core.domain.RankedGear
+import com.solisium.core.domain.ResolvedLoadoutLine
 import com.solisium.core.domain.SlotAdvice
 import com.solisium.core.domain.UserCharacter
 import com.solisium.core.query.BuildGoal
@@ -51,7 +53,7 @@ fun BuildScreen(model: AppModel) {
     Column(Modifier.fillMaxSize()) {
         PageHeader(
             "I currently have  ·  I would like to have",
-            "Left is the loadout you typed. Right is the top extracted rank for this goal. Click a slot to see the list underneath.",
+            "Click a gear slot to open the picker — meta-ranked suggestions first, or choose your own target piece.",
         ) {
             Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm), verticalAlignment = Alignment.CenterVertically) {
                 ActionButton(
@@ -575,7 +577,21 @@ private fun RoadmapCard(plan: DesiredBuildPlan) {
 private fun AdviceBody(model: AppModel, plan: DesiredBuildPlan) {
     val advice = plan.advice
     var selectedSlot by remember { mutableStateOf<String?>(null) }
-    HaveWantRow(model, plan, selectedSlot) { selectedSlot = it }
+        WatermarkCalculatorCard(
+            model,
+            plan.watermark ?: model.currentWatermarkPlan(),
+        )
+    Spacer(Modifier.height(Spacing.lg))
+    HaveWantRow(model, plan, selectedSlot) { slot, mode ->
+        selectedSlot = slot
+        model.openSlotPicker(
+            slot,
+            when (mode) {
+                DollMode.Current -> com.solisium.desktop.SlotPickerMode.Current
+                DollMode.Desired -> com.solisium.desktop.SlotPickerMode.Desired
+            },
+        )
+    }
     Spacer(Modifier.height(Spacing.md))
     GapMeters(plan)
     Spacer(Modifier.height(Spacing.lg))
@@ -649,7 +665,16 @@ private fun AdviceBody(model: AppModel, plan: DesiredBuildPlan) {
 
     Spacer(Modifier.height(Spacing.lg))
     advice.slots.filter { it.recommended.isNotEmpty() || it.equipped != null }.forEach { slot ->
-        SlotCard(slot, selected = slot.slot == selectedSlot, onSelect = { selectedSlot = slot.slot })
+        SlotCard(
+            slot = slot,
+            selected = slot.slot == selectedSlot,
+            customDesired = model.isCustomDesiredSlot(slot.slot),
+            desiredGear = model.desiredGearFor(slot.slot),
+            onSelect = {
+                selectedSlot = slot.slot
+                model.openSlotPicker(slot.slot, com.solisium.desktop.SlotPickerMode.Desired)
+            },
+        )
         Spacer(Modifier.height(Spacing.md))
     }
 }
@@ -659,15 +684,20 @@ private fun HaveWantRow(
     model: AppModel,
     plan: DesiredBuildPlan,
     selectedSlot: String?,
-    onSlotClick: (String) -> Unit,
+    onSlotClick: (String, DollMode) -> Unit,
 ) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.lg)) {
         Card(Modifier.weight(1f)) {
             Text("I currently have", style = MaterialTheme.typography.titleLarge, color = Palette.Cool)
             Spacer(Modifier.height(Spacing.xs))
             Text(
-                plan.advice.characterName?.let { "Loadout for $it" }
-                    ?: "No character imported — slots stay empty until you load a sheet.",
+                when {
+                    model.characterUsesDraftLoadout ->
+                        "Draft loadout from Character (unsaved changes included). Click a slot to change it."
+                    plan.advice.characterName != null ->
+                        "Loadout for ${plan.advice.characterName}. Click a slot to edit."
+                    else -> "No character imported — click slots on the right to pick target gear."
+                },
                 style = MaterialTheme.typography.bodySmall,
                 color = Palette.TextFaint,
             )
@@ -691,12 +721,13 @@ private fun HaveWantRow(
                 selectedSlot = selectedSlot,
                 onSlotClick = onSlotClick,
             )
+            CurrentLoadoutExtras(plan.advice)
         }
         Card(Modifier.weight(1f)) {
             Text("I would like to have", style = MaterialTheme.typography.titleLarge, color = Palette.Accent)
             Spacer(Modifier.height(Spacing.xs))
             Text(
-                "Top extracted piece per slot for this goal. Gold pip means the rank beats what you are wearing.",
+                "Top extracted piece per slot by default — click to pick a different target. Gold pip = beats what you wear.",
                 style = MaterialTheme.typography.bodySmall,
                 color = Palette.TextFaint,
             )
@@ -719,6 +750,7 @@ private fun HaveWantRow(
                 mode = DollMode.Desired,
                 selectedSlot = selectedSlot,
                 onSlotClick = onSlotClick,
+                desiredGearForSlot = model::desiredGearFor,
             )
         }
     }
@@ -813,11 +845,25 @@ private fun GapMeters(plan: DesiredBuildPlan) {
 }
 
 @Composable
-private fun SlotCard(slot: SlotAdvice, selected: Boolean, onSelect: () -> Unit) {
-    val max = listOfNotNull(slot.equipped?.score, slot.recommended.maxOfOrNull { it.score }).maxOrNull() ?: 1L
+private fun SlotCard(
+    slot: SlotAdvice,
+    selected: Boolean,
+    customDesired: Boolean,
+    desiredGear: RankedGear?,
+    onSelect: () -> Unit,
+) {
+    val max = listOfNotNull(
+        slot.equipped?.score,
+        desiredGear?.score,
+        slot.recommended.maxOfOrNull { it.score },
+    ).maxOrNull() ?: 1L
     Card(Modifier.fillMaxWidth().clickable(onClick = onSelect)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            GearIcon(iconPath = (slot.equipped ?: slot.recommended.firstOrNull())?.iconPath, slot = slot.slot, modifier = Modifier.size(28.dp))
+            GearIcon(
+                iconPath = (slot.equipped ?: desiredGear ?: slot.recommended.firstOrNull())?.iconPath,
+                slot = slot.slot,
+                modifier = Modifier.size(28.dp),
+            )
             Spacer(Modifier.width(Spacing.sm))
             Text(
                 slot.slot.replaceFirstChar { it.uppercase() },
@@ -829,15 +875,26 @@ private fun SlotCard(slot: SlotAdvice, selected: Boolean, onSelect: () -> Unit) 
                 Badge("this slot", Palette.Accent, caps = false)
                 Spacer(Modifier.width(Spacing.sm))
             }
+            if (customDesired) {
+                Badge("custom pick", Palette.Derived, caps = false)
+                Spacer(Modifier.width(Spacing.sm))
+            }
             slot.gap?.let { gap ->
                 Badge(if (gap == 0L) "on rank" else "gap ${gap.format()}", if (gap == 0L) Palette.Extracted else Palette.Unverified)
             }
         }
         slot.equipped?.let { GearRow("You", it, max, Palette.Cool) }
-        slot.recommended.forEachIndexed { index, gear ->
-            GearRow(if (index == 0) "Want" else "#${index + 1}", gear, max, Palette.Accent)
+        desiredGear?.let { GearRow("Want", it, max, Palette.Accent) }
+        if (desiredGear == null) {
+            slot.recommended.forEachIndexed { index, gear ->
+                GearRow(if (index == 0) "Want" else "#${index + 1}", gear, max, Palette.Accent)
+            }
+        } else if (slot.recommended.none { it.sourceRowId == desiredGear.sourceRowId }) {
+            slot.recommended.take(3).forEachIndexed { index, gear ->
+                GearRow("Alt #${index + 1}", gear, max, Palette.TextMuted)
+            }
         }
-        if (slot.recommended.isEmpty()) {
+        if (slot.recommended.isEmpty() && desiredGear == null) {
             Spacer(Modifier.height(Spacing.sm))
             Text("No named piece in this snapshot scored for the selected goal.", style = MaterialTheme.typography.bodySmall, color = Palette.TextFaint)
         }
@@ -952,4 +1009,53 @@ private fun CommunityPanel(state: Load<CommunitySnapshot>?) {
             }
         }
     }
+}
+
+@Composable
+private fun CurrentLoadoutExtras(advice: com.solisium.core.domain.BuildAdvice) {
+    val skills = advice.loadoutLines.filter { it.kind == "skill" && !it.empty }
+    val mastery = advice.loadoutLines.filter { it.kind == "weapon_mastery" && !it.empty }
+    val layers = advice.loadoutLines.filter { line ->
+        line.kind !in setOf(
+            "skill", "weapon", "equipment", "trait", "rune", "inventory", "material", "weapon_mastery",
+        ) && !line.empty
+    }
+    if (skills.isEmpty() && mastery.isEmpty() && layers.isEmpty()) return
+
+    Spacer(Modifier.height(Spacing.lg))
+    if (skills.isNotEmpty()) {
+        SectionLabel("Weapon skills")
+        Spacer(Modifier.height(Spacing.xs))
+        skills.forEach { LoadoutLineText(it) }
+        Spacer(Modifier.height(Spacing.sm))
+    }
+    if (mastery.isNotEmpty()) {
+        SectionLabel("Weapon mastery")
+        Spacer(Modifier.height(Spacing.xs))
+        mastery.forEach { LoadoutLineText(it) }
+        Spacer(Modifier.height(Spacing.sm))
+    }
+    if (layers.isNotEmpty()) {
+        SectionLabel("Cores & influences")
+        Spacer(Modifier.height(Spacing.xs))
+        layers.forEach { LoadoutLineText(it) }
+    }
+}
+
+@Composable
+private fun LoadoutLineText(line: ResolvedLoadoutLine) {
+    val prefix = when (line.kind) {
+        "skill" -> line.label?.let { "$it · " }.orEmpty()
+        else -> BuildLayer.fromId(line.kind)?.label?.let { "$it · " }
+            ?: line.label?.let { "$it · " }.orEmpty()
+    }
+    val name = com.solisium.core.domain.DisplayName.of(line.hit?.name) ?: line.name ?: line.sourceRowId ?: "—"
+    val extra = line.extra?.let { " ($it)" }.orEmpty()
+    val tag = if (line.unresolved) " · unresolved" else ""
+    Text(
+        "$prefix$name$extra$tag",
+        style = MaterialTheme.typography.bodySmall,
+        color = if (line.unresolved) Palette.Unverified else Palette.TextMuted,
+        modifier = Modifier.padding(bottom = 2.dp),
+    )
 }

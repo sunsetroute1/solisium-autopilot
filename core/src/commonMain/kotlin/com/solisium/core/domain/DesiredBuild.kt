@@ -41,6 +41,7 @@ data class DesiredBuildPlan(
     val modeled: ModeledPowerBreakdown? = null,
     val modeledCombatPowerGap: Long? = null,
     val modeledGearScoreGap: Long? = null,
+    val watermark: GearWatermarkPlan? = null,
     val axes: List<String>,
     val extraKeys: List<String>,
     val roadmap: List<RoadmapStep>,

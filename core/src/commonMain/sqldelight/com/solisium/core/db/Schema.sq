@@ -1143,6 +1143,12 @@ FROM game_trait
 WHERE snapshot_id = ?
 ORDER BY (name IS NULL OR name = '' OR name = source_row_id), name COLLATE NOCASE;
 
+selectMergedGameTraitNames:
+SELECT source_row_id, name
+FROM game_trait
+WHERE name IS NOT NULL AND TRIM(name) != '' AND name != source_row_id
+GROUP BY source_row_id;
+
 searchGameTraits:
 SELECT source_table, source_row_id, name
 FROM game_trait

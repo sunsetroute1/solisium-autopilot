@@ -88,4 +88,6 @@ data class BuildAdvice(
     val classSource: String? = null,
     val classWeaponsLabel: String? = null,
     val weaponTokens: List<String> = emptyList(),
+    /** Resolved character loadout lines (gear, skills, cores, influences). */
+    val loadoutLines: List<ResolvedLoadoutLine> = emptyList(),
 )

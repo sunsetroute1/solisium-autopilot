@@ -10,6 +10,7 @@ import com.solisium.core.domain.GameItemPower
 import com.solisium.core.domain.GameItemStat
 import com.solisium.core.domain.GameWeapon
 import com.solisium.core.domain.RankedGear
+import com.solisium.core.domain.LoadoutKeys
 import com.solisium.core.domain.ResolvedCharacterSheet
 import com.solisium.core.domain.ResolvedLoadoutLine
 import com.solisium.core.domain.SkillShare
@@ -30,6 +31,7 @@ class BuildAdvisor(private val query: CatalogQuery) {
         snapshotId: String,
         goal: BuildGoal,
         characterId: String? = null,
+        sheet: ResolvedCharacterSheet? = null,
         community: CommunitySnapshot? = null,
         perSlot: Int = 5,
         extraKeys: Set<String> = emptySet(),
@@ -91,9 +93,10 @@ class BuildAdvisor(private val query: CatalogQuery) {
             list.sortWith(compareByDescending<RankedGear> { it.score }.thenByDescending { it.communityHits }.thenBy { it.name })
         }
 
-        val sheet = characterId?.let { query.resolveCharacter(it, snapshotId) }
+        val resolvedSheet = sheet ?: characterId?.let { query.resolveCharacter(it, snapshotId) }
+        ensureEquippedSlots(rankedBySlot, resolvedSheet, weaponsById)
         val slots = rankedBySlot.map { (slot, ranked) ->
-            val equipped = equippedIn(sheet, slot, byRow, keys, community, weaponsById, grades, itemPower, icons)
+            val equipped = equippedIn(resolvedSheet, slot, byRow, keys, community, weaponsById, grades, itemPower, icons)
             val top = ranked.take(perSlot)
             SlotAdvice(
                 slot = slot,
@@ -106,9 +109,9 @@ class BuildAdvisor(private val query: CatalogQuery) {
             )
         }.sortedBy { SLOT_ORDER.indexOf(it.slot).takeIf { idx -> idx >= 0 } ?: 99 }
 
-        val axes = axisScores(keys, stats, sheet, rankedBySlot)
+        val axes = axisScores(keys, stats, resolvedSheet, rankedBySlot)
         val shares = skillShares(snapshotId, community)
-        val insights = CombatBuildFeedback.analyze(shares, sheet?.sheet?.skills.orEmpty())
+        val insights = CombatBuildFeedback.analyze(shares, resolvedSheet?.sheet?.skills.orEmpty())
         val advice = BuildAdvice(
             snapshotId = snapshotId,
             snapshotBuild = snapshot?.gameBuild,
@@ -121,11 +124,12 @@ class BuildAdvisor(private val query: CatalogQuery) {
             combatInsights = insights,
             community = community,
             briefing = emptyList(),
-            characterName = sheet?.sheet?.character?.name,
-            className = classOption?.name ?: sheet?.weaponClass?.name,
-            classSource = classOption?.source ?: sheet?.weaponClass?.source,
-            classWeaponsLabel = classOption?.weaponsLabel ?: sheet?.weaponClass?.weaponsLabel,
+            characterName = resolvedSheet?.sheet?.character?.name,
+            className = classOption?.name ?: resolvedSheet?.weaponClass?.name,
+            classSource = classOption?.source ?: resolvedSheet?.weaponClass?.source,
+            classWeaponsLabel = classOption?.weaponsLabel ?: resolvedSheet?.weaponClass?.weaponsLabel,
             weaponTokens = weaponTokens.toList(),
+            loadoutLines = resolvedSheet?.lines.orEmpty(),
         )
         return advice.copy(briefing = MetaBriefing.lines(advice, goal, classOption))
     }
@@ -225,6 +229,40 @@ class BuildAdvisor(private val query: CatalogQuery) {
         )
     }
 
+    private fun ensureEquippedSlots(
+        rankedBySlot: MutableMap<String, MutableList<RankedGear>>,
+        sheet: ResolvedCharacterSheet?,
+        weaponsById: Map<String, GameWeapon>,
+    ) {
+        sheet?.lines.orEmpty().forEach { line ->
+            if (line.kind !in setOf("equipment", "weapon")) return@forEach
+            if (!lineHasGear(line)) return@forEach
+            buildSlotKey(line, weaponsById)?.let { slot ->
+                rankedBySlot.putIfAbsent(slot, mutableListOf())
+            }
+        }
+    }
+
+    private fun lineHasGear(line: ResolvedLoadoutLine): Boolean =
+        !line.empty && (!line.name.isNullOrBlank() || !LoadoutKeys.isUnspecified(line.sourceRowId))
+
+    private fun equippedLineFor(
+        sheet: ResolvedCharacterSheet,
+        slot: String,
+        weaponsById: Map<String, GameWeapon>,
+    ): ResolvedLoadoutLine? =
+        sheet.lines.firstOrNull { line -> matchesSlot(line, slot, weaponsById) && lineHasGear(line) }
+
+    private fun buildSlotKey(line: ResolvedLoadoutLine, weaponsById: Map<String, GameWeapon>): String? {
+        if (line.kind == "weapon") {
+            return line.sourceRowId?.let { weaponsById[it] }?.let { slotLabel(it.weaponType) }
+        }
+        if (line.kind == "equipment") {
+            return equipmentBuildSlot(line.label)
+        }
+        return null
+    }
+
     private fun equippedIn(
         sheet: ResolvedCharacterSheet?,
         slot: String,
@@ -237,9 +275,28 @@ class BuildAdvisor(private val query: CatalogQuery) {
         icons: Map<String, String>,
     ): RankedGear? {
         if (sheet == null) return null
-        val line = sheet.lines.firstOrNull { matchesSlot(it, slot, weaponsById) } ?: return null
-        val id = line.sourceRowId ?: return null
-        val name = DisplayName.of(line.hit?.name, id) ?: id
+        val line = equippedLineFor(sheet, slot, weaponsById) ?: return null
+        val id = line.sourceRowId?.takeUnless { LoadoutKeys.isUnspecified(it) }
+        val name = DisplayName.of(line.hit?.name, id)
+            ?: line.name?.trim()?.takeIf { it.isNotEmpty() }
+            ?: return null
+        val gearKind = when (line.kind) {
+            "equipment" -> "armor"
+            else -> line.kind
+        }
+        if (id == null) {
+            return RankedGear(
+                slot = slot,
+                name = name,
+                sourceTable = line.sourceTable.orEmpty(),
+                sourceRowId = "",
+                score = 0,
+                grade = line.hit?.detail,
+                kind = gearKind,
+                contributions = emptyList(),
+                communityHits = communityHits(name, community),
+            )
+        }
         val itemLevel = itemLevelOf(sheet, id)
         val weights = ModeledCombatPower.warehouseWeights(itemPower[id], itemLevel)
         val iconPath = icons[id]
@@ -248,7 +305,7 @@ class BuildAdvisor(private val query: CatalogQuery) {
             name = name,
             table = line.sourceTable ?: "",
             id = id,
-            kind = line.kind,
+            kind = gearKind,
             grade = grades[id] ?: line.hit?.detail,
             row = byRow[id] ?: emptyList(),
             keys = keys,
@@ -263,7 +320,7 @@ class BuildAdvisor(private val query: CatalogQuery) {
             sourceRowId = id,
             score = 0,
             grade = grades[id] ?: line.hit?.detail,
-            kind = line.kind,
+            kind = gearKind,
             contributions = emptyList(),
             communityHits = communityHits(name, community),
             itemPower = weights?.current,
@@ -285,6 +342,13 @@ class BuildAdvisor(private val query: CatalogQuery) {
         if (line.kind == "weapon") {
             val typeSlot = line.sourceRowId?.let { weaponsById[it] }?.let { slotLabel(it.weaponType) }
             return typeSlot == slot || (typeSlot == null && slot == "weapon")
+        }
+        if (line.kind == "equipment") {
+            val mapped = equipmentBuildSlot(line.label) ?: return false
+            if (mapped == slot) return true
+            if (slot == "earring" && line.label?.lowercase() == "earring2") return true
+            if (slot == "ring" && line.label?.lowercase() == "ring2") return true
+            return false
         }
         return lineSlot(line.kind, line.label) == slot
     }
@@ -361,9 +425,20 @@ class BuildAdvisor(private val query: CatalogQuery) {
         private fun slotLabel(raw: String?): String? =
             DisplayName.prettyEnum(raw)?.lowercase() ?: raw?.substringAfterLast("::")?.removePrefix("k")?.lowercase()
 
+        private fun equipmentBuildSlot(label: String?): String? {
+            val slot = label?.lowercase()?.trim().orEmpty()
+            if (slot.isEmpty()) return null
+            return when (slot) {
+                "earring2" -> "earring"
+                "ring2" -> "ring"
+                else -> slotLabel(slot) ?: slot
+            }
+        }
+
         private fun lineSlot(kind: String, label: String?): String {
             if (kind == "weapon") return "weapon"
             val slot = label?.lowercase() ?: return kind
+            if (kind == "equipment") return equipmentBuildSlot(label) ?: kind
             return slotLabel(slot) ?: slot
         }
 

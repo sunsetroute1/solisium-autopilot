@@ -131,4 +131,47 @@ class CharacterSheetJsonTest {
         assertEquals("Gauntlet Slam", parsed.skills.single().name)
         assertEquals(5L, parsed.skills.single().skillLevel)
     }
+
+    @Test
+    fun draftResolvesWithoutDatabaseImport() {
+        val draft = CharacterSheetJson.Draft(
+            id = "draft-build",
+            name = "Draft Hero",
+            level = "60",
+            combatPower = "9000",
+            gearScore = "2500",
+            strength = "",
+            dexterity = "",
+            wisdom = "",
+            perception = "",
+            fortitude = "",
+            server = "",
+            weapons = listOf(
+                CharacterSheetJson.NamedSlot("main", "Starter Sword"),
+            ),
+            equipment = emptyList(),
+            inventory = emptyList(),
+            skills = listOf(CharacterSheetJson.NamedSkill("Gauntlet Slam", "PvE Grind", "5")),
+            buildLayers = listOf(CharacterSheetJson.NamedLayer("skill_core", "1", "Skill Core: Example", "")),
+        )
+        val db = JvmDatabase.inMemory()
+        val snapshotId = "snap"
+        db.schemaQueries.insertSnapshot(
+            id = snapshotId,
+            source = "test",
+            extracted_at = "1970-01-01T00:00:00Z",
+            game_build = "test",
+            game_version = "test",
+            schema_version = 1,
+            source_path = null,
+            source_hash = null,
+            decoder_version = null,
+            active = 1,
+        )
+        val resolved = CatalogQuery(db).resolveDraft(draft, snapshotId)
+        assertEquals("Draft Hero", resolved.sheet.character.name)
+        assertTrue(resolved.lines.any { it.kind == "weapon" && it.name == "Starter Sword" })
+        assertEquals(1, resolved.lines.count { it.kind == "skill" })
+        assertEquals(1, resolved.lines.count { it.kind == "skill_core" })
+    }
 }

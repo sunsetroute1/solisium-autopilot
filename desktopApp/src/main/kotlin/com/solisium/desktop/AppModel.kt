@@ -31,6 +31,8 @@ import com.solisium.core.domain.TalkingWallCoverage
 import com.solisium.core.domain.TalkingWallSnapshotDelta
 import com.solisium.core.domain.TalkingWallStatement
 import com.solisium.core.talkingwall.TalkingWallResources
+import com.solisium.core.domain.GearInspectorState
+import com.solisium.core.domain.ItemTraitProfile
 import com.solisium.core.domain.QuestlogItemOverlay
 import com.solisium.core.domain.QuestlogNpcDetail
 import com.solisium.core.meta.DropCacheSync
@@ -47,13 +49,32 @@ import com.solisium.core.meta.GameServers
 import com.solisium.core.meta.CommunityWeaponClasses
 import com.solisium.core.meta.OllamaNarrator
 import com.solisium.core.meta.TextNorm
+import com.solisium.core.domain.RankedGear
+import com.solisium.core.query.BuildAdvisor
 import com.solisium.core.query.BuildGoal
 import com.solisium.core.query.BuildMismatch
 import com.solisium.core.query.CatalogQuery
+import com.solisium.core.domain.LiveProgressionSnapshot
+import com.solisium.core.domain.ProgressionPlan
+import com.solisium.core.query.ProgressionAnalyzer
 import com.solisium.core.query.DesiredBuildPlanner
+import com.solisium.core.source.ProgressionPasteParser
+import com.solisium.core.source.ProgressionStore
+import com.solisium.core.source.TlLocalProgressReader
+import com.solisium.core.domain.GateOfMemoryPlan
+import com.solisium.core.domain.GateOfMemoryRegion
 import com.solisium.core.query.EventTimelineBuilder
+import com.solisium.core.query.GateOfMemoryTimer
+import com.solisium.core.query.GearInspectorModel
 import com.solisium.core.query.StatAxis
 import com.solisium.core.query.WeaponClassResolver
+import com.solisium.core.domain.GearWatermarkCategory
+import com.solisium.core.domain.GearWatermarkInput
+import com.solisium.core.query.GearWatermarkCalculator
+import com.solisium.core.query.GearWatermarkInferrer
+import com.solisium.core.source.GearInspectorStore
+import com.solisium.core.source.GearWatermarkStore
+import com.solisium.core.source.WarehouseTraitCatalog
 import com.solisium.core.secret.AesKey
 import com.solisium.core.secret.KeyCandidate
 import com.solisium.core.secret.SecretRef
@@ -106,6 +127,7 @@ sealed interface Load<out T> {
 
 enum class Screen(val label: String, val blurb: String) {
     Overview("Home", "What to do next"),
+    Progress("Progress", "Ranked dailies, contracts, and build gaps"),
     Build("Build", "What you have, and what you want"),
     Catalog("Gear", "Search by the name you see in game"),
     SkillCores("Cores", "Skill cores from the warehouse"),
@@ -201,6 +223,7 @@ data class RowDetail(
     val combatPower: GameItemPower? = null,
     val questlog: QuestlogItemOverlay? = null,
     val questlogWarning: String? = null,
+    val traitProfile: ItemTraitProfile? = null,
     val category: String? = null,
     /** Extracted locres tooltip for perk / skill-core rows. Not Questlog text. */
     val warehouseDescription: String? = null,
@@ -213,6 +236,10 @@ data class Overview(
     val buildWarning: String?,
 )
 
+enum class SlotPickerMode { Current, Desired }
+
+data class SlotPickerState(val slot: String, val mode: SlotPickerMode)
+
 /**
  * Holds all screen state and owns database access. The UI never touches SQLDelight
  * directly and never computes game values; it only renders what `core` returns.
@@ -224,6 +251,9 @@ class AppModel(private val scope: CoroutineScope) {
     private val database: SolisiumDatabase? by lazy(LazyThreadSafetyMode.NONE) { openDatabase() }
     private val query: CatalogQuery? by lazy(LazyThreadSafetyMode.NONE) { database?.let { CatalogQuery(it) } }
     private val skillCoreDescriptions = SkillCoreDescriptionService()
+    private val progressionStore = ProgressionStore()
+    private val gearWatermarkStore = GearWatermarkStore()
+    private var progressionCompleted = mutableSetOf<String>()
 
     var screen by mutableStateOf(Screen.Overview)
         private set
@@ -302,6 +332,10 @@ class AppModel(private val scope: CoroutineScope) {
         private set
 
     private var characterDraftDirty = false
+
+    val characterUsesDraftLoadout: Boolean
+        get() = characterDraftDirty && characterDraft != null &&
+            (selectedCharacterId == null || characterDraft?.id == selectedCharacterId)
     private var attemptedCharacterAutoImport = false
 
     var characterSuggestField by mutableStateOf<String?>(null)
@@ -348,10 +382,55 @@ class AppModel(private val scope: CoroutineScope) {
     var desiredGearScoreText by mutableStateOf("")
         private set
 
+    var watermarkWeaponText by mutableStateOf("")
+        private set
+
+    var watermarkArmorText by mutableStateOf("")
+        private set
+
+    var watermarkAccessoryText by mutableStateOf("")
+        private set
+
+    init {
+        gearWatermarkStore.load()?.let { stored ->
+            watermarkWeaponText = stored.weapon.toString()
+            watermarkArmorText = stored.armor.toString()
+            watermarkAccessoryText = stored.accessory.toString()
+        }
+    }
+
+    var slotPicker by mutableStateOf<SlotPickerState?>(null)
+        private set
+
+    var slotPickerLoading by mutableStateOf(false)
+        private set
+
+    var slotPickerOptions by mutableStateOf<List<RankedGear>>(emptyList())
+        private set
+
+    var slotPickerQuery by mutableStateOf("")
+        private set
+
+    /** User-chosen target gear per slot on the Build “I would like to have” side. */
+    var desiredSlotPicks by mutableStateOf<Map<String, RankedGear>>(emptyMap())
+        private set
+
     var plan by mutableStateOf<Load<DesiredBuildPlan>>(Load.Loading)
         private set
 
     var advice by mutableStateOf<Load<BuildAdvice>>(Load.Loading)
+        private set
+
+    var progressionPlan by mutableStateOf<Load<ProgressionPlan>>(Load.Loading)
+        private set
+
+    var progressionRefreshing by mutableStateOf(false)
+        private set
+
+    var liveProgression by mutableStateOf<LiveProgressionSnapshot?>(null)
+        private set
+
+    var progressionPasteText by mutableStateOf("")
         private set
 
     var community by mutableStateOf<Load<CommunitySnapshot>?>(null)
@@ -446,6 +525,14 @@ class AppModel(private val scope: CoroutineScope) {
 
     private var wallSearchJob: Job? = null
 
+    var wallRegion by mutableStateOf(readStoredWallRegion())
+        private set
+
+    var wallTimerPlan by mutableStateOf(GateOfMemoryTimer().plan(readStoredWallRegion()))
+        private set
+
+    private var wallTimerJob: Job? = null
+
     var eventServer by mutableStateOf(readStoredEventServer())
         private set
 
@@ -478,7 +565,15 @@ class AppModel(private val scope: CoroutineScope) {
 
     private var searchJob: Job? = null
     private var detailJob: Job? = null
+
+    private val gearInspectorStore = GearInspectorStore()
+    private val gearInspectorByKey = mutableMapOf<String, GearInspectorState>()
+    private var gearInspectorSaveJob: Job? = null
+    var gearInspectorRevision by mutableStateOf(0)
+        private set
     private var desiredJob: Job? = null
+    private var buildRefreshJob: Job? = null
+    private var progressionRefreshJob: Job? = null
     private var dropSearchJob: Job? = null
 
     /** Suggested defaults for the import buttons; null when nothing was detected. */
@@ -505,6 +600,7 @@ class AppModel(private val scope: CoroutineScope) {
 
     init {
         StarterBootstrap.seedIfNeeded(databasePath())
+        gearInspectorByKey.putAll(gearInspectorStore.load())
         refreshOverview()
         loadRows()
         bootstrapExtractAndKeys()
@@ -518,10 +614,19 @@ class AppModel(private val scope: CoroutineScope) {
     }
 
     fun go(target: Screen) {
+        if (screen == Screen.Wall && target != Screen.Wall) stopWallTimer()
         if (target != Screen.Character) clearGearSuggestions()
         screen = target
         when (target) {
             Screen.Overview -> refreshOverview()
+            Screen.Progress -> {
+                loadCharacters()
+                if (plan is Load.Ok) {
+                    syncLiveProgressionFromFiles()
+                } else {
+                    refreshAdvice()
+                }
+            }
             Screen.Build -> {
                 loadCharacters()
                 refreshAdvice()
@@ -535,7 +640,10 @@ class AppModel(private val scope: CoroutineScope) {
                 refreshEventPlan()
                 if (eventCatalog.isEmpty()) refreshEventCatalog()
             }
-            Screen.Wall -> loadTalkingWall()
+            Screen.Wall -> {
+                loadTalkingWall()
+                startWallTimer()
+            }
             Screen.Character -> loadCharacters()
             Screen.Combat -> {
                 refreshCombatLogDiscovery()
@@ -880,6 +988,7 @@ class AppModel(private val scope: CoroutineScope) {
     fun selectCharacter(id: String) {
         clearGearSuggestions()
         selectedCharacterId = id
+        loadProgressionState(id)
         characterSheet = Load.Loading
         scope.launch {
             val loaded = guard {
@@ -904,12 +1013,111 @@ class AppModel(private val scope: CoroutineScope) {
                 }
             }
             if (screen == Screen.Build) refreshAdvice()
+            if (screen == Screen.Progress) refreshProgression()
         }
+    }
+
+    fun toggleProgressionTask(taskId: String) {
+        val characterId = selectedCharacterId ?: characterDraft?.id ?: return
+        if (taskId in progressionCompleted) {
+            progressionCompleted.remove(taskId)
+        } else {
+            progressionCompleted.add(taskId)
+        }
+        progressionStore.save(characterId, progressionCompleted)
+        refreshProgression()
+    }
+
+    fun syncLiveProgressionFromFiles() {
+        scope.launch {
+            val snap = withContext(Dispatchers.IO) { TlLocalProgressReader().read() }
+            liveProgression = snap
+            refreshProgression()
+        }
+    }
+
+    fun onProgressionPaste(text: String) {
+        progressionPasteText = text
+    }
+
+    fun importProgressionFromClipboard() {
+        val text = DesktopClipboard.readText() ?: return
+        progressionPasteText = text
+        applyProgressionPaste(text)
+    }
+
+    fun applyProgressionPaste(text: String = progressionPasteText) {
+        val snap = ProgressionPasteParser.parse(text, syncedAtEpochMs = System.currentTimeMillis())
+        liveProgression = mergeLive(liveProgression, snap)
+        val characterId = selectedCharacterId ?: characterDraft?.id
+        if (characterId != null && snap.completedIds.isNotEmpty()) {
+            progressionCompleted.addAll(snap.completedIds)
+            progressionStore.save(characterId, progressionCompleted)
+        }
+        refreshProgression()
+    }
+
+    private fun mergeLive(
+        current: LiveProgressionSnapshot?,
+        next: LiveProgressionSnapshot,
+    ): LiveProgressionSnapshot {
+        if (current == null) return next
+        val items = (current.items + next.items).distinctBy { it.id }
+        return LiveProgressionSnapshot(
+            items = items,
+            completedIds = current.completedIds + next.completedIds,
+            sources = (current.sources + next.sources).distinct(),
+            warnings = (current.warnings + next.warnings).distinct(),
+            syncedAtEpochMs = next.syncedAtEpochMs,
+        )
+    }
+
+    fun refreshProgression() {
+        progressionRefreshJob?.cancel()
+        val currentGoal = goal
+        val characterId = selectedCharacterId
+        val draftSnapshot = characterDraft
+        val useDraft = draftSnapshot != null &&
+            (characterId == null || draftSnapshot.id == characterId)
+        val buildPlan = (plan as? Load.Ok)?.value
+        val completed = progressionCompleted.toSet()
+        val live = liveProgression
+        progressionRefreshJob = scope.launch {
+            progressionRefreshing = true
+            progressionPlan = Load.Loading
+            val loaded = read { q, snapshotId ->
+                val resolvedSheet = when {
+                    useDraft -> q.resolveDraft(draftSnapshot!!, snapshotId)
+                    characterId != null -> q.resolveCharacter(characterId, snapshotId)
+                    else -> null
+                }
+                ProgressionAnalyzer().analyze(
+                    sheet = resolvedSheet,
+                    buildPlan = buildPlan,
+                    buildGoal = currentGoal,
+                    completedTaskIds = completed,
+                    live = live,
+                )
+            }
+            progressionPlan = loaded
+            progressionRefreshing = false
+        }
+    }
+
+    private fun loadProgressionState(characterId: String) {
+        progressionCompleted = progressionStore.load(characterId).toMutableSet()
     }
 
     fun updateCharacterDraft(next: CharacterSheetJson.Draft, classEdited: Boolean = false) {
         characterDraft = applyClass(next, classEdited)
         characterDraftDirty = true
+        if (screen == Screen.Build) {
+            buildRefreshJob?.cancel()
+            buildRefreshJob = scope.launch {
+                delay(250)
+                refreshAdvice()
+            }
+        }
     }
 
     fun classSuggestion(draft: CharacterSheetJson.Draft): WeaponClassMatch {
@@ -1417,6 +1625,7 @@ class AppModel(private val scope: CoroutineScope) {
         if (next == goal) return
         goal = next
         narration = null
+        desiredSlotPicks = emptyMap()
         community = metaByGoal[next]?.let { Load.Ok(it) }
         refreshAdvice()
     }
@@ -1425,6 +1634,7 @@ class AppModel(private val scope: CoroutineScope) {
         selectedClassKey = option?.key
         classChosenByUser = true
         classQuery = ""
+        desiredSlotPicks = emptyMap()
         refreshAdvice()
     }
 
@@ -1482,9 +1692,196 @@ class AppModel(private val scope: CoroutineScope) {
         }
     }
 
+    fun onWatermarkWeapon(text: String) = onWatermarkCategory(GearWatermarkCategory.WEAPON, text)
+
+    fun onWatermarkArmor(text: String) = onWatermarkCategory(GearWatermarkCategory.ARMOR, text)
+
+    fun onWatermarkAccessory(text: String) = onWatermarkCategory(GearWatermarkCategory.ACCESSORY, text)
+
+    private fun onWatermarkCategory(category: GearWatermarkCategory, text: String) {
+        val digits = text.filter { it.isDigit() }.take(2)
+        when (category) {
+            GearWatermarkCategory.WEAPON -> watermarkWeaponText = digits
+            GearWatermarkCategory.ARMOR -> watermarkArmorText = digits
+            GearWatermarkCategory.ACCESSORY -> watermarkAccessoryText = digits
+        }
+        watermarkInput()?.let { gearWatermarkStore.save(it) }
+        desiredJob?.cancel()
+        desiredJob = scope.launch {
+            delay(180)
+            refreshAdvice()
+        }
+    }
+
+    fun applyWatermarkFromLoadout() {
+        scope.launch {
+            val loaded = read { q, snapshotId ->
+                val characterId = selectedCharacterId
+                val draftSnapshot = characterDraft
+                val useDraft = draftSnapshot != null &&
+                    (characterId == null || draftSnapshot.id == characterId)
+                when {
+                    useDraft -> q.resolveDraft(draftSnapshot!!, snapshotId)
+                    characterId != null -> q.resolveCharacter(characterId, snapshotId)
+                    else -> null
+                }
+            }
+            val sheet = (loaded as? Load.Ok)?.value ?: return@launch
+            val inferred = GearWatermarkInferrer.fromSheet(sheet) ?: return@launch
+            watermarkWeaponText = inferred.weapon.toString()
+            watermarkArmorText = inferred.armor.toString()
+            watermarkAccessoryText = inferred.accessory.toString()
+            gearWatermarkStore.save(inferred)
+            refreshAdvice()
+        }
+    }
+
+    fun syncDesiredGearScoreFromWatermark() {
+        val wm = watermarkInput()?.let { GearWatermarkCalculator.plan(it).watermark } ?: return
+        onDesiredGearScore(wm.toString())
+    }
+
+    private fun watermarkInput(): GearWatermarkInput? {
+        val weapon = watermarkWeaponText.toIntOrNull() ?: return null
+        val armor = watermarkArmorText.toIntOrNull() ?: return null
+        val accessory = watermarkAccessoryText.toIntOrNull() ?: return null
+        return GearWatermarkInput(weapon, armor, accessory)
+    }
+
+    fun currentWatermarkPlan() =
+        watermarkInput()?.let { GearWatermarkCalculator.plan(it) }
+
+    fun desiredGearFor(slot: String): RankedGear? =
+        desiredSlotPicks[slot] ?: (plan as? Load.Ok)?.value?.advice?.slots
+            ?.firstOrNull { it.slot == slot }?.recommended?.firstOrNull()
+
+    fun isCustomDesiredSlot(slot: String): Boolean {
+        val pick = desiredSlotPicks[slot] ?: return false
+        val metaTop = (plan as? Load.Ok)?.value?.advice?.slots
+            ?.firstOrNull { it.slot == slot }?.recommended?.firstOrNull()?.sourceRowId
+        return pick.sourceRowId != metaTop
+    }
+
+    fun openSlotPicker(slot: String, mode: SlotPickerMode) {
+        slotPicker = SlotPickerState(slot, mode)
+        slotPickerQuery = ""
+        loadSlotPickerOptions()
+    }
+
+    fun dismissSlotPicker() {
+        slotPicker = null
+        slotPickerOptions = emptyList()
+        slotPickerQuery = ""
+        slotPickerLoading = false
+    }
+
+    fun onSlotPickerQuery(text: String) {
+        slotPickerQuery = text
+    }
+
+    fun pickSlotGear(gear: RankedGear) {
+        val picker = slotPicker ?: return
+        when (picker.mode) {
+            SlotPickerMode.Desired -> {
+                val metaTop = slotPickerOptions.firstOrNull()?.sourceRowId
+                desiredSlotPicks = if (gear.sourceRowId == metaTop) {
+                    desiredSlotPicks - picker.slot
+                } else {
+                    desiredSlotPicks + (picker.slot to gear)
+                }
+            }
+            SlotPickerMode.Current -> applyCurrentSlotPick(picker.slot, gear)
+        }
+        dismissSlotPicker()
+    }
+
+    fun useMetaTopForPickerSlot() {
+        slotPickerOptions.firstOrNull()?.let { pickSlotGear(it) }
+    }
+
+    fun clearDesiredSlotPick(slot: String) {
+        desiredSlotPicks = desiredSlotPicks - slot
+    }
+
+    private fun loadSlotPickerOptions() {
+        val picker = slotPicker ?: return
+        slotPickerLoading = true
+        val currentGoal = goal
+        val characterId = selectedCharacterId
+        val draftSnapshot = characterDraft
+        val useDraft = draftSnapshot != null &&
+            (characterId == null || draftSnapshot.id == characterId)
+        val cachedCommunity = metaByGoal[currentGoal] ?: (community as? Load.Ok)?.value
+        val selectedAxes = axes.toList()
+        val extras = extraStatKeys
+        val classKey = selectedClassKey
+        val classLocked = classChosenByUser
+        val slot = picker.slot
+        scope.launch {
+            val loaded = read { q, snapshotId ->
+                val options = q.buildClassOptions(snapshotId)
+                val classOption = if (classLocked) {
+                    classKey?.let { key -> options.firstOrNull { it.key == key } }
+                } else {
+                    val fromCharacter = when {
+                        useDraft -> q.resolveDraft(draftSnapshot!!, snapshotId).weaponClass
+                        characterId != null -> q.resolveCharacter(characterId, snapshotId)?.weaponClass
+                        else -> null
+                    }
+                    q.findBuildClass(snapshotId, match = fromCharacter, key = classKey)
+                }
+                val resolvedSheet = when {
+                    useDraft -> q.resolveDraft(draftSnapshot!!, snapshotId)
+                    characterId != null -> q.resolveCharacter(characterId, snapshotId)
+                    else -> null
+                }
+                BuildAdvisor(q).advise(
+                    snapshotId = snapshotId,
+                    goal = currentGoal,
+                    characterId = characterId,
+                    sheet = resolvedSheet,
+                    community = cachedCommunity,
+                    extraKeys = extras,
+                    axes = selectedAxes,
+                    classOption = classOption,
+                    perSlot = 40,
+                ).slots.firstOrNull { it.slot.equals(slot, ignoreCase = true) }?.recommended.orEmpty()
+            }
+            if (slotPicker?.slot != slot) return@launch
+            slotPickerOptions = when (loaded) {
+                is Load.Ok -> loaded.value
+                else -> emptyList()
+            }
+            slotPickerLoading = false
+        }
+    }
+
+    private fun applyCurrentSlotPick(slot: String, gear: RankedGear) {
+        val draft = characterDraft ?: return
+        if (isWeaponSlot(slot, gear)) {
+            val weapons = draft.weapons.toMutableList()
+            val index = weapons.indexOfFirst { it.slot.equals(slot, ignoreCase = true) }
+            val row = CharacterSheetJson.NamedSlot(slot, gear.name)
+            if (index >= 0) weapons[index] = row else weapons.add(row)
+            updateCharacterDraft(draft.copy(weapons = weapons))
+        } else {
+            val equipment = draft.equipment.toMutableList()
+            val index = equipment.indexOfFirst { it.slot.equals(slot, ignoreCase = true) }
+            val row = CharacterSheetJson.NamedSlot(slot, gear.name)
+            if (index >= 0) equipment[index] = row else equipment.add(row)
+            updateCharacterDraft(draft.copy(equipment = equipment))
+        }
+    }
+
+    private fun isWeaponSlot(slot: String, gear: RankedGear): Boolean =
+        gear.kind == "weapon" || slot.lowercase() in BUILD_WEAPON_SLOTS
+
     fun refreshAdvice() {
         val currentGoal = goal
         val characterId = selectedCharacterId
+        val draftSnapshot = characterDraft
+        val useDraft = draftSnapshot != null &&
+            (characterId == null || draftSnapshot.id == characterId)
         val cachedCommunity = metaByGoal[currentGoal] ?: (community as? Load.Ok)?.value
         val selectedAxes = axes.toList()
         val extras = extraStatKeys
@@ -1501,16 +1898,27 @@ class AppModel(private val scope: CoroutineScope) {
                 val classOption = if (classLocked) {
                     classKey?.let { key -> options.firstOrNull { it.key == key } }
                 } else {
-                    val fromCharacter = characterId?.let { q.resolveCharacter(it, snapshotId)?.weaponClass }
+                    val fromCharacter = when {
+                        useDraft -> q.resolveDraft(draftSnapshot!!, snapshotId).weaponClass
+                        characterId != null -> q.resolveCharacter(characterId, snapshotId)?.weaponClass
+                        else -> null
+                    }
                     q.findBuildClass(snapshotId, match = fromCharacter, key = classKey)
+                }
+                val resolvedSheet = when {
+                    useDraft -> q.resolveDraft(draftSnapshot!!, snapshotId)
+                    characterId != null -> q.resolveCharacter(characterId, snapshotId)
+                    else -> null
                 }
                 val planned = DesiredBuildPlanner(q).plan(
                     snapshotId = snapshotId,
                     goal = currentGoal,
                     characterId = characterId,
+                    sheet = resolvedSheet,
                     community = cachedCommunity,
                     desiredCombatPower = desiredCp,
                     desiredGearScore = desiredGs,
+                    watermarkInput = watermarkInput(),
                     axes = selectedAxes,
                     extraKeys = extras,
                     classOption = classOption,
@@ -1526,6 +1934,7 @@ class AppModel(private val scope: CoroutineScope) {
                     if (!classLocked) {
                         selectedClassKey = loaded.value.second.selectedClass?.key
                     }
+                    if (screen == Screen.Progress) refreshProgression()
                 }
                 is Load.Err -> {
                     plan = Load.Err(loaded.message)
@@ -1699,22 +2108,134 @@ class AppModel(private val scope: CoroutineScope) {
                     val questlog = withContext(Dispatchers.IO) {
                         runCatching { CommunityMetaClient().fetchItem(row.sourceRowId) }
                     }
-                    detail = Load.Ok(
-                        RowDetail(
-                            row = row.copy(
-                                grade = base.grade ?: row.grade,
-                            ),
-                            stats = base.warehouseStats,
-                            curves = base.curves,
-                            curvePoints = base.curvePoints,
-                            combatPower = base.combatPower,
-                            questlog = questlog.getOrNull(),
-                            questlogWarning = questlog.exceptionOrNull()?.message,
-                            category = base.category,
-                            warehouseDescription = warehouseDescription,
+                    val traitProfile = withContext(Dispatchers.IO) {
+                        runCatching {
+                            val context = read { q, snapshotId ->
+                                val snapshot = q.snapshotService().get(snapshotId)
+                                snapshot?.sourcePath to q.traitNameIndex(snapshotId)
+                            }
+                            if (context !is Load.Ok) return@runCatching null
+                            val (sourcePath, traitNames) = context.value
+                            val path = sourcePath ?: return@runCatching null
+                            WarehouseTraitCatalog(Path.of(path), traitNames)
+                                .profile(row.sourceRowId, questlog.getOrNull())
+                        }.getOrNull()
+                    }
+                    val loaded = RowDetail(
+                        row = row.copy(
+                            grade = base.grade ?: row.grade,
                         ),
+                        stats = base.warehouseStats,
+                        curves = base.curves,
+                        curvePoints = base.curvePoints,
+                        combatPower = base.combatPower,
+                        questlog = questlog.getOrNull(),
+                        questlogWarning = questlog.exceptionOrNull()?.message,
+                        traitProfile = traitProfile,
+                        category = base.category,
+                        warehouseDescription = warehouseDescription,
                     )
+                    ensureGearInspector(loaded)
+                    detail = Load.Ok(loaded)
                 }
+            }
+        }
+    }
+
+    fun gearInspectorState(): GearInspectorState? {
+        gearInspectorRevision
+        val row = selected ?: return null
+        return gearInspectorByKey[gearInspectorKey(row)]
+    }
+
+    fun updateGearInspector(transform: (GearInspectorState) -> GearInspectorState) {
+        val row = selected ?: return
+        val key = gearInspectorKey(row)
+        val current = gearInspectorByKey[key] ?: GearInspectorState()
+        gearInspectorByKey[key] = transform(current)
+        gearInspectorRevision++
+        scheduleGearInspectorSave()
+    }
+
+    fun updateGearInspectorSlot(slotIndex: Int, traitId: String? = null, tier: Int? = null) {
+        updateGearInspector { state ->
+            val next = state.copy(
+                slots = state.slots.mapIndexed { index, slot ->
+                    if (index != slotIndex) slot
+                    else {
+                        val nextTraitId = traitId ?: slot.traitId
+                        val nextTier = when {
+                            tier != null -> tier.coerceIn(0, 4)
+                            traitId != null && traitId.isBlank() -> 0
+                            traitId != null && slot.tier <= 0 -> 1
+                            else -> slot.tier
+                        }
+                        slot.copy(traitId = nextTraitId, tier = nextTier)
+                    }
+                },
+            )
+            ensureResonanceSelection(next)
+        }
+    }
+
+    fun updateGearInspectorResonance(statKey: String) {
+        updateGearInspector { it.copy(resonanceTraitId = statKey) }
+    }
+
+    fun updateGearInspectorResonanceTier(tier: Int) {
+        updateGearInspector { it.copy(resonanceTier = tier.coerceIn(1, 4)) }
+    }
+
+    fun updateGearInspectorPotential(traitId: String) {
+        updateGearInspector { it.copy(potentialTraitId = traitId) }
+    }
+
+    private fun ensureResonanceSelection(state: GearInspectorState): GearInspectorState {
+        val profile = (detail as? Load.Ok<*>)?.value?.let { it as? RowDetail }?.traitProfile
+        return GearInspectorModel.normalizeResonanceState(state, profile)
+    }
+
+    private fun ensureGearInspector(detail: RowDetail) {
+        val key = gearInspectorKey(detail.row)
+        if (key !in gearInspectorByKey) {
+            gearInspectorByKey[key] = GearInspectorModel.normalizeResonanceState(
+                GearInspectorModel.seed(
+                    detail.traitProfile,
+                    detail.questlog,
+                    detail.curves,
+                    detail.combatPower,
+                ),
+                detail.traitProfile,
+            )
+            gearInspectorRevision++
+            scheduleGearInspectorSave()
+        } else {
+            detail.traitProfile?.let { profile ->
+                val current = gearInspectorByKey.getValue(key)
+                val mergedSlots = GearInspectorModel.mergeSlots(current.slots, profile)
+                val normalized = GearInspectorModel.normalizeResonanceState(
+                    current.copy(slots = mergedSlots),
+                    profile,
+                )
+                if (normalized != current) {
+                    gearInspectorByKey[key] = normalized
+                    gearInspectorRevision++
+                    scheduleGearInspectorSave()
+                }
+            }
+        }
+    }
+
+    private fun gearInspectorKey(row: CatalogRow): String =
+        GearInspectorModel.rowKey(row.sourceTable, row.sourceRowId)
+
+    private fun scheduleGearInspectorSave() {
+        gearInspectorSaveJob?.cancel()
+        gearInspectorSaveJob = scope.launch {
+            delay(400)
+            val snapshot = gearInspectorByKey.toMap()
+            withContext(Dispatchers.IO) {
+                gearInspectorStore.save(snapshot)
             }
         }
     }
@@ -1797,6 +2318,52 @@ class AppModel(private val scope: CoroutineScope) {
 
     fun selectWallStatement(row: TalkingWallStatement) {
         selectedWallStatement = row
+    }
+
+    fun pickWallRegion(region: GateOfMemoryRegion) {
+        wallRegion = region
+        persistWallRegion(region)
+        refreshWallTimer()
+    }
+
+    private fun startWallTimer() {
+        refreshWallTimer()
+        wallTimerJob?.cancel()
+        wallTimerJob = scope.launch {
+            while (true) {
+                delay(1_000)
+                refreshWallTimer()
+            }
+        }
+    }
+
+    private fun stopWallTimer() {
+        wallTimerJob?.cancel()
+        wallTimerJob = null
+    }
+
+    private fun refreshWallTimer() {
+        wallTimerPlan = GateOfMemoryTimer().plan(wallRegion)
+    }
+
+    private fun persistWallRegion(region: GateOfMemoryRegion) {
+        runCatching {
+            val file = wallRegionFile()
+            Files.createDirectories(file.parent)
+            Files.writeString(file, region.id)
+        }
+    }
+
+    private fun wallRegionFile(): Path =
+        Path.of(System.getProperty("user.home"), ".solisium", "wall-region.txt")
+
+    private fun readStoredWallRegion(): GateOfMemoryRegion {
+        val stored = runCatching {
+            val file = wallRegionFile()
+            if (Files.isRegularFile(file)) Files.readString(file).trim() else ""
+        }.getOrDefault("")
+        return GateOfMemoryRegion.fromId(stored)
+            ?: GateOfMemoryRegion.fromGameServerRegion(readStoredEventServer().region)
     }
 
     fun pickEventServer(server: GameServer) {
@@ -2159,6 +2726,11 @@ class AppModel(private val scope: CoroutineScope) {
         private const val BROWSE_CAP = 400
         private const val EXTRACT_PROGRESS_MS = 1_000L
         private const val EXTRACT_WATCH_ATTEMPTS = 1_200
+
+        private val BUILD_WEAPON_SLOTS = setOf(
+            "bow", "crossbow", "sword", "sword2h", "dagger", "spear", "gauntlet",
+            "staff", "wand", "orb", "weapon", "main", "offhand",
+        )
 
         /** Matches the CLI so both surfaces read the same database. */
         fun databasePath(): Path {
