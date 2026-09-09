@@ -54,10 +54,14 @@ fun CatalogScreen(model: AppModel) {
     Column(Modifier.fillMaxSize()) {
         PageHeader(
             title = "Gear catalog",
-            subtitle = "Equipment from your warehouse — stats, curves, and Questlog community detail",
+            subtitle = "Pick a trait to find pieces that can roll it. T1–T4 is generation. “Used” / “stats compete” only appear when warehouse power or a current loadout backs it.",
             trailing = { SearchField(model) },
         )
         KindChips(model)
+        if (model.showsTraitPicker()) {
+            Spacer(Modifier.height(Spacing.sm))
+            TraitPicker(model)
+        }
         Spacer(Modifier.height(Spacing.md))
         Divider()
         // Fill all space under the search/header — avoid fillMaxSize on this Row (clips below the fold).
@@ -81,7 +85,7 @@ private fun SearchField(model: AppModel) {
         Box(Modifier.weight(1f)) {
             if (model.search.isEmpty()) {
                 Text(
-                    "Search gear by name",
+                    if (model.showsTraitPicker()) "Search name or trait (e.g. ranged endurance)" else "Search by name",
                     style = MaterialTheme.typography.bodyMedium,
                     color = Palette.TextFaint,
                 )
@@ -116,6 +120,81 @@ private fun KindChips(model: AppModel) {
 }
 
 @Composable
+private fun TraitPicker(model: AppModel) {
+    val options = model.visibleCatalogTraits()
+    Column(Modifier.fillMaxWidth().padding(horizontal = Spacing.xxl)) {
+        Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+        ) {
+            Text("Trait", style = MaterialTheme.typography.labelSmall, color = Palette.TextFaint)
+            Row(
+                Modifier.weight(1f).clip(RoundedCornerShape(8.dp))
+                    .background(Palette.Surface)
+                    .border(1.dp, Palette.Border, RoundedCornerShape(8.dp))
+                    .padding(horizontal = Spacing.md, vertical = 7.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(Modifier.weight(1f)) {
+                    if (model.catalogTraitQuery.isEmpty()) {
+                        Text(
+                            "Filter traits — Ranged Endurance, Max Mana…",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Palette.TextFaint,
+                        )
+                    }
+                    BasicTextField(
+                        value = model.catalogTraitQuery,
+                        onValueChange = model::onCatalogTraitQuery,
+                        singleLine = true,
+                        textStyle = MaterialTheme.typography.bodySmall.copy(color = Palette.Text),
+                        cursorBrush = SolidColor(Palette.Accent),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            }
+            if (model.catalogTrait != null) {
+                ActionButton("Clear trait", onClick = { model.selectCatalogTrait(null) })
+            }
+        }
+        Spacer(Modifier.height(Spacing.xs))
+        if (options.isEmpty()) {
+            Text(
+                if (model.catalogTraitOptions.isEmpty()) {
+                    "Trait pools load from the warehouse snapshot. Import a TL-Helper warehouse to browse by trait."
+                } else {
+                    "No trait names match that filter."
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = Palette.TextFaint,
+            )
+        } else {
+            Row(
+                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+            ) {
+                options.take(80).forEach { option ->
+                    Chip(
+                        label = option.label,
+                        selected = model.catalogTrait?.traitId == option.traitId,
+                        onClick = { model.selectCatalogTrait(option) },
+                    )
+                }
+            }
+        }
+        model.catalogTrait?.let { selected ->
+            Spacer(Modifier.height(Spacing.xs))
+            Text(
+                "Showing gear that can unlock ${selected.label}. A lower generation is marked relevant only if its raw power still competes or a current build still uses it.",
+                style = MaterialTheme.typography.bodySmall,
+                color = Palette.TextMuted,
+            )
+        }
+    }
+}
+
+@Composable
 private fun Chip(label: String, selected: Boolean, onClick: () -> Unit) {
     val border = if (selected) Palette.Accent.copy(alpha = 0.5f) else Palette.Border
     val background = if (selected) Palette.AccentSoft else Palette.Surface
@@ -141,10 +220,12 @@ private fun ResultList(model: AppModel) {
             if (rows.isEmpty()) {
                 EmptyState(
                     title = if (model.search.isBlank()) "No ${model.kind.label.lowercase()} yet" else "No matches",
-                    detail = if (model.search.isBlank()) {
-                        "This snapshot has no named ${model.kind.label.lowercase()} matching the gear filter."
-                    } else {
-                        "Nothing named \"${model.search}\"."
+                    detail = when {
+                        model.catalogTrait != null ->
+                            "No ${model.kind.label.lowercase()} in this snapshot roll ${model.catalogTrait!!.label}."
+                        model.search.isBlank() ->
+                            "This snapshot has no named ${model.kind.label.lowercase()} matching the gear filter."
+                        else -> "Nothing named \"${model.search}\"."
                     },
                 )
                 return
@@ -201,6 +282,16 @@ fun CatalogResultRow(row: CatalogRow, selected: Boolean, onClick: () -> Unit) {
                 Text(subtitle, style = MaterialTheme.typography.bodySmall, color = Palette.TextFaint, maxLines = 1)
             }
         }
+        val badge = row.relevanceBadge ?: row.pieceTier?.let { "T$it" }
+        if (badge != null) {
+            val used = "used" in badge || "compete" in badge
+            Badge(
+                badge,
+                if (used) Palette.Unverified else Palette.Derived,
+                Modifier.padding(end = Spacing.sm),
+                caps = false,
+            )
+        }
         if (!row.named) {
             Badge("id", Palette.TextFaint, Modifier.padding(end = Spacing.md), caps = false)
         }
@@ -235,7 +326,7 @@ private fun DetailBody(model: AppModel, detail: RowDetail) {
             Modifier.padding(Spacing.md),
             verticalArrangement = Arrangement.spacedBy(if (showInspector) Spacing.sm else Spacing.md),
         ) {
-            DetailHeader(detail)
+            DetailHeader(model, detail)
             if (showInspector) {
                 GearInspectorCard(model, detail)
             }
@@ -285,7 +376,7 @@ private fun DetailBody(model: AppModel, detail: RowDetail) {
 }
 
 @Composable
-private fun DetailHeader(detail: RowDetail) {
+private fun DetailHeader(model: AppModel, detail: RowDetail) {
     val grade = displayGrade(detail.row.sourceRowId, detail.row.grade ?: detail.questlog?.grade)
     Row(verticalAlignment = Alignment.Top) {
         RarityPip(grade, sourceRowId = detail.row.sourceRowId)
@@ -300,12 +391,26 @@ private fun DetailHeader(detail: RowDetail) {
                 prettyEnum(grade)?.let { add(it) }
                 prettyEnum(detail.row.meta)?.let { add(it) }
                 prettyEnum(detail.category)?.let { add(it) }
+                detail.row.relevanceBadge?.let { add(it) }
+                    ?: detail.row.pieceTier?.let { add("T$it") }
                 detail.questlog?.tradeCategory?.let { add(it.replaceFirstChar { c -> c.uppercase() }) }
                 detail.questlog?.requiredLevel?.let { add("Req. level $it") }
             }
             if (chips.isNotEmpty()) {
                 Spacer(Modifier.height(4.dp))
                 Text(chips.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = Palette.TextMuted)
+            }
+            detail.row.relevanceNote?.let { note ->
+                Spacer(Modifier.height(4.dp))
+                Text(note, style = MaterialTheme.typography.bodySmall, color = Palette.TextFaint)
+            }
+            if (model.kind == CatalogKind.Traits) {
+                Spacer(Modifier.height(Spacing.sm))
+                ActionButton(
+                    "Find gear with this trait",
+                    onClick = { model.useTraitAsGearFilter(detail.row) },
+                    primary = true,
+                )
             }
         }
     }
