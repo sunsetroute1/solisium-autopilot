@@ -14,7 +14,15 @@ rebuild the zips, then extract and install as usual.
 
 See [packaging/README-INSTALL.txt](../packaging/README-INSTALL.txt) for full instructions.
 
-To rebuild after a version bump:
+The **rebuild pipeline** packages, splits for git, and reinstalls the local copy:
+
+```powershell
+.\packaging\Rebuild-Pipeline.ps1
+```
+
+That runs `:desktopApp:packageRelease` (MSI + portable zip + 45 MB `.partNN` pieces), then `Install-Solisium.ps1` into `%LOCALAPPDATA%\Programs`. It does not commit. After it finishes, add the new `releases\*.partNN` files and push `master` plus tag `vX.Y.Z`.
+
+Package only:
 
 ```powershell
 .\gradlew.bat :desktopApp:packageRelease

@@ -3,16 +3,17 @@ package com.solisium.desktop.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -55,12 +56,15 @@ fun CatalogScreen(model: AppModel) {
         PageHeader(
             title = "Gear catalog",
             subtitle = "Pick a trait to find pieces that can roll it. T1–T4 is generation. “Used” / “stats compete” only appear when warehouse power or a current loadout backs it.",
-            trailing = { SearchField(model) },
         )
-        KindChips(model)
-        if (model.showsTraitPicker()) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = Spacing.xxl)) {
+            SearchField(model)
             Spacer(Modifier.height(Spacing.sm))
-            TraitPicker(model)
+            KindChips(model)
+            if (model.showsTraitPicker()) {
+                Spacer(Modifier.height(Spacing.sm))
+                TraitPicker(model)
+            }
         }
         Spacer(Modifier.height(Spacing.md))
         Divider()
@@ -76,7 +80,7 @@ fun CatalogScreen(model: AppModel) {
 @Composable
 private fun SearchField(model: AppModel) {
     Row(
-        Modifier.width(280.dp).clip(RoundedCornerShape(8.dp))
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
             .background(Palette.Surface)
             .border(1.dp, Palette.Border, RoundedCornerShape(8.dp))
             .padding(horizontal = Spacing.md, vertical = 9.dp),
@@ -88,6 +92,7 @@ private fun SearchField(model: AppModel) {
                     if (model.showsTraitPicker()) "Search name or trait (e.g. ranged endurance)" else "Search by name",
                     style = MaterialTheme.typography.bodyMedium,
                     color = Palette.TextFaint,
+                    maxLines = 1,
                 )
             }
             BasicTextField(
@@ -104,10 +109,10 @@ private fun SearchField(model: AppModel) {
 
 @Composable
 private fun KindChips(model: AppModel) {
-    Row(
-        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
-            .padding(horizontal = Spacing.xxl),
+    FlowRow(
+        modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+        verticalArrangement = Arrangement.spacedBy(Spacing.sm),
     ) {
         CatalogKind.entries.forEach { entry ->
             Chip(
@@ -122,41 +127,38 @@ private fun KindChips(model: AppModel) {
 @Composable
 private fun TraitPicker(model: AppModel) {
     val options = model.visibleCatalogTraits()
-    Column(Modifier.fillMaxWidth().padding(horizontal = Spacing.xxl)) {
+    Column(Modifier.fillMaxWidth()) {
+        Text("Search by trait", style = MaterialTheme.typography.labelSmall, color = Palette.TextFaint)
+        Spacer(Modifier.height(Spacing.xs))
         Row(
-            Modifier.fillMaxWidth(),
+            Modifier.fillMaxWidth().heightIn(min = 34.dp).clip(RoundedCornerShape(8.dp))
+                .background(Palette.Surface)
+                .border(1.dp, Palette.Border, RoundedCornerShape(8.dp))
+                .padding(horizontal = Spacing.md, vertical = 7.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
         ) {
-            Text("Trait", style = MaterialTheme.typography.labelSmall, color = Palette.TextFaint)
-            Row(
-                Modifier.weight(1f).clip(RoundedCornerShape(8.dp))
-                    .background(Palette.Surface)
-                    .border(1.dp, Palette.Border, RoundedCornerShape(8.dp))
-                    .padding(horizontal = Spacing.md, vertical = 7.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Box(Modifier.weight(1f)) {
-                    if (model.catalogTraitQuery.isEmpty()) {
-                        Text(
-                            "Filter traits — Ranged Endurance, Max Mana…",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Palette.TextFaint,
-                        )
-                    }
-                    BasicTextField(
-                        value = model.catalogTraitQuery,
-                        onValueChange = model::onCatalogTraitQuery,
-                        singleLine = true,
-                        textStyle = MaterialTheme.typography.bodySmall.copy(color = Palette.Text),
-                        cursorBrush = SolidColor(Palette.Accent),
-                        modifier = Modifier.fillMaxWidth(),
+            Box(Modifier.weight(1f)) {
+                if (model.catalogTraitQuery.isEmpty()) {
+                    Text(
+                        "Ranged Endurance, Max Mana…",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Palette.TextFaint,
+                        maxLines = 1,
                     )
                 }
+                BasicTextField(
+                    value = model.catalogTraitQuery,
+                    onValueChange = model::onCatalogTraitQuery,
+                    singleLine = true,
+                    textStyle = MaterialTheme.typography.bodySmall.copy(color = Palette.Text),
+                    cursorBrush = SolidColor(Palette.Accent),
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
-            if (model.catalogTrait != null) {
-                ActionButton("Clear trait", onClick = { model.selectCatalogTrait(null) })
-            }
+        }
+        if (model.catalogTrait != null) {
+            Spacer(Modifier.height(Spacing.xs))
+            ActionButton("Clear trait", onClick = { model.selectCatalogTrait(null) })
         }
         Spacer(Modifier.height(Spacing.xs))
         if (options.isEmpty()) {
@@ -170,16 +172,21 @@ private fun TraitPicker(model: AppModel) {
                 color = Palette.TextFaint,
             )
         } else {
-            Row(
-                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
-            ) {
-                options.take(80).forEach { option ->
-                    Chip(
-                        label = option.label,
-                        selected = model.catalogTrait?.traitId == option.traitId,
-                        onClick = { model.selectCatalogTrait(option) },
-                    )
+            Box(Modifier.fillMaxWidth().heightIn(max = 168.dp)) {
+                Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                        verticalArrangement = Arrangement.spacedBy(Spacing.sm),
+                    ) {
+                        options.take(80).forEach { option ->
+                            Chip(
+                                label = option.label,
+                                selected = model.catalogTrait?.traitId == option.traitId,
+                                onClick = { model.selectCatalogTrait(option) },
+                            )
+                        }
+                    }
                 }
             }
         }

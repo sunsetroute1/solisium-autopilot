@@ -20,7 +20,7 @@ you want live game data instead of the demo set.
 Install (installer zip)
 -----------------------
 1. Extract the zip.
-2. Run "Solisium Autopilot-0.1.17.msi" and follow the prompts.
+2. Run "Solisium Autopilot-0.1.18.msi" and follow the prompts.
    The MSI includes the full TL-Helper checkout. First launch (or
    Install-TLHelper.ps1 / Get TL-Helper) copies it onto disk. No key is included.
 
@@ -90,8 +90,11 @@ Where your data lives
 
 Neither is touched by install or uninstall.
 
-What's in this build (0.1.17)
+What's in this build (0.1.18)
 ----------------------------
+- Gear catalog: trait chips and Search by trait wrap instead of stretching the window
+- Gear inspector: trait / resonance / potential chips wrap in the detail pane
+- Rebuild pipeline: packaging\Rebuild-Pipeline.ps1 packages, splits, and reinstalls locally
 - Gear catalog: selectable traits filter pieces that can roll that trait
 - Gear catalog: T1–T4 generation badges; “used in builds” / “stats compete”
   only when warehouse power or a current loadout backs it
