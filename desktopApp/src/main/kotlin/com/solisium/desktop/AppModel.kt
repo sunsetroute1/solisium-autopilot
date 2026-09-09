@@ -7,6 +7,10 @@ import com.solisium.core.bootstrap.StarterBootstrap
 import com.solisium.core.db.JvmDatabase
 import com.solisium.core.db.SolisiumDatabase
 import com.solisium.core.domain.BuildAdvice
+import com.solisium.core.domain.CatalogTraitOption
+import com.solisium.core.domain.GearPieceTier
+import com.solisium.core.query.GearTierRelevance
+import com.solisium.core.source.WarehouseTraitIndex
 import com.solisium.core.domain.CatalogCounts
 import com.solisium.core.domain.CatalogHit
 import com.solisium.core.domain.ClassSource
@@ -212,6 +216,10 @@ data class CatalogRow(
     val meta: String?,
     val grade: String? = null,
     val named: Boolean = true,
+    /** Piece generation from the row id (`_t2_` → 2). */
+    val pieceTier: Int? = null,
+    val relevanceBadge: String? = null,
+    val relevanceNote: String? = null,
 )
 
 /** Everything the detail pane shows for one selected row. */
@@ -288,6 +296,20 @@ class AppModel(private val scope: CoroutineScope) {
 
     var search by mutableStateOf("")
         private set
+
+    var catalogTrait by mutableStateOf<CatalogTraitOption?>(null)
+        private set
+
+    var catalogTraitQuery by mutableStateOf("")
+        private set
+
+    var catalogTraitOptions by mutableStateOf<List<CatalogTraitOption>>(emptyList())
+        private set
+
+    private var traitIndex: WarehouseTraitIndex? = null
+    private var traitIndexPath: String? = null
+    private var familyIdsByKey: Map<String, Set<String>> = emptyMap()
+    private var familyCacheSnapshot: String? = null
 
     var skillCoreSearch by mutableStateOf("")
         private set
@@ -2060,6 +2082,7 @@ class AppModel(private val scope: CoroutineScope) {
         kind = next
         selected = null
         detail = null
+        if (next !in GEAR_CATALOG_KINDS) catalogTrait = null
         loadRows()
     }
 
@@ -2069,8 +2092,38 @@ class AppModel(private val scope: CoroutineScope) {
         searchJob?.cancel()
         searchJob = scope.launch {
             delay(180)
+            if (catalogTrait == null && kind in GEAR_CATALOG_KINDS) {
+                traitIndex?.exact(text)?.let { catalogTrait = it }
+            }
             loadRows()
         }
+    }
+
+    fun onCatalogTraitQuery(text: String) {
+        catalogTraitQuery = text
+    }
+
+    fun selectCatalogTrait(option: CatalogTraitOption?) {
+        catalogTrait = if (catalogTrait?.traitId == option?.traitId) null else option
+        loadRows()
+    }
+
+    fun showsTraitPicker(): Boolean = kind in GEAR_CATALOG_KINDS
+
+    fun visibleCatalogTraits(): List<CatalogTraitOption> {
+        val index = traitIndex ?: return catalogTraitOptions
+        return index.matchingOptions(catalogTraitQuery.takeIf { it.isNotBlank() })
+    }
+
+    fun useTraitAsGearFilter(row: CatalogRow) {
+        catalogTrait = CatalogTraitOption(
+            traitId = row.sourceRowId,
+            label = row.name,
+        )
+        kind = CatalogKind.Items
+        selected = null
+        detail = null
+        loadRows()
     }
 
     fun onSkillCoreSearch(text: String) {
@@ -2555,9 +2608,13 @@ class AppModel(private val scope: CoroutineScope) {
     private fun loadRows() {
         val term = search.takeIf { it.isNotBlank() }
         val target = kind
+        val trait = catalogTrait
         scope.launch {
             rows = Load.Loading
-            val loaded = read { q, snapshotId -> fetch(q, snapshotId, target, term) }
+            val loaded = read { q, snapshotId ->
+                refreshTraitIndex(q, snapshotId)
+                fetch(q, snapshotId, target, term, trait)
+            }
             if (loaded is Load.Ok) {
                 browseTotal = loaded.value.size
                 val page = loaded.value.take(BROWSE_CAP)
@@ -2577,13 +2634,62 @@ class AppModel(private val scope: CoroutineScope) {
         }
     }
 
+    private fun familyIndex(q: CatalogQuery, snapshotId: String): Map<String, Set<String>> {
+        if (familyCacheSnapshot == snapshotId && familyIdsByKey.isNotEmpty()) return familyIdsByKey
+        familyIdsByKey = q.items(snapshotId)
+            .map { it.sourceRowId }
+            .distinct()
+            .groupBy { GearPieceTier.familyKey(it) }
+            .mapValues { (_, ids) -> ids.toSet() }
+        familyCacheSnapshot = snapshotId
+        return familyIdsByKey
+    }
+
+    private fun refreshTraitIndex(q: CatalogQuery, snapshotId: String) {
+        val path = q.snapshotService().get(snapshotId)?.sourcePath
+        if (path.isNullOrBlank()) {
+            catalogTraitOptions = emptyList()
+            return
+        }
+        if (traitIndex == null || traitIndexPath != path) {
+            traitIndex = WarehouseTraitIndex.load(Path.of(path), q.traitNameIndex(snapshotId))
+            traitIndexPath = path
+        }
+        catalogTraitOptions = traitIndex?.options.orEmpty()
+    }
+
     private fun fetch(
         q: CatalogQuery,
         snapshotId: String,
         target: CatalogKind,
         term: String?,
+        trait: CatalogTraitOption? = null,
     ): List<CatalogRow> {
-        val searching = !term.isNullOrBlank()
+        val traitNameSearch = trait != null && term != null &&
+            com.solisium.core.meta.TextNorm.fold(term) ==
+            com.solisium.core.meta.TextNorm.fold(trait.label)
+        val nameTerm = if (traitNameSearch) null else term
+        val searching = !nameTerm.isNullOrBlank() || trait != null
+        val traitItemIds = when {
+            trait == null -> null
+            traitIndex == null -> emptySet()
+            else -> traitIndex!!.itemIds(trait.traitId)
+        }
+        val families = familyIndex(q, snapshotId)
+        val powerById = q.itemPowerByRow(snapshotId).mapValues { it.value.basePower }
+        val communitySnap = (community as? Load.Ok)?.value ?: metaByGoal[goal]
+        val equippedRows = q.characters().flatMap { character ->
+            val sheet = q.characterSheet(character.id) ?: return@flatMap emptyList()
+            sheet.equipment + sheet.weapons.map {
+                com.solisium.core.domain.UserEquipment(it.slot, it.sourceTable, it.sourceRowId, it.itemLevel, it.name)
+            }
+        }
+        val equippedIds = equippedRows.mapNotNull { it.sourceRowId }.toSet()
+        val equippedNames = equippedRows.mapNotNull { it.name }.toSet()
+        val buildGear = (advice as? Load.Ok)?.value?.slots.orEmpty()
+            .flatMap { slot -> listOfNotNull(slot.equipped) + slot.recommended }
+        val buildIds = buildGear.map { it.sourceRowId }.toSet()
+        val buildNames = buildGear.map { it.name }.toSet()
         fun emit(
             name: String?,
             table: String,
@@ -2591,10 +2697,36 @@ class AppModel(private val scope: CoroutineScope) {
             meta: String?,
             grade: String? = null,
             looksOnly: Boolean = false,
+            withTier: Boolean = false,
         ): CatalogRow? {
             if (looksOnly && !DisplayName.isItemLooks(table)) return null
+            if (traitItemIds != null && id !in traitItemIds) return null
             val display = DisplayName.of(name, id)
             if (display == null && !searching) return null
+            val tier = if (withTier) GearPieceTier.fromRowId(id) else null
+            val verdict = if (withTier) {
+                val family = families[GearPieceTier.familyKey(id)].orEmpty()
+                val (higherExists, higherMax) = GearTierRelevance.higherGenMaxPower(id, powerById, family)
+                GearTierRelevance.evaluate(
+                    GearTierRelevance.Facts(
+                        sourceRowId = id,
+                        name = display,
+                        pieceTier = tier,
+                        basePower = powerById[id],
+                        higherGenMaxPower = higherMax,
+                        higherGenExists = higherExists,
+                        communityHits = GearTierRelevance.communityHits(display, id, communitySnap),
+                        communityPatch = communitySnap?.patchLabel,
+                        equippedLocally = id in equippedIds ||
+                            (display != null && equippedNames.any { com.solisium.core.meta.TextNorm.likelySame(it, display) }),
+                        recommendedInBuild = id in buildIds ||
+                            (display != null && buildNames.any { com.solisium.core.meta.TextNorm.likelySame(it, display) }),
+                        exclusiveTraitUnlock = GearTierRelevance.exclusiveTraitUnlock(id, family, traitItemIds),
+                    ),
+                )
+            } else {
+                null
+            }
             return CatalogRow(
                 name = display ?: id,
                 sourceTable = table,
@@ -2602,12 +2734,15 @@ class AppModel(private val scope: CoroutineScope) {
                 meta = meta,
                 grade = grade,
                 named = display != null,
+                pieceTier = tier,
+                relevanceBadge = verdict?.badge?.takeIf { it.isNotBlank() },
+                relevanceNote = verdict?.note,
             )
         }
         fun gradeFor(id: String, explicit: String? = null): String? =
             explicit?.takeIf { it.isNotBlank() } ?: q.resolveItemGrade(snapshotId, id)
         return when (target) {
-            CatalogKind.Items -> q.items(snapshotId, term).mapNotNull { item ->
+            CatalogKind.Items -> q.items(snapshotId, nameTerm).mapNotNull { item ->
                 if (!GearCatalogFilter.isGearListRow(
                         item.sourceTable,
                         item.sourceRowId,
@@ -2624,33 +2759,37 @@ class AppModel(private val scope: CoroutineScope) {
                     DisplayName.prettyEnum(item.category),
                     gradeFor(item.sourceRowId, item.grade),
                     looksOnly = true,
+                    withTier = true,
                 )
             }
-            CatalogKind.Weapons -> q.weapons(snapshotId, term).mapNotNull {
+            CatalogKind.Weapons -> q.weapons(snapshotId, nameTerm).mapNotNull {
                 emit(
                     it.name,
                     it.sourceTable,
                     it.sourceRowId,
                     DisplayName.prettyEnum(it.weaponType),
                     gradeFor(it.sourceRowId),
+                    withTier = true,
                 )
             }
-            CatalogKind.Armor -> q.armor(snapshotId, term).mapNotNull {
+            CatalogKind.Armor -> q.armor(snapshotId, nameTerm).mapNotNull {
                 emit(
                     it.name,
                     it.sourceTable,
                     it.sourceRowId,
                     DisplayName.prettyEnum(it.slot),
                     gradeFor(it.sourceRowId),
+                    withTier = true,
                 )
             }
-            CatalogKind.Accessories -> q.accessories(snapshotId, term).mapNotNull {
+            CatalogKind.Accessories -> q.accessories(snapshotId, nameTerm).mapNotNull {
                 emit(
                     it.name,
                     it.sourceTable,
                     it.sourceRowId,
                     DisplayName.prettyEnum(it.slot),
                     gradeFor(it.sourceRowId),
+                    withTier = true,
                 )
             }
             CatalogKind.Traits -> q.traits(snapshotId, term).mapNotNull {
@@ -2726,6 +2865,13 @@ class AppModel(private val scope: CoroutineScope) {
         private const val BROWSE_CAP = 400
         private const val EXTRACT_PROGRESS_MS = 1_000L
         private const val EXTRACT_WATCH_ATTEMPTS = 1_200
+
+        private val GEAR_CATALOG_KINDS = setOf(
+            CatalogKind.Items,
+            CatalogKind.Weapons,
+            CatalogKind.Armor,
+            CatalogKind.Accessories,
+        )
 
         private val BUILD_WEAPON_SLOTS = setOf(
             "bow", "crossbow", "sword", "sword2h", "dagger", "spear", "gauntlet",

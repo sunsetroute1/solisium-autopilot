@@ -20,7 +20,7 @@ you want live game data instead of the demo set.
 Install (installer zip)
 -----------------------
 1. Extract the zip.
-2. Run "Solisium Autopilot-0.1.16.msi" and follow the prompts.
+2. Run "Solisium Autopilot-0.1.17.msi" and follow the prompts.
    The MSI includes the full TL-Helper checkout. First launch (or
    Install-TLHelper.ps1 / Get TL-Helper) copies it onto disk. No key is included.
 
@@ -90,8 +90,11 @@ Where your data lives
 
 Neither is touched by install or uninstall.
 
-What's in this build (0.1.16)
+What's in this build (0.1.17)
 ----------------------------
+- Gear catalog: selectable traits filter pieces that can roll that trait
+- Gear catalog: T1–T4 generation badges; “used in builds” / “stats compete”
+  only when warehouse power or a current loadout backs it
 - Talking Wall tab: Gate of Memory countdown (MetaForge cadence) and 24h schedule
 - Build tab: drop watermark calculator (Aragon datamine) with farm priority
 - Build tab: click paper-doll slots to pick target gear from meta-ranked list
