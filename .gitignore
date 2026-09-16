@@ -18,12 +18,10 @@ Thumbs.db
 # Staged into the app image at package time from vendor/tl-helper.
 desktopApp/appResources/windows/tl-helper/
 
-# Full TL-Helper in the image pushes these over GitHub's 100 MB git limit.
-# Publish them as GitHub Release assets instead.
-/releases/Solisium-Autopilot-*-windows-x64-*.zip
-/releases/TL-Route-Investigator-*-windows-x64-*.zip
-# Allow the small single-file TL Route install zip in git; ignore only oversized copies.
-/releases/TL-Route-Investigator-*-Install.zip.part*
+# Windows installers are too large for git (~3 GB of history). Build locally or use GitHub Releases.
+/releases/*.zip
+/releases/*.part*
+/dist/
 
 # Never commit extracted game data, warehouse copies, or archive keys.
 # Patterns are deliberately broad: a key committed once stays in history forever.

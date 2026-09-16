@@ -1,11 +1,11 @@
 <#
     Rebuild pipeline
 
-    Packages the Windows MSI + portable zips, splits them into git-sized
-    .partNN files, and reinstalls the local per-user copy.
+    Packages the Windows MSI + portable zips under dist/windows-releases/ and
+    reinstalls the local per-user copy.
 
-    Does not commit or push. After it finishes, add the new releases\*.partNN
-    files and bump notes, then push master and tag vX.Y.Z.
+    Does not commit binaries. Upload dist/windows-releases/*.zip to GitHub Releases
+    when you publish a version tag.
 
     Usage (from the repo root):
 
@@ -51,7 +51,7 @@ if ($InstallOnly) {
     & $gradle ':desktopApp:createDistributable'
     if ($LASTEXITCODE -ne 0) { throw "createDistributable failed with exit $LASTEXITCODE" }
 } else {
-    Write-Host 'Rebuild pipeline: packageRelease (MSI, zips, .partNN).'
+    Write-Host 'Rebuild pipeline: packageRelease (MSI + zips in dist/windows-releases/).'
     & $gradle ':desktopApp:packageRelease'
     if ($LASTEXITCODE -ne 0) { throw "packageRelease failed with exit $LASTEXITCODE" }
 }

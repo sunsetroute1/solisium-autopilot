@@ -236,7 +236,8 @@ tasks.matching { it.name == "run" }.configureEach {
     dependsOn(buildStarterPack, stageTlHelperCheckout)
 }
 
-val releaseDir = rootProject.layout.projectDirectory.dir("releases")
+/** Local-only output; never commit (see root .gitignore and releases/README.md). */
+val releaseDir = rootProject.layout.projectDirectory.dir("dist/windows-releases")
 
 /**
  * The MSI, zipped for handing over. Both this and the portable build below bundle a
@@ -276,62 +277,8 @@ val packagePortableZip by tasks.registering(Zip::class) {
     }
 }
 
-/**
- * GitHub's hard git limit is 100 MB; the warning starts at 50 MB. Each release zip
- * is split into 45 MB pieces that can be committed. Join-Release.ps1 puts them back.
- */
-val releasePartBytes = 45L * 1024 * 1024
-
-fun splitReleaseZip(zip: File) {
-    if (!zip.isFile) {
-        throw GradleException("cannot split missing zip: $zip")
-    }
-    zip.parentFile.listFiles()
-        ?.filter { it.name.startsWith("${zip.name}.part") }
-        ?.forEach { it.delete() }
-    zip.inputStream().buffered().use { input ->
-        var index = 1
-        val buffer = ByteArray(1024 * 1024)
-        var eof = false
-        while (!eof) {
-            val part = File(zip.parentFile, "%s.part%02d".format(zip.name, index))
-            var written = 0L
-            part.outputStream().buffered().use { output ->
-                while (written < releasePartBytes) {
-                    val want = minOf(buffer.size.toLong(), releasePartBytes - written).toInt()
-                    val n = input.read(buffer, 0, want)
-                    if (n < 0) {
-                        eof = true
-                        break
-                    }
-                    output.write(buffer, 0, n)
-                    written += n
-                }
-            }
-            if (written == 0L) {
-                part.delete()
-                break
-            }
-            logger.lifecycle("split ${zip.name} -> ${part.name} (${written / 1024} KB)")
-            index++
-        }
-    }
-}
-
-val splitReleaseZips by tasks.registering {
-    group = "distribution"
-    description = "Splits the release zips into git-sized parts."
-    dependsOn(packageInstallerZip, packagePortableZip)
-    doLast {
-        listOf(
-            releaseDir.file("Solisium-Autopilot-$appVersion-windows-x64-installer.zip").asFile,
-            releaseDir.file("Solisium-Autopilot-$appVersion-windows-x64-portable.zip").asFile,
-        ).forEach { splitReleaseZip(it) }
-    }
-}
-
 tasks.register("packageRelease") {
     group = "distribution"
-    description = "Builds both Windows distributions, their zips, and git-sized parts."
-    dependsOn(splitReleaseZips)
+    description = "Builds both Windows distribution zips under dist/windows-releases/ (not committed)."
+    dependsOn(packageInstallerZip, packagePortableZip)
 }
