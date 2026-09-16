@@ -1,6 +1,8 @@
 .gradle/
 build/
 bin/
+!tools/tl-route-investigator/src-tauri/src/bin/
+!tools/tl-route-investigator/src-tauri/src/bin/**
 .kotlin/
 .idea/
 *.iml
