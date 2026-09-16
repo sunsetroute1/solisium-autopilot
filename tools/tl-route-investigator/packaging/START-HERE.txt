@@ -1,0 +1,13 @@
+TL Route Investigator — quick install
+=====================================
+
+1. Extract this entire zip to a folder (Desktop is fine).
+2. Double-click  install.cmd
+3. Follow the installer wizard.
+
+Alternative: run the file named  TL Route Investigator_*_x64-setup.exe  directly.
+
+Your data is stored under:
+  %LOCALAPPDATA%\TL Route Investigator\
+
+No API keys or secrets are included in this package.

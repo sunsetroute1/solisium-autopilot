@@ -34,9 +34,9 @@ Whole zips are also on the [GitHub Releases](https://github.com/sunsetroute1/sol
 
 | File | Install |
 | --- | --- |
-| `TL-Route-Investigator-*-installer.zip.partNN` | Join with `assemble.cmd` / `Join-Release.ps1`, extract, run `*-setup.exe` or the `.msi` |
+| **`TL-Route-Investigator-*-Install.zip`** | Extract, double-click **`install.cmd`** (or run `*-setup.exe`) |
 
-Build from source: `tools/tl-route-investigator/`. Package:
+Build from source: `tools/tl-route-investigator/`. Package (add `-DesktopCopy` to copy to your Desktop):
 
 ```powershell
 .\tools\tl-route-investigator\packaging\Package-Release.ps1
