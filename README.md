@@ -6,8 +6,8 @@ This is not a bot, overlay injector, or game client. It never writes to the game
 
 ## Install from GitHub (Windows)
 
-1. Download the whole zip from [the v0.1.18 release](https://github.com/sunsetroute1/solisium-autopilot/releases/tag/v0.1.18), **or** clone this repo and run [`releases/assemble.cmd`](releases/assemble.cmd) to join the git-sized `.partNN` files.
-2. Install (portable: run `install.cmd`; MSI: run the `.msi`). No Java and no administrator rights. The installer ships the full TL-Helper checkout (no keys) and places it under `%LOCALAPPDATA%\Programs\TL-Helper`.
+1. Download installers from [GitHub Releases](https://github.com/sunsetroute1/solisium-autopilot/releases), **or** build locally (see Packaging below). The git repo is **source only** — no large zips in `master`.
+2. Extract the zip and double-click **`install.cmd`** (or run the `.msi`). No Java and no administrator rights. The installer ships the full TL-Helper checkout (no keys) and places it under `%LOCALAPPDATA%\Programs\TL-Helper`.
 3. Open **Solisium Autopilot**. The starter catalog, demo character, and sample combat log load on first launch so every screen works.
 
 You do **not** need an archive key to browse that starter data. **Data → Find my key** stores a key only if one is already on this PC (typically `source-manifest.json` or `aes.txt` next to TL-Helper / `TL_Data`). The app never ships a key and never invents one.
@@ -63,18 +63,18 @@ The app is read-only with respect to the *game*; it does import into its own dat
 .\packaging\Rebuild-Pipeline.ps1
 ```
 
-That is the rebuild pipeline: `:desktopApp:packageRelease` (MSI, portable zip, git-sized `.partNN` pieces), then a local reinstall under `%LOCALAPPDATA%\Programs`. It does not commit or push.
+That is the rebuild pipeline: `:desktopApp:packageRelease` (MSI + portable zips), then a local reinstall under `%LOCALAPPDATA%\Programs`. It does not commit or push.
 
-Writes two zips to [`releases/`](releases/):
+Writes two zips to **`dist/windows-releases/`** (gitignored):
 
 | Artifact | Contents |
 | --- | --- |
-| `...-windows-x64-installer.zip` (+ `.partNN`) | An MSI. Installs per-user, uninstalls through Settings. |
-| `...-windows-x64-portable.zip` (+ `.partNN`) | The app plus `install.cmd`, which copies it to `%LOCALAPPDATA%\Programs` and makes shortcuts. Uninstall with `.\Install-Solisium.ps1 -Uninstall`. |
+| `...-windows-x64-installer.zip` | MSI + `install.cmd` + readme |
+| `...-windows-x64-portable.zip` | App image + `install.cmd` |
 
-The assembled zips are larger than GitHub allows in git, so `packageRelease` also writes 45 MB `.partNN` pieces. Run `releases\assemble.cmd` to put a zip back together.
+Upload those zips to GitHub Releases when publishing; see [`releases/README.md`](releases/README.md).
 
-Current build: **0.1.18** — download from the [v0.1.18 release](https://github.com/sunsetroute1/solisium-autopilot/releases/tag/v0.1.18) without building locally.
+Current build: **0.1.19** — Gate of Memory timer aligned with MetaForge; install from a local build or Releases when published.
 
 Both bundle a Java runtime, so a target machine needs no JDK, and both install
 per-user, so neither needs administrator rights. A starter catalog, demo

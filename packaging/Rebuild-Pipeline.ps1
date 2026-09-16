@@ -79,4 +79,4 @@ if (-not $SkipLaunch -and -not $SkipInstall -and (Test-Path $exe)) {
 }
 
 Write-Host 'Rebuild pipeline finished.'
-Write-Host '  Next: commit version notes + releases\*.partNN, push master, tag vX.Y.Z'
+Write-Host '  Next: upload dist\windows-releases\*.zip to GitHub Releases (see packaging\Publish-GitHubRelease.ps1). Git tracks source only.'

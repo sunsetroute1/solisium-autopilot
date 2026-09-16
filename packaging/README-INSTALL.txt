@@ -86,8 +86,9 @@ Where your data lives
 
 Neither is touched by install or uninstall.
 
-What's in this build (0.1.18)
+What's in this build (0.1.19)
 ----------------------------
+- Talking Wall: Gate of Memory countdown recalibrated to MetaForge NA schedule
 - Gear catalog: trait chips and Search by trait wrap instead of stretching the window
 - Gear inspector: trait / resonance / potential chips wrap in the detail pane
 - Rebuild pipeline: packaging\Rebuild-Pipeline.ps1 packages, splits, and reinstalls locally
