@@ -253,7 +253,9 @@ val packageInstallerZip by tasks.registering(Zip::class) {
         include("*.msi")
     }
     from(rootProject.file("packaging")) {
-        include("README-INSTALL.txt", "Install-TLHelper.ps1")
+        include("README-INSTALL.txt", "Install-TLHelper.ps1", "START-HERE.txt")
+        include("install-msi.cmd")
+        rename("install-msi.cmd", "install.cmd")
     }
 }
 
@@ -273,7 +275,13 @@ val packagePortableZip by tasks.registering(Zip::class) {
     // installer script expects.
     from(layout.buildDirectory.dir("compose/binaries/main/app"))
     from(rootProject.file("packaging")) {
-        include("install.cmd", "Install-Solisium.ps1", "Install-TLHelper.ps1", "README-INSTALL.txt")
+        include(
+            "install.cmd",
+            "Install-Solisium.ps1",
+            "Install-TLHelper.ps1",
+            "README-INSTALL.txt",
+            "START-HERE.txt",
+        )
     }
 }
 

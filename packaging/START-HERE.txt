@@ -1,0 +1,10 @@
+Solisium Autopilot — quick install
+==================================
+
+1. Extract this entire zip to a folder.
+2. Double-click  install.cmd
+
+Installer zip: opens the .msi setup wizard.
+Portable zip: copies the app to your profile and adds shortcuts (no MSI).
+
+See README-INSTALL.txt for uninstall, TL-Helper, and secrets (no key is bundled).

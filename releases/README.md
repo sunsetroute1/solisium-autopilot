@@ -15,8 +15,8 @@ Produces under `dist/windows-releases/`:
 
 | Zip | Install |
 | --- | --- |
-| `Solisium-Autopilot-*-installer.zip` | Extract, run the `.msi` |
-| `Solisium-Autopilot-*-portable.zip` | Extract, run `install.cmd` |
+| `Solisium-Autopilot-*-installer.zip` | Extract, double-click **`install.cmd`** (runs the `.msi`) |
+| `Solisium-Autopilot-*-portable.zip` | Extract, double-click **`install.cmd`** |
 
 Full rebuild + local install:
 

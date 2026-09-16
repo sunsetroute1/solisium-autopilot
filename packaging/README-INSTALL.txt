@@ -8,10 +8,6 @@ There are two downloads. Either one works; pick whichever you prefer. Both
 already contain a Java runtime, so Java does not need to be installed, and both
 install per-user, so neither needs administrator rights.
 
-If you cloned the git repo instead of downloading a whole zip, the archives
-are stored as 45 MB .partNN files under releases\. Run releases\assemble.cmd
-to join them, then continue below.
-
 Both installers also ship a starter dataset (sample catalog, character, and
 combat log). On first launch the app copies that into your profile so every
 screen works immediately. Import your own TL-Helper warehouse from Data when
@@ -20,7 +16,7 @@ you want live game data instead of the demo set.
 Install (installer zip)
 -----------------------
 1. Extract the zip.
-2. Run "Solisium Autopilot-0.1.18.msi" and follow the prompts.
+2. Double-click install.cmd (or run the .msi directly) and follow the prompts.
    The MSI includes the full TL-Helper checkout. First launch (or
    Install-TLHelper.ps1 / Get TL-Helper) copies it onto disk. No key is included.
 
