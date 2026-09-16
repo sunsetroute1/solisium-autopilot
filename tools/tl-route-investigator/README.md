@@ -47,7 +47,7 @@ npm run tauri build
 ```
 
 Packaged Windows installers (after build) live under `src-tauri/target/release/bundle/`.
-To produce the install zip in `releases/` (and optionally copy to your Desktop):
+To produce the install zip in `dist/windows-releases/` (and optionally copy to your Desktop):
 
 ```powershell
 .\tools\tl-route-investigator\packaging\Package-Release.ps1 -DesktopCopy
