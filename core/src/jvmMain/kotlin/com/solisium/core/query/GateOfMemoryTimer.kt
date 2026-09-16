@@ -29,13 +29,21 @@ class GateOfMemoryTimer(
         val slotStartMs = anchorMs + slotIndex * cycleMs
         val slotEndMs = slotStartMs + openMs
         val activeNow = nowMs in slotStartMs until slotEndMs
-        val nextStartMs = slotStartMs + cycleMs
-        val nextEndMs = nextStartMs + openMs
+        val nextOpenMs = if (activeNow || nowMs >= slotEndMs) {
+            slotStartMs + cycleMs
+        } else {
+            slotStartMs
+        }
+        val nextEndMs = nextOpenMs + openMs
 
-        val countdownMs = if (activeNow) slotEndMs - nowMs else nextStartMs - nowMs
+        val countdownMs = when {
+            activeNow -> slotEndMs - nowMs
+            nowMs < slotStartMs -> slotStartMs - nowMs
+            else -> nextOpenMs - nowMs
+        }
 
         val upcoming = buildList {
-            var cursor = nextStartMs
+            var cursor = nextOpenMs
             val limitMs = nowMs + horizonHours * 3_600_000L
             while (cursor <= limitMs && size < 8) {
                 val windowEnd = cursor + openMs
@@ -52,7 +60,7 @@ class GateOfMemoryTimer(
         }
 
         val nowZoned = Instant.ofEpochMilli(nowMs).atZone(zone)
-        val headlineMs = if (activeNow) slotEndMs else nextStartMs
+        val headlineMs = if (activeNow) slotEndMs else nextOpenMs
         val headlineZoned = Instant.ofEpochMilli(headlineMs).atZone(zone)
         val notes = listOf(
             "Times are ${region.label} server local (${region.zoneId}).",
@@ -64,7 +72,7 @@ class GateOfMemoryTimer(
             zoneLabel = zoneLabel(nowZoned),
             activeNow = activeNow,
             countdownMs = countdownMs.coerceAtLeast(0),
-            nextStartEpochMs = nextStartMs,
+            nextStartEpochMs = nextOpenMs,
             nextEndEpochMs = nextEndMs,
             nextStartLabel = if (activeNow) {
                 "Event ends at ${headlineZoned.format(TIME)}"
@@ -99,8 +107,11 @@ class GateOfMemoryTimer(
         const val CYCLE_MINUTES = 197
         const val OPEN_MINUTES = 4
 
-        /** Known NA window start used to calibrate MetaForge's 197-minute grid. */
-        private val ANCHOR_EPOCH_MS: Long = Instant.parse("2026-09-05T04:17:00Z").toEpochMilli()
+        /**
+         * NA opening aligned to MetaForge (Sep 16, 2026 · 9:46 AM America/Denver).
+         * 197-minute grid from this instant; not an official Amazon API.
+         */
+        private val ANCHOR_EPOCH_MS: Long = Instant.parse("2026-09-16T15:46:00Z").toEpochMilli()
 
         /**
          * Per-region phase offsets. MetaForge exposes NA / EU / Asia selectors; when all

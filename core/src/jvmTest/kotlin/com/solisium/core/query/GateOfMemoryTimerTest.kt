@@ -9,9 +9,11 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class GateOfMemoryTimerTest {
-    private val anchor = Instant.parse("2026-09-05T04:17:00Z")
+    /** MetaForge NA grid point: Sep 16, 2026 9:46 AM Denver. */
+    private val anchor = Instant.parse("2026-09-16T15:46:00Z")
     private val cycleMs = GateOfMemoryTimer.CYCLE_MINUTES * 60_000L
     private val openMs = GateOfMemoryTimer.OPEN_MINUTES * 60_000L
+    private val denver = ZoneId.of("America/Denver")
 
     @Test
     fun `just before open counts down to anchor`() {
@@ -49,11 +51,27 @@ class GateOfMemoryTimerTest {
     }
 
     @Test
-    fun `denver labels match metaforge sample`() {
-        val plan = GateOfMemoryTimer { anchor.minusSeconds(150) }.plan(GateOfMemoryRegion.NA)
-        val zone = ZoneId.of("America/Denver")
-        val nextLocal = Instant.ofEpochMilli(plan.nextStartEpochMs).atZone(zone)
-        assertEquals(22, nextLocal.hour)
-        assertEquals(17, nextLocal.minute)
+    fun `metaforge sample gap before 946 AM`() {
+        // MetaForge @ ~8:59 AM Denver: next open 9:46 AM, ~46m 25s out.
+        val now = Instant.parse("2026-09-16T14:59:35Z")
+        val plan = GateOfMemoryTimer { now }.plan(GateOfMemoryRegion.NA)
+        val nextLocal = Instant.ofEpochMilli(plan.nextStartEpochMs).atZone(denver)
+        assertEquals(9, nextLocal.hour)
+        assertEquals(46, nextLocal.minute)
+        assertFalse(plan.activeNow)
+        assertEquals(anchor.toEpochMilli(), plan.nextStartEpochMs)
+        assertEquals(2_785_000.0, plan.countdownMs.toDouble(), 5_000.0)
+    }
+
+    @Test
+    fun `metaforge upcoming chain includes 102 PM`() {
+        val now = Instant.parse("2026-09-16T14:59:35Z")
+        val plan = GateOfMemoryTimer { now }.plan(GateOfMemoryRegion.NA)
+        val labels = plan.upcoming.take(2).map {
+            Instant.ofEpochMilli(it.startsAtEpochMs).atZone(denver).let { z ->
+                "${z.hour}:${z.minute.toString().padStart(2, '0')}"
+            }
+        }
+        assertEquals(listOf("9:46", "13:03"), labels)
     }
 }
