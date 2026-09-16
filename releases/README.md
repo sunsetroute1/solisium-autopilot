@@ -29,3 +29,15 @@ Package only:
 ```
 
 Whole zips are also on the [GitHub Releases](https://github.com/sunsetroute1/solisium-autopilot/releases) page.
+
+## TL Route Investigator
+
+| File | Install |
+| --- | --- |
+| `TL-Route-Investigator-*-installer.zip.partNN` | Join with `assemble.cmd` / `Join-Release.ps1`, extract, run `*-setup.exe` or the `.msi` |
+
+Build from source: `tools/tl-route-investigator/`. Package:
+
+```powershell
+.\tools\tl-route-investigator\packaging\Package-Release.ps1
+```
