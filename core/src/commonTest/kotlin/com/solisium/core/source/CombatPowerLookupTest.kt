@@ -3,7 +3,6 @@ package com.solisium.core.source
 import com.solisium.core.json.JsonParser
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertNull
 
 class CombatPowerLookupTest {
     @Test
@@ -23,7 +22,7 @@ class CombatPowerLookupTest {
     }
 
     @Test
-    fun gradeAStaysUnresolvedWhenSeveralRowsCouldMatch() {
+    fun gradeAUsesT1WhenSeveralRowsCouldMatch() {
         val mapping = CombatPowerLookup.infer(
             itemId = "sword_plain",
             equipCategory = "EItemCategory::kSword",
@@ -34,7 +33,23 @@ class CombatPowerLookupTest {
             maxLevel = null,
             availableRows = setOf("weapon_a_t1", "weapon_a_t2"),
         )
-        assertNull(mapping.rowId)
+        assertEquals("weapon_a_t1", mapping.rowId)
+        assertEquals("source-grade-t1", mapping.evidence)
+    }
+
+    @Test
+    fun gradeAaDoesNotGuessT2WhenT1IsMissing() {
+        val mapping = CombatPowerLookup.infer(
+            itemId = "fixture_bow",
+            equipCategory = "EItemCategory::kBow",
+            itemGrade = "EItemGrade::kAA",
+            affectsCategoryLevel = null,
+            levelSelectId = null,
+            minLevel = null,
+            maxLevel = null,
+            availableRows = setOf("weapon_aa_t2", "weapon_aaa_t1"),
+        )
+        assertEquals(null, mapping.rowId)
         assertEquals("unresolved", mapping.evidence)
     }
 

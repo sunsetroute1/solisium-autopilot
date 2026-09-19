@@ -652,6 +652,20 @@ SELECT source_table, source_row_id, statement, answer_true, category, notes, sou
 FROM game_talking_wall_statement
 WHERE snapshot_id = ? AND source_table = ? AND source_row_id = ?;
 
+selectNewTalkingWallFromWarehouse:
+SELECT cur.source_table, cur.source_row_id, cur.statement, cur.answer_true, cur.category, cur.notes, cur.source_kind
+FROM game_talking_wall_statement cur
+WHERE cur.snapshot_id = ?
+  AND cur.source_kind IN ('warehouse', 'locres')
+  AND NOT EXISTS (
+    SELECT 1 FROM game_talking_wall_statement prev
+    WHERE prev.snapshot_id = ?
+      AND prev.source_kind IN ('warehouse', 'locres')
+      AND prev.statement_key = cur.statement_key
+  )
+ORDER BY cur.statement COLLATE NOCASE
+LIMIT ?;
+
 countSyncedMonsters:
 SELECT COUNT(*) FROM game_boss WHERE snapshot_id = ? AND synced_at IS NOT NULL;
 

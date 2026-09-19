@@ -86,8 +86,10 @@ Where your data lives
 
 Neither is touched by install or uninstall.
 
-What's in this build (0.1.19)
+What's in this build (0.1.20)
 ----------------------------
+- Talking Wall: NA Gate of Memory times follow the in-game 7:41 PM opening
+- Warehouse import: material stats, specialization, skill optional data, leftover item joins
 - Talking Wall: Gate of Memory countdown recalibrated to MetaForge NA schedule
 - Gear catalog: trait chips and Search by trait wrap instead of stretching the window
 - Gear inspector: trait / resonance / potential chips wrap in the detail pane

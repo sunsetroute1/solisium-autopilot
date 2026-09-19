@@ -1,42 +1,30 @@
-# Windows release downloads
+# Install Solisium Autopilot (Windows)
 
-Installers are **not stored in git** (they bloated the repo to ~3 GB). Use one of:
+Give someone this zip. They do **not** need Git, Java, or a compiler.
 
-1. **[GitHub Releases](https://github.com/sunsetroute1/solisium-autopilot/releases)** — pre-built Solisium Autopilot zips when published.
-2. **Build locally** — outputs go to `dist/windows-releases/` (gitignored).
+**[Solisium-Autopilot-0.1.20-windows-x64-installer.zip](Solisium-Autopilot-0.1.20-windows-x64-installer.zip)**
 
-## Solisium Autopilot
+1. Copy the zip to the other PC (or clone this repo, then `git lfs pull`).
+2. Extract the zip.
+3. Double-click **`install.cmd`**.
+4. Finish the MSI wizard. No administrator rights.
+
+The MSI includes a Java runtime and a starter catalog. First launch seeds the local database so every screen works. No archive key is bundled.
+
+## If `git clone` shows a tiny zip
+
+That file is a Git LFS pointer. Run:
+
+```powershell
+git lfs pull
+```
+
+Then the zip is the real ~130 MB installer.
+
+## Build it yourself
 
 ```powershell
 .\gradlew.bat :desktopApp:packageRelease
 ```
 
-Produces under `dist/windows-releases/`:
-
-| Zip | Install |
-| --- | --- |
-| `Solisium-Autopilot-*-installer.zip` | Extract, double-click **`install.cmd`** (runs the `.msi`) |
-| `Solisium-Autopilot-*-portable.zip` | Extract, double-click **`install.cmd`** |
-
-Full rebuild + local install:
-
-```powershell
-.\packaging\Rebuild-Pipeline.ps1
-```
-
-See [packaging/README-INSTALL.txt](../packaging/README-INSTALL.txt).
-
-## TL Route Investigator
-
-```powershell
-.\tools\tl-route-investigator\packaging\Package-Release.ps1 -DesktopCopy
-```
-
-Extract **`TL-Route-Investigator-*-Install.zip`**, double-click **`install.cmd`**.
-
-Output default: `dist/windows-releases/TL-Route-Investigator-*-Install.zip`.
-
-## Legacy `assemble.cmd`
-
-If you still have old `.partNN` files from an ancient clone, `assemble.cmd` runs
-`packaging/Join-Release.ps1` to rebuild a full zip. New builds do not create parts.
+That writes the same zip under `releases/` and a copy under `dist/windows-releases/` (gitignored).

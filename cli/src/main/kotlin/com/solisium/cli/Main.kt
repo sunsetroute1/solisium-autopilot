@@ -361,8 +361,8 @@ private fun runQuery(args: List<String>) {
             val plan = com.solisium.core.query.DesiredBuildPlanner(query).plan(
                 snapshotId,
                 goal,
-                flags["character"] ?: flags["id"],
-                community,
+                characterId = flags["character"] ?: flags["id"],
+                community = community,
                 desiredCombatPower = flags["desired-cp"]?.filter { it.isDigit() }?.toLongOrNull(),
                 desiredGearScore = flags["desired-gs"]?.filter { it.isDigit() }?.toLongOrNull(),
                 axes = com.solisium.core.query.StatAxis.fromIds(flags["axes"]),

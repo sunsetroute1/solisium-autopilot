@@ -11,6 +11,7 @@ enum class SkillFamily(val id: String, val label: String) {
     Equipment("equipment_skill", "Equipment skills"),
     Gemstone("gemstone", "Gemstone skills"),
     Morph("morph", "Guardian / morph"),
+    Specialization("specialization", "Skill specialization"),
     Other("other", "Other"),
     ;
 
@@ -40,8 +41,8 @@ enum class BuildLayer(
     Specialization(
         "specialization",
         "Skill specialization",
-        "Per-skill specialization picks. Presence only; no warehouse CP delta.",
-        null,
+        "Per-skill specialization picks from TLTableWeaponSpecializationLooks / TLWeaponSpecializationStat.",
+        SkillFamily.Specialization,
     ),
     Mastery(
         "mastery",
@@ -52,7 +53,7 @@ enum class BuildLayer(
     MaterialEffect(
         "material_effect",
         "Material effect",
-        "Sidebar material-effect slots. TLItemMaterialStat is not in the current warehouse collect.",
+        "Sidebar material-effect slots from TLItemMaterialStat (armor category + extracted stat grants).",
         null,
     ),
     EquipmentSkill(

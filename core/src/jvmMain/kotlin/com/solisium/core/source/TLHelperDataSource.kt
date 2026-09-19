@@ -9,7 +9,9 @@ import com.solisium.core.json.JsonValue
 import com.solisium.core.platform.randomUuid
 import com.solisium.core.talkingwall.TalkingWallImporter
 import com.solisium.core.talkingwall.TalkingWallMapper
+import com.solisium.core.talkingwall.TalkingWallLocresSync
 import com.solisium.core.talkingwall.TalkingWallResources
+import com.solisium.core.talkingwall.TalkingWallWarehouseScanner
 import java.nio.file.Files
 import java.nio.file.Path
 import java.security.MessageDigest
@@ -128,10 +130,17 @@ class TLHelperDataSource(
                 }
                 reportProgress(request, "Linking materials", 0, 1)
                 val materials = mapMaterials(db, snapshotId, rows, itemsByRowId, nameIndex)
-                imported += materials.first
-                if (materials.second > 0) {
+                imported += materials.imported
+                if (materials.unresolvedPlayable > 0) {
                     warnings.add(
-                        "${materials.second} ingredient reference(s) did not resolve to a known item row; skipped",
+                        "${materials.unresolvedPlayable} ingredient reference(s) have no looks/equip row; " +
+                            "imported as ingredient_ref.",
+                    )
+                }
+                if (materials.unresolvedLeftover > 0) {
+                    warnings.add(
+                        "${materials.unresolvedLeftover} leftover/event ingredient id(s) have no looks/equip row; " +
+                            "imported as ingredient_ref (event runes, exclusive fish, test ids).",
                     )
                 }
                 reportProgress(request, "Mapping stat curves", 0, 1)
@@ -139,9 +148,15 @@ class TLHelperDataSource(
                 reportProgress(request, "Mapping item stats", 0, 1)
                 val itemStats = mapItemStats(db, snapshotId, rows, itemsByRowId)
                 imported += itemStats.imported
-                if (itemStats.unlinkedStatRows > 0) {
+                if (itemStats.unlinkedPlayable > 0) {
                     warnings.add(
-                        "${itemStats.unlinkedStatRows} TLItemStats row(s) have no matching item row; skipped",
+                        "${itemStats.unlinkedPlayable} TLItemStats row(s) have no matching item row; skipped",
+                    )
+                }
+                if (itemStats.unlinkedLeftover > 0) {
+                    warnings.add(
+                        "${itemStats.unlinkedLeftover} leftover TLItemStats row(s) have no item looks/equip " +
+                            "(Dummy_/test/Gemstone templates); skipped.",
                     )
                 }
                 if (itemStats.unresolvedPointers > 0) {
@@ -189,18 +204,58 @@ class TLHelperDataSource(
                     )
                 }
                 reportProgress(request, "Talking Wall statements", 0, 1)
-                val wallSummary = TalkingWallImporter.supplementCommunity(
+                val wallScan = TalkingWallWarehouseScanner.scan(
+                    rows.map {
+                        TalkingWallWarehouseScanner.Row(
+                            tableName = it.tableName,
+                            rowId = it.rowId,
+                            nameLoc = it.name,
+                            rawJson = it.rawJson,
+                        )
+                    },
+                )
+                val warehouseWall = db.schemaQueries.countTalkingWallBySourceKind(snapshotId, "warehouse").executeAsOne()
+                when {
+                    wallScan.candidateRows == 0 ->
+                        warnings.add(
+                            "No Talking Wall quiz tables in this warehouse; answers will come from client " +
+                                "locres (en.csv) when TL-Helper extract is present.",
+                        )
+                    warehouseWall == 0L ->
+                        warnings.add(
+                            "Talking Wall quiz table(s) present (${wallScan.summary()}) but none mapped — " +
+                                "report this build so Solisium can teach the mapper. Sample row ids: " +
+                                wallScan.tables.flatMap { it.unparsedSampleRowIds }.take(5).joinToString(),
+                        )
+                    wallScan.unparsedTotal > 0 ->
+                        warnings.add(
+                            "$warehouseWall Talking Wall row(s) imported from game files; " +
+                                "${wallScan.unparsedTotal} quiz row(s) still did not parse (${wallScan.summary()}).",
+                        )
+                    else ->
+                        warnings.add("$warehouseWall Talking Wall answer(s) imported from game warehouse.")
+                }
+                TalkingWallImporter.supplementCommunity(
                     db,
                     snapshotId,
                     TalkingWallResources.communityJson(),
                 )
-                if (wallSummary.communityAdded > 0) {
-                    warnings.add(
-                        "${wallSummary.communityAdded} Talking Wall answer(s) added from bundled community key.",
-                    )
+                val build = builds.firstOrNull()
+                val locresSummary = TalkingWallLocresSync.supplementFromExtract(db, snapshotId, build)
+                val locresCount = db.schemaQueries.countTalkingWallBySourceKind(snapshotId, "locres").executeAsOne()
+                when {
+                    locresSummary != null && locresCount > 0 ->
+                        warnings.add(
+                            "$locresCount Talking Wall answer(s) imported from client locres " +
+                                "(TL-Helper en.csv, build $build).",
+                        )
+                    build != null ->
+                        warnings.add(
+                            "No Talking Wall locres CSV for build $build; bundled community key only.",
+                        )
                 }
-                if (wallSummary.total == 0) {
-                    warnings.add("No Talking Wall statements found; bundled answer key will fill on next import.")
+                if (locresCount == 0L && warehouseWall == 0L) {
+                    warnings.add("No Talking Wall statements from game files; community key only.")
                 }
             }
             return ImportReceipt(
@@ -288,6 +343,22 @@ class TLHelperDataSource(
                     source_row_id = row.rowId,
                     name = RewardRowIdParser.prettyName(row.rowId),
                 )
+                return true
+            }
+            "TLItemMaterialStat" -> {
+                insertMaterialStatRows(db, snapshotId, row, json, nameIndex)
+                return true
+            }
+            "TLSkillOptionalDataForPc" -> {
+                insertSkillOptional(db, snapshotId, row, json)
+                return true
+            }
+            "TLWeaponSpecializationStat" -> {
+                insertSpecializationStats(db, snapshotId, row, json)
+                return true
+            }
+            "TLTableWeaponSpecializationLooks" -> {
+                insertSpecializationLooks(db, snapshotId, row, json, nameIndex)
                 return true
             }
         }
@@ -417,14 +488,21 @@ class TLHelperDataSource(
      * Fills `game_material` from items the client explicitly lists as ingredients:
      * `TLCraftingMaterialGroup.Materials[].Item` and `TLCookingRecipe.*IngredientList[].ItemID`.
      * References that do not resolve to a known item row are counted, not guessed.
+     * Event/test leftover ids are reported separately from playable gaps.
      */
+    private data class MaterialResult(
+        val imported: Int,
+        val unresolvedPlayable: Int,
+        val unresolvedLeftover: Int,
+    )
+
     private fun mapMaterials(
         db: SolisiumDatabase,
         snapshotId: String,
         rows: List<WarehouseRecord>,
         itemsByRowId: Map<String, List<WarehouseRecord>>,
         nameIndex: Map<String, String>,
-    ): Pair<Int, Int> {
+    ): MaterialResult {
         val referenced = LinkedHashSet<String>()
         for (row in rows) {
             when (row.tableName) {
@@ -440,22 +518,40 @@ class TLHelperDataSource(
             }
         }
         var imported = 0
-        var unresolved = 0
+        var unresolvedPlayable = 0
+        var unresolvedLeftover = 0
         for (rowId in referenced) {
             val item = resolveItem(itemsByRowId, rowId)
-            if (item == null) {
-                unresolved++
+            if (item != null) {
+                db.schemaQueries.insertGameMaterial(
+                    snapshot_id = snapshotId,
+                    source_table = item.tableName,
+                    source_row_id = item.rowId,
+                    name = DisplayName.of(item.name, item.rowId) ?: nameIndex[item.rowId],
+                )
+                imported++
                 continue
             }
+            val stubName = rowId.replace('_', ' ')
+            db.schemaQueries.insertGameItem(
+                snapshot_id = snapshotId,
+                source_table = "ingredient_ref",
+                source_row_id = rowId,
+                name = stubName,
+                grade = null,
+                category = "ingredient",
+                icon_path = null,
+            )
             db.schemaQueries.insertGameMaterial(
                 snapshot_id = snapshotId,
-                source_table = item.tableName,
-                source_row_id = item.rowId,
-                name = DisplayName.of(item.name, item.rowId) ?: nameIndex[item.rowId],
+                source_table = "ingredient_ref",
+                source_row_id = rowId,
+                name = stubName,
             )
             imported++
+            if (isLeftoverItemId(rowId)) unresolvedLeftover++ else unresolvedPlayable++
         }
-        return imported to unresolved
+        return MaterialResult(imported, unresolvedPlayable, unresolvedLeftover)
     }
 
     /**
@@ -477,7 +573,8 @@ class TLHelperDataSource(
 
     private data class ItemStatResult(
         val imported: Int,
-        val unlinkedStatRows: Int,
+        val unlinkedPlayable: Int,
+        val unlinkedLeftover: Int,
         val unresolvedPointers: Int,
     )
 
@@ -509,13 +606,14 @@ class TLHelperDataSource(
         val statNames = rows.filter { it.tableName == "TLStats" }.associate { it.rowId to it.name }
 
         var imported = 0
-        var unlinked = 0
+        var unlinkedPlayable = 0
+        var unlinkedLeftover = 0
         var unresolved = 0
         for (row in rows) {
             if (row.tableName != "TLItemStats") continue
             val item = resolveItem(itemsByRowId, row.rowId)
             if (item == null) {
-                unlinked++
+                if (isLeftoverItemId(row.rowId)) unlinkedLeftover++ else unlinkedPlayable++
                 continue
             }
             val json = parseJson(row.rawJson)
@@ -528,7 +626,7 @@ class TLHelperDataSource(
             }
             imported += insertStatValues(db, snapshotId, item, values, "main_base", statNames)
         }
-        return ItemStatResult(imported, unlinked, unresolved)
+        return ItemStatResult(imported, unlinkedPlayable, unlinkedLeftover, unresolved)
     }
 
     private data class ItemPowerLinkResult(
@@ -721,12 +819,156 @@ class TLHelperDataSource(
         return out
     }
 
+    private fun insertMaterialStatRows(
+        db: SolisiumDatabase,
+        snapshotId: String,
+        row: WarehouseRecord,
+        json: JsonValue,
+        nameIndex: Map<String, String>,
+    ) {
+        val material = present(json.str("id")) ?: row.rowId
+        val armor = present(json.str("armor_category"))
+        val owner = listOfNotNull(material, DisplayName.prettyEnum(armor)).joinToString(" · ")
+        db.schemaQueries.insertGameItem(
+            snapshot_id = snapshotId,
+            source_table = row.tableName,
+            source_row_id = row.rowId,
+            name = owner,
+            grade = null,
+            category = armor ?: "material_effect",
+            icon_path = null,
+        )
+        var wrote = 0
+        for (index in 1..8) {
+            val type = present(json.str("stat_type_$index")) ?: continue
+            if (type.equals("EPcStatsType::kNone", ignoreCase = true) || type.equals("kNone", ignoreCase = true)) continue
+            val value = json.long("stat_value_$index") ?: 0L
+            if (value == 0L) continue
+            db.schemaQueries.insertGameItemStat(
+                snapshot_id = snapshotId,
+                source_table = row.tableName,
+                source_row_id = "${row.rowId}#$index",
+                stat_key = type,
+                stat_name = DisplayName.prettyEnum(type) ?: nameIndex[type],
+                raw_value = value,
+                scope = "material_effect:$material",
+                confidence = "extracted",
+            )
+            wrote++
+        }
+        if (wrote == 0) {
+            db.schemaQueries.insertGameItemStat(
+                snapshot_id = snapshotId,
+                source_table = row.tableName,
+                source_row_id = row.rowId,
+                stat_key = "material",
+                stat_name = owner,
+                raw_value = 0L,
+                scope = "material_effect",
+                confidence = "extracted",
+            )
+        }
+    }
+
+    private fun insertSkillOptional(
+        db: SolisiumDatabase,
+        snapshotId: String,
+        row: WarehouseRecord,
+        json: JsonValue,
+    ) {
+        val parts = listOfNotNull(
+            present(json.str("cost_consumption"))?.let { "cost:$it" },
+            present(json.str("hp_consumption"))?.let { "hp:$it" },
+            present(json.str("cooldown_time"))?.let { "cooldown:$it" },
+        )
+        if (parts.isEmpty()) return
+        db.schemaQueries.insertGameSkillFormula(
+            snapshot_id = snapshotId,
+            source_table = row.tableName,
+            source_row_id = row.rowId,
+            skill_source_row_id = row.rowId,
+            expression = parts.joinToString(";"),
+            confidence = "extracted",
+        )
+    }
+
+    private fun insertSpecializationLooks(
+        db: SolisiumDatabase,
+        snapshotId: String,
+        row: WarehouseRecord,
+        json: JsonValue,
+        nameIndex: Map<String, String>,
+    ) {
+        val classified = SkillFamilyLookup.classify(row.rowId)
+        val formulas = json.arr("NormalNodeFormulaNameInfo")
+            .mapNotNull { present(it.str("FormulaId")) }
+        val name = DisplayName.of(row.name, row.rowId)
+            ?: nameIndex[row.rowId]
+            ?: formulas.firstOrNull()?.let { DisplayName.prettyEnum(it) }
+        db.schemaQueries.insertGameSkill(
+            snapshot_id = snapshotId,
+            source_table = row.tableName,
+            source_row_id = row.rowId,
+            name = name,
+            skill_type = json.long("NodeNumber")?.let { "node:$it" },
+            family = classified.family.id,
+            weapon_token = classified.weaponToken,
+            family_confidence = classified.confidence,
+        )
+        formulas.forEach { formulaId ->
+            db.schemaQueries.insertGameSkillFormula(
+                snapshot_id = snapshotId,
+                source_table = row.tableName,
+                source_row_id = "${row.rowId}:$formulaId",
+                skill_source_row_id = row.rowId,
+                expression = formulaId,
+                confidence = "extracted",
+            )
+        }
+    }
+
+    private fun insertSpecializationStats(
+        db: SolisiumDatabase,
+        snapshotId: String,
+        row: WarehouseRecord,
+        json: JsonValue,
+    ) {
+        val owner = present(json.str("id")) ?: row.rowId
+        var wrote = 0
+        for (index in 1..10) {
+            val type = present(json.str("stat_type$index")) ?: continue
+            if (type.equals("EPcStatsType::kNone", ignoreCase = true) || type.equals("kNone", ignoreCase = true)) continue
+            val value = json.long("stat_value$index") ?: 0L
+            if (value == 0L) continue
+            db.schemaQueries.insertGameItemStat(
+                snapshot_id = snapshotId,
+                source_table = row.tableName,
+                source_row_id = "${row.rowId}#$index",
+                stat_key = type,
+                stat_name = DisplayName.prettyEnum(type),
+                raw_value = value,
+                scope = "specialization:$owner",
+                confidence = "extracted",
+            )
+            wrote++
+        }
+        if (wrote == 0 && !owner.equals("dummy_stat", ignoreCase = true)) {
+            db.schemaQueries.insertGameItemStat(
+                snapshot_id = snapshotId,
+                source_table = row.tableName,
+                source_row_id = row.rowId,
+                stat_key = "specialization",
+                stat_name = owner,
+                raw_value = 0L,
+                scope = "specialization",
+                confidence = "extracted",
+            )
+        }
+    }
+
     private fun looksLikeUnmappedBuildTable(tableName: String): Boolean {
         val name = tableName.lowercase()
-        return name.contains("specialization") ||
-            name.contains("materialstat") ||
-            name.contains("skilloptional") ||
-            name.contains("transcend") ||
+        return name.contains("transcend") ||
             name.contains("weaponmastery") ||
             name.contains("skillcore") ||
             name.contains("guardian") && name.contains("pc")
@@ -795,7 +1037,12 @@ class TLHelperDataSource(
         /** Numeric fields on the stat-value rows that identify the row rather than carry a stat. */
         private val STAT_KEY_FIELDS = setOf("seed", "stat_seed", "enchant_level", "item_level")
 
-        private val ITEM_TABLE_PREFERENCE = listOf("TLItemLooks_Equip", "TLItemLooks", "TLItemEquip")
+        private val ITEM_TABLE_PREFERENCE = listOf(
+            "TLItemLooks_Equip",
+            "TLItemLooks",
+            "TLItemEquip",
+            "TLItemStats",
+        )
 
         /** Curve tables and the field that carries their level dimension. */
         private val CURVE_LEVEL_FIELD = mapOf(
@@ -819,6 +1066,15 @@ class TLHelperDataSource(
         internal fun present(value: String?): String? {
             if (value.isNullOrBlank() || value == "None") return null
             return value
+        }
+
+        internal fun isLeftoverItemId(rowId: String): Boolean {
+            val id = rowId.lowercase()
+            if (id.startsWith("dummy_") || id.contains("_test") || id.endsWith("_test") || id.contains("test_")) return true
+            if (id.startsWith("gemstone_")) return true
+            if (id.startsWith("2025_event_") || id.startsWith("2026_event_") || id.contains("_event_")) return true
+            if (id.startsWith("fish_e_")) return true
+            return false
         }
 
         internal fun sha256File(path: Path): String {

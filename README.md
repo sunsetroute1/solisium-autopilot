@@ -4,11 +4,17 @@ Read-only Throne and Liberty companion for Windows and Android. It maintains a l
 
 This is not a bot, overlay injector, or game client. It never writes to the game install, touches process memory, or automates gameplay.
 
-## Install from GitHub (Windows)
+## Install on another Windows PC
 
-1. Download installers from [GitHub Releases](https://github.com/sunsetroute1/solisium-autopilot/releases), **or** build locally (see Packaging below). The git repo is **source only** — no large zips in `master`.
-2. Extract the zip and double-click **`install.cmd`** (or run the `.msi`). No Java and no administrator rights. The installer ships the full TL-Helper checkout (no keys) and places it under `%LOCALAPPDATA%\Programs\TL-Helper`.
-3. Open **Solisium Autopilot**. The starter catalog, demo character, and sample combat log load on first launch so every screen works.
+The shareable installer lives in git (Git LFS):
+
+**[releases/Solisium-Autopilot-0.1.20-windows-x64-installer.zip](releases/Solisium-Autopilot-0.1.20-windows-x64-installer.zip)**
+
+1. Copy that zip to the other computer (or `git clone` then `git lfs pull`).
+2. Extract it and double-click **`install.cmd`**.
+3. Open **Solisium Autopilot**. No Java and no administrator rights.
+
+The MSI ships a Java runtime, a starter catalog, and the TL-Helper checkout (no keys). First launch seeds the local database so every screen works. Live patch extract still needs a key already on that PC.
 
 You do **not** need an archive key to browse that starter data. **Data → Find my key** stores a key only if one is already on this PC (typically `source-manifest.json` or `aes.txt` next to TL-Helper / `TL_Data`). The app never ships a key and never invents one.
 
@@ -65,16 +71,14 @@ The app is read-only with respect to the *game*; it does import into its own dat
 
 That is the rebuild pipeline: `:desktopApp:packageRelease` (MSI + portable zips), then a local reinstall under `%LOCALAPPDATA%\Programs`. It does not commit or push.
 
-Writes two zips to **`dist/windows-releases/`** (gitignored):
+Writes:
 
-| Artifact | Contents |
+| Artifact | Where |
 | --- | --- |
-| `...-windows-x64-installer.zip` | MSI + `install.cmd` + readme |
-| `...-windows-x64-portable.zip` | App image + `install.cmd` |
+| `Solisium-Autopilot-*-windows-x64-installer.zip` | **`releases/`** (tracked) and `dist/windows-releases/` |
+| `...-windows-x64-portable.zip` | `dist/windows-releases/` only (gitignored) |
 
-Upload those zips to GitHub Releases when publishing; see [`releases/README.md`](releases/README.md).
-
-Current build: **0.1.19** — Gate of Memory timer aligned with MetaForge; install from a local build or Releases when published.
+Current build: **0.1.20** — NA Gate of Memory times from the in-game 7:41 opening; warehouse tables mapped; installer zip in `releases/`.
 
 Both bundle a Java runtime, so a target machine needs no JDK, and both install
 per-user, so neither needs administrator rights. A starter catalog, demo

@@ -6,8 +6,8 @@ import com.solisium.core.json.JsonValue
  * Conservative adapter from TL-Helper `combat-power-table.mjs`.
  *
  * Row contents are extracted. Item-to-row matching is derived: there is no
- * foreign key from `TLItemEquip` to `TLItemCombatPower`. Unresolved families
- * stay unresolved rather than guessing A/AA fixed-level rows.
+ * foreign key from `TLItemEquip` to `TLItemCombatPower`. When several A/AA
+ * fixed-level rows exist, t1 is used rather than leaving the equip unmapped.
  */
 object CombatPowerLookup {
     data class Mapping(
@@ -73,20 +73,25 @@ object CombatPowerLookup {
             if (rowId != null) return Mapping(rowId, "item-id-tier")
         }
 
-        val unambiguous = when (EquipCategory.token(itemGrade) ?: itemGrade) {
-            "kC" -> "c"
-            "kB" -> "b"
-            "kAAA" -> "aaa"
-            else -> null
-        }
-        if (unambiguous != null) {
-            val prefix = "${group}_${unambiguous}_"
+        val grade = gradeToken(itemGrade)
+        if (grade != null) {
+            val t1Id = "${group}_${grade}_t1"
+            val t1 = accept(t1Id)
+            val prefix = "${group}_${grade}_"
             val candidates = if (availableRows != null) {
-                availableRows.filter { it.startsWith(prefix) && Regex("_t\\d+$", RegexOption.IGNORE_CASE).containsMatchIn(it) }
+                availableRows.filter {
+                    it.startsWith(prefix) && Regex("_t\\d+$", RegexOption.IGNORE_CASE).containsMatchIn(it)
+                }
             } else {
-                listOf("${prefix}t1")
+                listOfNotNull(t1)
             }
-            if (candidates.size == 1) return Mapping(candidates.single(), "source-unambiguous-grade")
+            if (t1 != null) {
+                val evidence = if (candidates.size <= 1) "source-unambiguous-grade" else "source-grade-t1"
+                return Mapping(t1, evidence)
+            }
+            if (candidates.size == 1 && grade in setOf("c", "b", "aaa")) {
+                return Mapping(candidates.single(), "source-unambiguous-grade")
+            }
         }
         return Mapping(null, "unresolved")
     }

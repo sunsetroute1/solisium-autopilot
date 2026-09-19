@@ -1,0 +1,4 @@
+# One Windows installer zip is tracked so another PC can install without building.
+# Git LFS keeps history from bloating (the MSI is ~128 MB).
+releases/Solisium-Autopilot-*-installer.zip filter=lfs diff=lfs merge=lfs -text
+releases/Solisium-Autopilot-windows-x64-installer.zip filter=lfs diff=lfs merge=lfs -text

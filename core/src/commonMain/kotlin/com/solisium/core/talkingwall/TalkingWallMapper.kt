@@ -21,6 +21,12 @@ object TalkingWallMapper {
         "adventurecodex",
         "worldquiz",
         "eventquiz",
+        "earthmemory",
+        "earth_memory",
+        "gateofmemory",
+        "gate_of_memory",
+        "memoryquiz",
+        "wallofearth",
     )
 
     fun considers(tableName: String): Boolean {
@@ -53,6 +59,9 @@ object TalkingWallMapper {
             json.str("statement"),
             json.str("Question"),
             json.str("question"),
+            json.str("QuestionText"),
+            json.str("question_text"),
+            json.str("StatementText"),
             json.str("Desc"),
             json.str("description"),
             json.str("Text"),
@@ -63,13 +72,21 @@ object TalkingWallMapper {
             json.str("content"),
             json.str("QuizText"),
             json.str("quiz_text"),
+            json.str("Body"),
+            json.str("body"),
             nameLoc?.trim()?.takeIf { it.isNotEmpty() && it != "None" },
         )
         return candidates.firstOrNull { !it.isNullOrBlank() }?.trim()
     }
 
     private fun answerTrue(json: JsonValue): Boolean? =
-        bool(json.str("AnswerTrue"))
+        json.bool("AnswerTrue")
+            ?: json.bool("answer_true")
+            ?: json.bool("IsTrue")
+            ?: json.bool("is_true")
+            ?: json.bool("Correct")
+            ?: json.bool("correct")
+            ?: bool(json.str("AnswerTrue"))
             ?: bool(json.str("answer_true"))
             ?: bool(json.str("IsTrue"))
             ?: bool(json.str("is_true"))

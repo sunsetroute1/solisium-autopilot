@@ -344,13 +344,13 @@ class DesiredBuildPlanner(private val query: CatalogQuery) {
     companion object {
         val LIMITS = listOf(
             "Live combat power is the typed character-window value. Solisium does not compute the live window aggregator.",
-            "Modeled CP copies Questlog's equipment + skills + mastery layout. Mapped items use warehouse TLItemCombatPower; A/AA families stay unresolved.",
+            "Modeled CP copies Questlog's equipment + skills + mastery layout. Mapped items use warehouse TLItemCombatPower; remaining unresolved rows have no derived weight.",
             "ItemPotentialCombatPower is added only on the potential total. It is an item-component weight, not proof the window will move by that amount.",
             "Skill ×2, mastery ×3 with 130/260/390/520 bonuses, and the 250 equipment starting value are community Questlog constants. They are not in TLItemCombatPower.",
             "Modeled gear score is that equipment subtotal. The warehouse has no gear-score watermark table; typed GS stays the window value.",
-            "Skill-screen families on game_skill are derived from row-id prefixes (WP_, WM_, Gem_, WP_Item_, WP_Polymorph).",
+            "Skill-screen families on game_skill are derived from row-id prefixes (WP_, WM_, Gem_, WP_Item_, WP_Polymorph) plus specialization node ids.",
             "Weapon mastery levels are typed. WM_ rows are mastery-tree nodes, not those numbers.",
-            "TLWeaponSpecializationStat, TLItemMaterialStat, and TLSkillOptionalDataForPc are not in the current warehouse collect.",
+            "TLWeaponSpecializationStat, TLItemMaterialStat, and TLSkillOptionalDataForPc import as extracted presence/stat rows. They are not live CP.",
             "NPC Skill_ImmortalGuardian* rows are not the player Guardian slot.",
             "Traits, runes, resonance, unique traits, perks, skill cores, specializations, Guardian, Transcendence, and Material Effect are not folded into modeled CP unless they have a warehouse item-power row.",
             "Ranks are extracted main_base raw sums. Not DPS.",

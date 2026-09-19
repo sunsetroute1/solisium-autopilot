@@ -54,9 +54,9 @@ class TLHelperDataSourceTest {
             )
 
             assertEquals("tl_helper", receipt.source)
-            assertEquals(27, receipt.recordsImported)
+            assertEquals(30, receipt.recordsImported)
             assertEquals(12, receipt.recordsSkipped)
-            assertTrue(receipt.warnings.any { it.contains("did not resolve") })
+            assertTrue(receipt.warnings.any { it.contains("ingredient_ref") })
             assertTrue(receipt.warnings.any { it.contains("Talking Wall") })
             assertTrue(receipt.snapshotId != null)
             assertEquals("24118850", db.schemaQueries.selectActiveSnapshot().executeAsOne().game_build)
@@ -66,7 +66,7 @@ class TLHelperDataSourceTest {
             val snapshotId = query.activeSnapshotId()!!
             assertEquals(
                 CatalogCounts(
-                    items = 6,
+                    items = 7,
                     runes = 1,
                     skills = 1,
                     recipes = 1,
@@ -77,14 +77,14 @@ class TLHelperDataSourceTest {
                     synergies = 1,
                     stats = 1,
                     traits = 1,
-                    materials = 2,
+                    materials = 3,
                     formulas = 1,
-                    itemStats = 2,
-                    itemsWithStats = 1,
+                    itemStats = 4,
+                    itemsWithStats = 2,
                     curvePoints = 4,
                     itemCurveLinks = 2,
                     monsters = 1,
-                    talkingWallStatements = 298,
+                    talkingWallStatements = 299,
                 ),
                 query.counts(snapshotId),
             )
@@ -129,8 +129,8 @@ class TLHelperDataSourceTest {
             assertNull(formula.skillSourceRowId)
 
             assertEquals(
-                listOf("Fixture Herb", "Fixture Ore"),
-                query.materials(snapshotId).map { it.name },
+                setOf("Fixture Herb", "Fixture Ore", "fixture missing"),
+                query.materials(snapshotId).map { it.name }.toSet(),
             )
 
             // Seed 2 must win over seed 1 for the same base id, and zero values are not
@@ -161,7 +161,14 @@ class TLHelperDataSourceTest {
             )
             assertTrue(itemStats.all { it.confidence == "extracted" })
             assertTrue(itemStats.all { it.sourceTable == "TLItemLooks_Equip" })
-            assertTrue(query.itemStats(snapshotId, "fixture_orphan").isEmpty())
+            assertEquals(
+                listOf(
+                    Triple("main_base", "attack_power_main_hand", 17L),
+                    Triple("main_base", "attack_speed_main_hand", 550L),
+                ),
+                query.itemStats(snapshotId, "fixture_orphan").map { Triple(it.scope, it.statKey, it.rawValue) },
+            )
+            assertTrue(query.itemStats(snapshotId, "fixture_orphan").all { it.sourceTable == "TLItemStats" })
             assertTrue(query.runes(snapshotId).none { it.sourceRowId == "fixture_growth" })
             assertNull(query.runes(snapshotId).single().let { if (it.name == "Ignored Handle") it else null })
             // Looks, equip, and stats rows all answer to fixture_bow and inherit its name.
@@ -275,6 +282,41 @@ class TLHelperDataSourceTest {
             assertEquals("perk_crossbow_aa_S1_001", doubleTrap.single().sourceRowId)
             assertTrue(query.skillCores(snapshotId, "Talus").any { it.sourceRowId == "perk_orb_aa_t3_boss_001" })
             assertTrue(query.skillCores(snapshotId, "zzz-no-such-core").isEmpty())
+        } finally {
+            Files.deleteIfExists(warehouse)
+        }
+    }
+
+    @Test
+    fun mapsSpecializationMaterialAndSkillOptionalTables() {
+        val warehouse = WarehouseFixtures.withInfluenceTables(WarehouseFixtures.writeMiniWarehouse())
+        try {
+            val db = JvmDatabase.inMemory()
+            val receipt = TLHelperDataSource().importInto(
+                db,
+                ImportRequest(path = warehouse.toString(), activate = true),
+            )
+            assertTrue(receipt.warnings.none { it.contains("warehouse tables present but unmapped") })
+            val query = CatalogQuery(db)
+            val snapshotId = query.activeSnapshotId()!!
+            val material = query.items(snapshotId).single { it.sourceTable == "TLItemMaterialStat" }
+            assertEquals("Sword · Mithril", material.name)
+            assertEquals(400L, query.itemStats(snapshotId, "1#1").single().rawValue)
+            val spec = query.skills(snapshotId).single { it.sourceRowId == "Bow_Hero_Attack_01" }
+            assertEquals("specialization", spec.family)
+            assertEquals("kBow", spec.weaponToken)
+            assertTrue(query.formulas(snapshotId).any { it.expression == "WM_BO_Hero_ATK_Rate" })
+            assertTrue(
+                query.formulas(snapshotId).any {
+                    it.sourceTable == "TLSkillOptionalDataForPc" &&
+                        it.expression.orEmpty().contains("cost:Common_Constant_0")
+                },
+            )
+            val specStat = query.itemStats(snapshotId, "2#1").single()
+            assertEquals("specialization:Bow_Hero_Attack_01", specStat.scope)
+            assertEquals(10L, specStat.rawValue)
+            assertTrue(query.suggestBuildLayer(snapshotId, "Hero", "specialization").any { it.sourceRowId == "Bow_Hero_Attack_01" })
+            assertTrue(query.suggestBuildLayer(snapshotId, "Sword", "material_effect").any { it.sourceTable == "TLItemMaterialStat" })
         } finally {
             Files.deleteIfExists(warehouse)
         }

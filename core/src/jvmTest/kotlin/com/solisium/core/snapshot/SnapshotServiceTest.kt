@@ -31,7 +31,7 @@ class SnapshotServiceTest {
             assertFalse(service.get(first.snapshotId!!)!!.active)
 
             val query = CatalogQuery(db)
-            assertEquals(6, query.items(first.snapshotId!!).size)
+            assertEquals(7, query.items(first.snapshotId!!).size)
             assertEquals("24118850", service.get(first.snapshotId!!)!!.gameBuild)
             assertEquals("99999999", service.active()?.gameBuild)
 

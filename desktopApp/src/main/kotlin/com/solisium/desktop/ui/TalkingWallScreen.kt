@@ -47,6 +47,7 @@ fun TalkingWallScreen(model: AppModel) {
     ) {
         Spacer(Modifier.height(Spacing.lg))
         WallTitleRow(model)
+        WallNewFromGameBanner(model)
         Spacer(Modifier.height(Spacing.md))
         WallTimerCard(model)
         Spacer(Modifier.height(Spacing.md))
@@ -59,6 +60,44 @@ fun TalkingWallScreen(model: AppModel) {
         Divider()
         WallResultList(model)
         Spacer(Modifier.height(Spacing.xxl))
+    }
+}
+
+@Composable
+private fun WallNewFromGameBanner(model: AppModel) {
+    val delta = model.wallDelta ?: return
+    val rows = delta.newFromGame
+    if (rows.isEmpty()) return
+    Spacer(Modifier.height(Spacing.sm))
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(Spacing.lg)) {
+            Text(
+                "${rows.size} new from game files",
+                style = MaterialTheme.typography.titleSmall,
+                color = Palette.Extracted,
+            )
+            Text(
+                "Imported from TL-Helper warehouse on the latest catalog snapshot (Earth's Memory / quiz tables).",
+                style = MaterialTheme.typography.bodySmall,
+                color = Palette.TextMuted,
+            )
+            Spacer(Modifier.height(Spacing.sm))
+            rows.take(8).forEach { row ->
+                Text(
+                    row.statement,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Palette.Text,
+                    modifier = Modifier.padding(vertical = 2.dp),
+                )
+            }
+            if (rows.size > 8) {
+                Text(
+                    "+ ${rows.size - 8} more — search above",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Palette.TextFaint,
+                )
+            }
+        }
     }
 }
 
@@ -82,10 +121,11 @@ private fun WallTitleRow(model: AppModel) {
             )
         }
         coverage?.let { cov ->
-            if (cov.warehouse == 0L) {
+            val client = cov.warehouse + cov.locres
+            if (client == 0L) {
                 Badge("Community key", Palette.Unverified, caps = false)
             } else {
-                Badge("${cov.warehouse} official", Palette.Extracted, caps = false)
+                Badge("$client from game", Palette.Extracted, caps = false)
             }
         }
     }

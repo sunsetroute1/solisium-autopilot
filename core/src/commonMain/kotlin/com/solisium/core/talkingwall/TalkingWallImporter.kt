@@ -33,6 +33,38 @@ object TalkingWallImporter {
         )
     }
 
+    fun supplementLocres(
+        db: SolisiumDatabase,
+        snapshotId: String,
+        statements: List<ParsedTalkingWallStatement>,
+        sourceLabel: String = "TLDialogue/en.csv",
+    ): TalkingWallImportSummary {
+        var added = 0
+        var updated = 0
+        statements.forEach { parsed ->
+            val key = TalkingWallMapper.statementKey(parsed.statement)
+            val existed = db.schemaQueries.countTalkingWallStatementKey(snapshotId, key).executeAsOne() > 0
+            db.schemaQueries.replaceGameTalkingWallStatement(
+                snapshot_id = snapshotId,
+                source_table = sourceLabel,
+                source_row_id = key,
+                statement_key = key,
+                statement = parsed.statement,
+                answer_true = if (parsed.answerTrue) 1L else 0L,
+                category = parsed.category,
+                notes = parsed.notes,
+                source_kind = "locres",
+            )
+            if (existed) updated++ else added++
+        }
+        val warehouse = db.schemaQueries.countTalkingWallBySourceKind(snapshotId, "warehouse").executeAsOne()
+        return TalkingWallImportSummary(
+            warehouseImported = warehouse.toInt(),
+            communityAdded = added,
+            communitySkipped = updated,
+        )
+    }
+
     fun supplementCommunity(db: SolisiumDatabase, snapshotId: String, jsonText: String): TalkingWallImportSummary {
         val statements = parseCommunityStatements(jsonText)
         var added = 0

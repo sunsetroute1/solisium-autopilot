@@ -34,6 +34,8 @@ import com.solisium.core.domain.MonsterProfile
 import com.solisium.core.domain.TalkingWallCoverage
 import com.solisium.core.domain.TalkingWallSnapshotDelta
 import com.solisium.core.domain.TalkingWallStatement
+import com.solisium.core.source.TalkingWallEnCsvLocator
+import com.solisium.core.talkingwall.TalkingWallLocresParser
 import com.solisium.core.talkingwall.TalkingWallResources
 import com.solisium.core.domain.GearInspectorState
 import com.solisium.core.domain.ItemTraitProfile
@@ -68,6 +70,7 @@ import com.solisium.core.source.TlLocalProgressReader
 import com.solisium.core.domain.GateOfMemoryPlan
 import com.solisium.core.domain.GateOfMemoryRegion
 import com.solisium.core.query.EventTimelineBuilder
+import com.solisium.core.query.GateOfMemoryAnchorStore
 import com.solisium.core.query.GateOfMemoryTimer
 import com.solisium.core.query.GearInspectorModel
 import com.solisium.core.query.StatAxis
@@ -118,6 +121,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -550,7 +554,12 @@ class AppModel(private val scope: CoroutineScope) {
     var wallRegion by mutableStateOf(readStoredWallRegion())
         private set
 
-    var wallTimerPlan by mutableStateOf(GateOfMemoryTimer().plan(readStoredWallRegion()))
+    private val gateOfMemoryAnchorStore = GateOfMemoryAnchorStore()
+
+    var wallTimerPlan by mutableStateOf(
+        GateOfMemoryTimer(anchorEpochMs = { gateOfMemoryAnchorStore.anchorEpochMs(wallRegion) })
+            .plan(readStoredWallRegion()),
+    )
         private set
 
     private var wallTimerJob: Job? = null
@@ -2381,6 +2390,10 @@ class AppModel(private val scope: CoroutineScope) {
 
     private fun startWallTimer() {
         refreshWallTimer()
+        scope.launch(Dispatchers.IO) {
+            gateOfMemoryAnchorStore.refreshIfStale()
+            refreshWallTimer()
+        }
         wallTimerJob?.cancel()
         wallTimerJob = scope.launch {
             while (true) {
@@ -2396,7 +2409,9 @@ class AppModel(private val scope: CoroutineScope) {
     }
 
     private fun refreshWallTimer() {
-        wallTimerPlan = GateOfMemoryTimer().plan(wallRegion)
+        wallTimerPlan = GateOfMemoryTimer(
+            anchorEpochMs = { gateOfMemoryAnchorStore.anchorEpochMs(wallRegion) },
+        ).plan(wallRegion)
     }
 
     private fun persistWallRegion(region: GateOfMemoryRegion) {
@@ -2524,6 +2539,13 @@ class AppModel(private val scope: CoroutineScope) {
             wallStatements = Load.Loading
             val loaded = read { q, snapshotId ->
                 q.ensureTalkingWallCommunity(snapshotId, TalkingWallResources.communityJson())
+                val build = q.snapshotService().active()?.gameBuild
+                TalkingWallEnCsvLocator.resolve(build)?.let { path ->
+                    val parsed = TalkingWallLocresParser.parseEnCsv(java.nio.file.Files.readString(path))
+                    if (parsed.isNotEmpty()) {
+                        q.ensureTalkingWallLocres(snapshotId, parsed)
+                    }
+                }
                 val snapshots = q.snapshots()
                 val previousId = snapshots.drop(1).firstOrNull()?.id
                 Triple(

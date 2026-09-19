@@ -3,6 +3,7 @@ package com.solisium.core.query
 import com.solisium.core.domain.GateOfMemoryPlan
 import com.solisium.core.domain.GateOfMemoryRegion
 import com.solisium.core.domain.GateOfMemoryWindow
+import com.solisium.core.meta.MetaForgeThroneLiberty
 import java.time.Instant
 import java.time.ZoneId
 import java.time.ZonedDateTime
@@ -10,23 +11,24 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 /**
- * Gate of Memory (Talking Wall) countdown — same cadence as MetaForge's timer:
- * 197 minutes between openings, 4-minute active window per region cluster.
- *
- * Anchor calibrated from MetaForge NA schedule (Sep 2026). Not an official Amazon API.
+ * Gate of Memory countdown: 11806 s cycle, 240 s open window.
+ * NA uses an in-game opening (7:41 PM Denver on 2026-09-17). MetaForge's public
+ * page currently copies the EU anchor onto NA, which lands ~1h 7m early.
  */
 class GateOfMemoryTimer(
     private val clock: () -> Instant = { Instant.now() },
+    private val anchorEpochMs: () -> Long = {
+        MetaForgeThroneLiberty.fallbackAnchorEpochMs("na")
+    },
 ) {
     fun plan(region: GateOfMemoryRegion, horizonHours: Int = 24): GateOfMemoryPlan {
         val zone = runCatching { ZoneId.of(region.zoneId) }.getOrDefault(ZoneId.of("UTC"))
         val nowMs = clock().toEpochMilli()
-        val anchorMs = regionAnchorMs(region)
-        val cycleMs = CYCLE_MINUTES * 60_000L
-        val openMs = OPEN_MINUTES * 60_000L
+        val anchorMs = anchorEpochMs()
+        val cycleMs = MetaForgeThroneLiberty.CYCLE_MS
+        val openMs = MetaForgeThroneLiberty.OPEN_MS
 
-        val slotIndex = Math.floorDiv(nowMs - anchorMs, cycleMs)
-        val slotStartMs = anchorMs + slotIndex * cycleMs
+        val slotStartMs = slotStartEpochMs(nowMs, anchorMs, cycleMs)
         val slotEndMs = slotStartMs + openMs
         val activeNow = nowMs in slotStartMs until slotEndMs
         val nextOpenMs = if (activeNow || nowMs >= slotEndMs) {
@@ -64,8 +66,12 @@ class GateOfMemoryTimer(
         val headlineZoned = Instant.ofEpochMilli(headlineMs).atZone(zone)
         val notes = listOf(
             "Times are ${region.label} server local (${region.zoneId}).",
-            "Gate of Memory opens every ${CYCLE_MINUTES / 60}h ${CYCLE_MINUTES % 60}m for about $OPEN_MINUTES minutes (MetaForge cadence).",
-            "Community schedule — confirm in-game when you can.",
+            "Gate of Memory opens every ${MetaForgeThroneLiberty.cycleLabel()} for about ${OPEN_MINUTES} minutes.",
+            if (region == GateOfMemoryRegion.NA) {
+                "NA times are from an in-game opening, not MetaForge's copied EU anchor."
+            } else {
+                "EU/Asia times follow MetaForge's published anchor. Confirm in-game when you can."
+            },
         )
         return GateOfMemoryPlan(
             region = region,
@@ -84,9 +90,6 @@ class GateOfMemoryTimer(
         )
     }
 
-    private fun regionAnchorMs(region: GateOfMemoryRegion): Long =
-        ANCHOR_EPOCH_MS + regionPhaseOffsetMs(region)
-
     private fun zoneLabel(now: ZonedDateTime): String {
         val hours = now.offset.totalSeconds / 3600
         val sign = if (hours >= 0) "+" else ""
@@ -104,23 +107,13 @@ class GateOfMemoryTimer(
     }
 
     companion object {
-        const val CYCLE_MINUTES = 197
+        /** Kept for tests; cycle length is [MetaForgeThroneLiberty.CYCLE_MS]. */
+        const val CYCLE_SECONDS = 11_806
         const val OPEN_MINUTES = 4
 
-        /**
-         * NA opening aligned to MetaForge (Sep 16, 2026 · 9:46 AM America/Denver).
-         * 197-minute grid from this instant; not an official Amazon API.
-         */
-        private val ANCHOR_EPOCH_MS: Long = Instant.parse("2026-09-16T15:46:00Z").toEpochMilli()
-
-        /**
-         * Per-region phase offsets. MetaForge exposes NA / EU / Asia selectors; when all
-         * regions share the same global phase these stay zero.
-         */
-        private fun regionPhaseOffsetMs(region: GateOfMemoryRegion): Long = when (region) {
-            GateOfMemoryRegion.NA -> 0L
-            GateOfMemoryRegion.EU -> 0L
-            GateOfMemoryRegion.ASIA -> 0L
+        fun slotStartEpochMs(nowMs: Long, anchorMs: Long, cycleMs: Long = MetaForgeThroneLiberty.CYCLE_MS): Long {
+            val slotIndex = Math.floorDiv(nowMs - anchorMs, cycleMs)
+            return anchorMs + slotIndex * cycleMs
         }
 
         private val TIME: DateTimeFormatter = DateTimeFormatter.ofPattern("h:mm a", Locale.US)

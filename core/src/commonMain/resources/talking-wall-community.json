@@ -1,7 +1,7 @@
 {
   "source": "community",
-  "sourceLabel": "Community answer key (Google Doc + Scaryel categories, Aug 2026)",
-  "version": 2,
+  "sourceLabel": "Community answer key + MetaForge sync (Sep 2026)",
+  "version": 3,
   "statements": [
     {
       "id": "community_0001",
@@ -1349,7 +1349,7 @@
     },
     {
       "id": "community_0193",
-      "statement": "Harden from Canina Village once went missing after being lured into the forest by a strange sound?",
+      "statement": "Harden from Canina Village once went missing after being lured into the forest by a strange sound.",
       "answerTrue": true,
       "category": "characters",
       "notes": null
@@ -2088,6 +2088,13 @@
       "answerTrue": false,
       "category": "characters",
       "notes": null
+    },
+    {
+      "id": "community_0299",
+      "statement": "Roen only uses crossbows.",
+      "answerTrue": false,
+      "category": "characters",
+      "notes": "MetaForge Sep 2026"
     }
   ]
 }

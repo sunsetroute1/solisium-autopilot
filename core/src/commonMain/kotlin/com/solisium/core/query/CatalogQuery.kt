@@ -1002,6 +1002,13 @@ class CatalogQuery(private val db: SolisiumDatabase) {
         val family = layer?.catalogFamily
         val prefix = layerId?.removePrefix("prefix:")?.takeIf { layerId.startsWith("prefix:") }
         val hits = buildList {
+            if (layer == BuildLayer.MaterialEffect) {
+                items(snapshotId, raw).forEach { item ->
+                    if (item.sourceTable != "TLItemMaterialStat") return@forEach
+                    val name = DisplayName.of(item.name, item.sourceRowId) ?: return@forEach
+                    add(CatalogHit("item", name, item.category, item.sourceTable, item.sourceRowId))
+                }
+            }
             if (layer == BuildLayer.SkillCore) {
                 items(snapshotId, raw).forEach { item ->
                     if (!SkillFamilyLookup.isSkillCoreItem(item.sourceRowId, item.name)) return@forEach
@@ -1183,11 +1190,12 @@ class CatalogQuery(private val db: SolisiumDatabase) {
     fun talkingWallCoverage(snapshotId: String): TalkingWallCoverage {
         val total = db.schemaQueries.countTalkingWallStatements(snapshotId).executeAsOne()
         val warehouse = db.schemaQueries.countTalkingWallBySourceKind(snapshotId, "warehouse").executeAsOne()
+        val locres = db.schemaQueries.countTalkingWallBySourceKind(snapshotId, "locres").executeAsOne()
         val community = db.schemaQueries.countTalkingWallBySourceKind(snapshotId, "community").executeAsOne()
         val categories = db.schemaQueries.selectTalkingWallCategories(snapshotId).executeAsList().map {
             TalkingWallCategoryCount(category = it.category, count = it.statement_count)
         }
-        return TalkingWallCoverage(total, warehouse, community, categories)
+        return TalkingWallCoverage(total, warehouse, locres, community, categories)
     }
 
     fun searchTalkingWall(
@@ -1222,6 +1230,11 @@ class CatalogQuery(private val db: SolisiumDatabase) {
 
     fun ensureTalkingWallCommunity(snapshotId: String, communityJson: String): TalkingWallImportSummary =
         TalkingWallImporter.supplementCommunity(db, snapshotId, communityJson)
+
+    fun ensureTalkingWallLocres(
+        snapshotId: String,
+        statements: List<com.solisium.core.talkingwall.ParsedTalkingWallStatement>,
+    ): TalkingWallImportSummary = TalkingWallImporter.supplementLocres(db, snapshotId, statements)
 
     /**
      * `_` is kept because row ids such as `Common_Struggle_Duration` are mostly underscores;

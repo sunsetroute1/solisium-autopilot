@@ -21,7 +21,7 @@ kotlin {
     jvmToolchain(17)
 }
 
-val appVersion = "0.1.19"
+val appVersion = "0.1.20"
 
 compose.desktop {
     application {
@@ -236,8 +236,9 @@ tasks.matching { it.name == "run" }.configureEach {
     dependsOn(buildStarterPack, stageTlHelperCheckout)
 }
 
-/** Local-only output; never commit (see root .gitignore and releases/README.md). */
+/** Local rebuilds land here (gitignored). A second copy is staged into releases/. */
 val releaseDir = rootProject.layout.projectDirectory.dir("dist/windows-releases")
+val trackedReleaseDir = rootProject.layout.projectDirectory.dir("releases")
 
 /**
  * The MSI, zipped for handing over. Both this and the portable build below bundle a
@@ -285,8 +286,19 @@ val packagePortableZip by tasks.registering(Zip::class) {
     }
 }
 
+val stageTrackedInstallerZip by tasks.registering(Copy::class) {
+    group = "distribution"
+    description = "Copies the installer zip into releases/ so git can ship it."
+    dependsOn(packageInstallerZip)
+    from(packageInstallerZip)
+    into(trackedReleaseDir)
+    doLast {
+        logger.lifecycle("staged installer zip in ${trackedReleaseDir.asFile}")
+    }
+}
+
 tasks.register("packageRelease") {
     group = "distribution"
-    description = "Builds both Windows distribution zips under dist/windows-releases/ (not committed)."
-    dependsOn(packageInstallerZip, packagePortableZip)
+    description = "Builds Windows zips under dist/windows-releases/ and stages the installer zip in releases/."
+    dependsOn(packageInstallerZip, packagePortableZip, stageTrackedInstallerZip)
 }

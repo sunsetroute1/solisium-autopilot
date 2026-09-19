@@ -38,6 +38,11 @@ object SkillFamilyLookup {
                     Classification(SkillFamily.Other, null, "unresolved")
                 }
             }
+            looksLikeSpecializationNode(id) -> {
+                val weapon = parseWeaponToken(id.substringBefore("_"))
+                    ?: parseWeaponToken(id.substringBefore("_").removeSuffix("2h"))
+                return Classification(SkillFamily.Specialization, weapon, "derived")
+            }
         }
         val category = EquipCategory.token(skillCategory)
         if (category == "kFo" || category == "kPotion") {
@@ -80,8 +85,21 @@ object SkillFamilyLookup {
                 val code = id.substringAfter("_").substringBefore("_")
                 "WP_${code.uppercase()}"
             }
+            looksLikeSpecializationNode(id) -> {
+                val head = id.substringBefore("_")
+                "SPEC_$head"
+            }
             else -> id.substringBefore("_").ifBlank { null }
         }
+    }
+
+    fun looksLikeSpecializationNode(rowId: String?): Boolean {
+        val id = rowId.orEmpty()
+        if (!id.contains("_")) return false
+        val head = id.substringBefore("_")
+        return parseWeaponToken(head) != null ||
+            parseWeaponToken(head.removeSuffix("2h")) != null ||
+            head.equals("Sword2h", ignoreCase = true)
     }
 
     fun isCataloguedPrefix(group: String?): Boolean {
@@ -92,6 +110,7 @@ object SkillFamilyLookup {
             token.equals("Gem", ignoreCase = true) -> true
             token.startsWith("WM_", ignoreCase = true) -> weaponCode(token.removePrefix("WM_").removePrefix("wm_")) != null
             token.startsWith("WP_", ignoreCase = true) -> weaponCode(token.removePrefix("WP_").removePrefix("wp_")) != null
+            token.startsWith("SPEC_", ignoreCase = true) -> true
             else -> false
         }
     }

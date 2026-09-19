@@ -154,6 +154,23 @@ object WarehouseFixtures {
         return warehouse
     }
 
+    fun withInfluenceTables(warehouse: Path, build: String = "24118850"): Path {
+        DriverManager.getConnection("jdbc:sqlite:${warehouse.toAbsolutePath()}").use { connection ->
+            connection.createStatement().use { statement ->
+                statement.execute(
+                    """
+                    INSERT INTO records VALUES
+                    ('TLItemMaterialStat:1','1','reference','TLItemMaterialStat',null,'$build','1.431.22.7761','0.2.0','{"id":"Sword","armor_category":"EArmorCategory::kMithril","stat_type_1":"EPcStatsType::kHpMaxModifier","stat_value_1":400,"stat_type_2":"EPcStatsType::kNone","stat_value_2":0}'),
+                    ('TLSkillOptionalDataForPc:fixture_skill','fixture_skill','skill','TLSkillOptionalDataForPc',null,'$build','1.431.22.7761','0.2.0','{"cost_consumption":"Common_Constant_0","hp_consumption":"None","cooldown_time":"Common_Constant_0"}'),
+                    ('TLTableWeaponSpecializationLooks:Bow_Hero_Attack_01','Bow_Hero_Attack_01','reference','TLTableWeaponSpecializationLooks','Hero Attack','$build','1.431.22.7761','0.2.0','{"NodeNumber":10157,"NormalNodeFormulaNameInfo":[{"FormulaId":"WM_BO_Hero_ATK_Rate"}]}'),
+                    ('TLWeaponSpecializationStat:2','2','reference','TLWeaponSpecializationStat',null,'$build','1.431.22.7761','0.2.0','{"id":"Bow_Hero_Attack_01","stat_type1":"EPcStatsType::kSTR","stat_value1":10,"stat_type2":"EPcStatsType::kNone","stat_value2":0}')
+                    """.trimIndent(),
+                )
+            }
+        }
+        return warehouse
+    }
+
     fun withSkillFamilies(warehouse: Path, build: String = "24118850"): Path {
         DriverManager.getConnection("jdbc:sqlite:${warehouse.toAbsolutePath()}").use { connection ->
             connection.createStatement().use { statement ->

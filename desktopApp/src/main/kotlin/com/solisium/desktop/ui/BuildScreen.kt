@@ -459,7 +459,7 @@ private fun ScoreboardCard(plan: DesiredBuildPlan) {
                 if (modeled.unresolvedCount > 0) {
                     Spacer(Modifier.height(Spacing.xs))
                     Text(
-                        "${modeled.unresolvedCount} slotted item(s) have no combat-power row (A/AA families stay unresolved).",
+                        "${modeled.unresolvedCount} slotted item(s) have no combat-power row.",
                         style = MaterialTheme.typography.bodySmall,
                         color = Palette.TextFaint,
                     )

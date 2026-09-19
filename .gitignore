@@ -18,8 +18,9 @@ Thumbs.db
 # Staged into the app image at package time from vendor/tl-helper.
 desktopApp/appResources/windows/tl-helper/
 
-# Windows installers are too large for git (~3 GB of history). Build locally or use GitHub Releases.
+# Rebuild leftovers stay out of git. Only the current installer zip is LFS-tracked.
 /releases/*.zip
+!/releases/Solisium-Autopilot-0.1.20-windows-x64-installer.zip
 /releases/*.part*
 /dist/
 

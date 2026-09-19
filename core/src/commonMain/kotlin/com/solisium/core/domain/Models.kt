@@ -58,6 +58,7 @@ data class TalkingWallCategoryCount(
 data class TalkingWallCoverage(
     val total: Long,
     val warehouse: Long,
+    val locres: Long,
     val community: Long,
     val categories: List<TalkingWallCategoryCount>,
 )
@@ -66,6 +67,8 @@ data class TalkingWallSnapshotDelta(
     val previousTotal: Long,
     val currentTotal: Long,
     val warehouseAdded: Long,
+    /** Statements first seen from TL-Helper warehouse on this snapshot (game data). */
+    val newFromGame: List<TalkingWallStatement> = emptyList(),
 ) {
     val added: Long get() = (currentTotal - previousTotal).coerceAtLeast(0)
 }

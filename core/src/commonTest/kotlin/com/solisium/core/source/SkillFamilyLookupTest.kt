@@ -47,6 +47,15 @@ class SkillFamilyLookupTest {
     }
 
     @Test
+    fun specializationNodeIdsMapToSpecializationFamily() {
+        val node = SkillFamilyLookup.classify("Bow_Hero_Attack_01")
+        assertEquals(SkillFamily.Specialization, node.family)
+        assertEquals("kBow", node.weaponToken)
+        assertEquals("SPEC_Bow", SkillFamilyLookup.prefixGroup("Bow_Hero_Attack_01"))
+        assertTrue(SkillFamilyLookup.isCataloguedPrefix("SPEC_Bow"))
+    }
+
+    @Test
     fun skillCoreItemsMatchPerkIdsAndNames() {
         assertTrue(SkillFamilyLookup.isSkillCoreItem("perk_orb_aa_t3_boss_001", null))
         assertTrue(SkillFamilyLookup.isSkillCoreItem("looks_row", "Skill Core: Talus's Transcendent Barrier"))
